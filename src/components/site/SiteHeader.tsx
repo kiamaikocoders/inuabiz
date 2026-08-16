@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/brand/Logo";
 
-const nav = [
+type NavItem = { to: string; label: string };
+
+const nav: NavItem[] = [
   { to: "/features", label: "Features" },
   { to: "/pricing", label: "Pricing" },
   { to: "/how-it-works", label: "How it works" },
   { to: "/contact", label: "Contact" },
-] as const;
+];
 
 export function SiteHeader() {
   return (
@@ -23,7 +25,7 @@ export function SiteHeader() {
           {nav.map((item) => (
             <Link
               key={item.to}
-              to={item.to}
+              to={item.to as never}
               className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               activeProps={{ className: "text-foreground bg-muted" }}
             >
@@ -52,7 +54,7 @@ export function SiteHeader() {
               {nav.map((item) => (
                 <Link
                   key={item.to}
-                  to={item.to}
+                  to={item.to as never}
                   className="rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   {item.label}

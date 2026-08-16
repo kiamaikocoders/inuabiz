@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   Bell,
@@ -18,7 +19,9 @@ import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { adminNotifications } from "@/lib/mock-data";
 
-const nav = [
+type NavItem = { to: string; label: string; icon: LucideIcon; exact?: boolean };
+
+const nav: NavItem[] = [
   { to: "/admin", label: "Overview", icon: Gauge, exact: true },
   { to: "/admin/vendors", label: "Vendors", icon: Store },
   { to: "/admin/map", label: "GIS store map", icon: Map },
@@ -27,9 +30,9 @@ const nav = [
   { to: "/admin/health", label: "Platform health", icon: Activity },
   { to: "/admin/broadcasts", label: "Broadcasts", icon: BellRing },
   { to: "/admin/notifications", label: "Notifications", icon: Bell },
-] as const;
+];
 
-function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
@@ -47,7 +50,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
           return (
             <Link
               key={item.to}
-              to={item.to}
+              to={item.to as never}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
