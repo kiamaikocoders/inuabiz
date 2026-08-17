@@ -19,7 +19,11 @@ import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminBroadcastsRouteImport } from './routes/admin.broadcasts'
+import { Route as AdminHealthRouteImport } from './routes/admin.health'
 import { Route as AdminMapRouteImport } from './routes/admin.map'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminUnclaimedRouteImport } from './routes/admin.unclaimed'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -84,9 +88,29 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminBroadcastsRoute = AdminBroadcastsRouteImport.update({
+  id: '/broadcasts',
+  path: '/broadcasts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHealthRoute = AdminHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMapRoute = AdminMapRouteImport.update({
   id: '/map',
   path: '/map',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUnclaimedRoute = AdminUnclaimedRouteImport.update({
@@ -165,7 +189,11 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/health': typeof AdminHealthRoute
   '/admin/map': typeof AdminMapRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/app/billing': typeof AppBillingRoute
@@ -189,7 +217,11 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/health': typeof AdminHealthRoute
   '/admin/map': typeof AdminMapRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/app/billing': typeof AppBillingRoute
@@ -216,7 +248,11 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/health': typeof AdminHealthRoute
   '/admin/map': typeof AdminMapRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/app/billing': typeof AppBillingRoute
@@ -244,7 +280,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/admin/broadcasts'
+    | '/admin/health'
     | '/admin/map'
+    | '/admin/notifications'
+    | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
     | '/app/billing'
@@ -268,7 +308,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/admin/broadcasts'
+    | '/admin/health'
     | '/admin/map'
+    | '/admin/notifications'
+    | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
     | '/app/billing'
@@ -294,7 +338,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/admin/broadcasts'
+    | '/admin/health'
     | '/admin/map'
+    | '/admin/notifications'
+    | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
     | '/app/billing'
@@ -395,11 +443,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/broadcasts': {
+      id: '/admin/broadcasts'
+      path: '/broadcasts'
+      fullPath: '/admin/broadcasts'
+      preLoaderRoute: typeof AdminBroadcastsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/health': {
+      id: '/admin/health'
+      path: '/health'
+      fullPath: '/admin/health'
+      preLoaderRoute: typeof AdminHealthRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/map': {
       id: '/admin/map'
       path: '/map'
       fullPath: '/admin/map'
       preLoaderRoute: typeof AdminMapRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/unclaimed': {
@@ -497,14 +573,22 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminBroadcastsRoute: typeof AdminBroadcastsRoute
+  AdminHealthRoute: typeof AdminHealthRoute
   AdminMapRoute: typeof AdminMapRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminUnclaimedRoute: typeof AdminUnclaimedRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminBroadcastsRoute: AdminBroadcastsRoute,
+  AdminHealthRoute: AdminHealthRoute,
   AdminMapRoute: AdminMapRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminUnclaimedRoute: AdminUnclaimedRoute,
   AdminVendorsRoute: AdminVendorsRoute,
   AdminIndexRoute: AdminIndexRoute,
