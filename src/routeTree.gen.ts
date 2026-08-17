@@ -18,14 +18,25 @@ import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminBroadcastsRouteImport } from './routes/admin.broadcasts'
+import { Route as AdminHealthRouteImport } from './routes/admin.health'
+import { Route as AdminMapRouteImport } from './routes/admin.map'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
+import { Route as AdminUnclaimedRouteImport } from './routes/admin.unclaimed'
+import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppBillingRouteImport } from './routes/app.billing'
 import { Route as AppCreditRouteImport } from './routes/app.credit'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
 import { Route as AppInsightsRouteImport } from './routes/app.insights'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
+import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
 import { Route as AppPosRouteImport } from './routes/app.pos'
 import { Route as AppSalesRouteImport } from './routes/app.sales'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -72,9 +83,54 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBroadcastsRoute = AdminBroadcastsRouteImport.update({
+  id: '/broadcasts',
+  path: '/broadcasts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHealthRoute = AdminHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMapRoute = AdminMapRouteImport.update({
+  id: '/map',
+  path: '/map',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUnclaimedRoute = AdminUnclaimedRouteImport.update({
+  id: '/unclaimed',
+  path: '/unclaimed',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVendorsRoute = AdminVendorsRouteImport.update({
+  id: '/vendors',
+  path: '/vendors',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCreditRoute = AppCreditRouteImport.update({
@@ -102,6 +158,11 @@ const AppInvoicesRoute = AppInvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => AppRoute,
 } as any)
+const AppNotificationsRoute = AppNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPosRoute = AppPosRouteImport.update({
   id: '/pos',
   path: '/pos',
@@ -112,10 +173,15 @@ const AppSalesRoute = AppSalesRouteImport.update({
   path: '/sales',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
@@ -123,37 +189,58 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/health': typeof AdminHealthRoute
+  '/admin/map': typeof AdminMapRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/unclaimed': typeof AdminUnclaimedRoute
+  '/admin/vendors': typeof AdminVendorsRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/health': typeof AdminHealthRoute
+  '/admin/map': typeof AdminMapRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/unclaimed': typeof AdminUnclaimedRoute
+  '/admin/vendors': typeof AdminVendorsRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
@@ -161,13 +248,24 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/health': typeof AdminHealthRoute
+  '/admin/map': typeof AdminMapRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/unclaimed': typeof AdminUnclaimedRoute
+  '/admin/vendors': typeof AdminVendorsRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
@@ -182,31 +280,52 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/admin/broadcasts'
+    | '/admin/health'
+    | '/admin/map'
+    | '/admin/notifications'
+    | '/admin/subscriptions'
+    | '/admin/unclaimed'
+    | '/admin/vendors'
+    | '/app/billing'
     | '/app/credit'
     | '/app/customers'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/notifications'
     | '/app/pos'
     | '/app/sales'
+    | '/app/settings'
+    | '/admin/'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/auth'
     | '/contact'
     | '/features'
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/admin/broadcasts'
+    | '/admin/health'
+    | '/admin/map'
+    | '/admin/notifications'
+    | '/admin/subscriptions'
+    | '/admin/unclaimed'
+    | '/admin/vendors'
+    | '/app/billing'
     | '/app/credit'
     | '/app/customers'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/notifications'
     | '/app/pos'
     | '/app/sales'
+    | '/app/settings'
+    | '/admin'
     | '/app'
   id:
     | '__root__'
@@ -219,19 +338,30 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/admin/broadcasts'
+    | '/admin/health'
+    | '/admin/map'
+    | '/admin/notifications'
+    | '/admin/subscriptions'
+    | '/admin/unclaimed'
+    | '/admin/vendors'
+    | '/app/billing'
     | '/app/credit'
     | '/app/customers'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/notifications'
     | '/app/pos'
     | '/app/sales'
+    | '/app/settings'
+    | '/admin/'
     | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
@@ -306,11 +436,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/broadcasts': {
+      id: '/admin/broadcasts'
+      path: '/broadcasts'
+      fullPath: '/admin/broadcasts'
+      preLoaderRoute: typeof AdminBroadcastsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/health': {
+      id: '/admin/health'
+      path: '/health'
+      fullPath: '/admin/health'
+      preLoaderRoute: typeof AdminHealthRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/map': {
+      id: '/admin/map'
+      path: '/map'
+      fullPath: '/admin/map'
+      preLoaderRoute: typeof AdminMapRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/unclaimed': {
+      id: '/admin/unclaimed'
+      path: '/unclaimed'
+      fullPath: '/admin/unclaimed'
+      preLoaderRoute: typeof AdminUnclaimedRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/vendors': {
+      id: '/admin/vendors'
+      path: '/vendors'
+      fullPath: '/admin/vendors'
+      preLoaderRoute: typeof AdminVendorsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/app/': {
       id: '/app/'
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/billing': {
+      id: '/app/billing'
+      path: '/billing'
+      fullPath: '/app/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/credit': {
@@ -348,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInvoicesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/notifications': {
+      id: '/app/notifications'
+      path: '/notifications'
+      fullPath: '/app/notifications'
+      preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/pos': {
       id: '/app/pos'
       path: '/pos'
@@ -362,28 +562,65 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSalesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminBroadcastsRoute: typeof AdminBroadcastsRoute
+  AdminHealthRoute: typeof AdminHealthRoute
+  AdminMapRoute: typeof AdminMapRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+  AdminUnclaimedRoute: typeof AdminUnclaimedRoute
+  AdminVendorsRoute: typeof AdminVendorsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminBroadcastsRoute: AdminBroadcastsRoute,
+  AdminHealthRoute: AdminHealthRoute,
+  AdminMapRoute: AdminMapRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+  AdminUnclaimedRoute: AdminUnclaimedRoute,
+  AdminVendorsRoute: AdminVendorsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface AppRouteChildren {
+  AppBillingRoute: typeof AppBillingRoute
   AppCreditRoute: typeof AppCreditRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppInsightsRoute: typeof AppInsightsRoute
   AppInventoryRoute: typeof AppInventoryRoute
   AppInvoicesRoute: typeof AppInvoicesRoute
+  AppNotificationsRoute: typeof AppNotificationsRoute
   AppPosRoute: typeof AppPosRoute
   AppSalesRoute: typeof AppSalesRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBillingRoute: AppBillingRoute,
   AppCreditRoute: AppCreditRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppInsightsRoute: AppInsightsRoute,
   AppInventoryRoute: AppInventoryRoute,
   AppInvoicesRoute: AppInvoicesRoute,
+  AppNotificationsRoute: AppNotificationsRoute,
   AppPosRoute: AppPosRoute,
   AppSalesRoute: AppSalesRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -391,7 +628,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
