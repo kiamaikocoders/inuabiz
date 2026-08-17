@@ -19,7 +19,11 @@ import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppCreditRouteImport } from './routes/app.credit'
+import { Route as AppCustomersRouteImport } from './routes/app.customers'
+import { Route as AppInsightsRouteImport } from './routes/app.insights'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
+import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
 import { Route as AppPosRouteImport } from './routes/app.pos'
 import { Route as AppSalesRouteImport } from './routes/app.sales'
 
@@ -73,9 +77,29 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCreditRoute = AppCreditRouteImport.update({
+  id: '/credit',
+  path: '/credit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCustomersRoute = AppCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInsightsRoute = AppInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInventoryRoute = AppInventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInvoicesRoute = AppInvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPosRoute = AppPosRouteImport.update({
@@ -99,7 +123,11 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/app/credit': typeof AppCreditRoute
+  '/app/customers': typeof AppCustomersRoute
+  '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
+  '/app/invoices': typeof AppInvoicesRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
   '/app/': typeof AppIndexRoute
@@ -113,7 +141,11 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/app/credit': typeof AppCreditRoute
+  '/app/customers': typeof AppCustomersRoute
+  '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
+  '/app/invoices': typeof AppInvoicesRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
   '/app': typeof AppIndexRoute
@@ -129,7 +161,11 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/app/credit': typeof AppCreditRoute
+  '/app/customers': typeof AppCustomersRoute
+  '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
+  '/app/invoices': typeof AppInvoicesRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
   '/app/': typeof AppIndexRoute
@@ -146,7 +182,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/app/credit'
+    | '/app/customers'
+    | '/app/insights'
     | '/app/inventory'
+    | '/app/invoices'
     | '/app/pos'
     | '/app/sales'
     | '/app/'
@@ -160,7 +200,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/app/credit'
+    | '/app/customers'
+    | '/app/insights'
     | '/app/inventory'
+    | '/app/invoices'
     | '/app/pos'
     | '/app/sales'
     | '/app'
@@ -175,7 +219,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/app/credit'
+    | '/app/customers'
+    | '/app/insights'
     | '/app/inventory'
+    | '/app/invoices'
     | '/app/pos'
     | '/app/sales'
     | '/app/'
@@ -265,11 +313,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/credit': {
+      id: '/app/credit'
+      path: '/credit'
+      fullPath: '/app/credit'
+      preLoaderRoute: typeof AppCreditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/customers': {
+      id: '/app/customers'
+      path: '/customers'
+      fullPath: '/app/customers'
+      preLoaderRoute: typeof AppCustomersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/insights': {
+      id: '/app/insights'
+      path: '/insights'
+      fullPath: '/app/insights'
+      preLoaderRoute: typeof AppInsightsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/inventory': {
       id: '/app/inventory'
       path: '/inventory'
       fullPath: '/app/inventory'
       preLoaderRoute: typeof AppInventoryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/invoices': {
+      id: '/app/invoices'
+      path: '/invoices'
+      fullPath: '/app/invoices'
+      preLoaderRoute: typeof AppInvoicesRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/pos': {
@@ -290,14 +366,22 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppCreditRoute: typeof AppCreditRoute
+  AppCustomersRoute: typeof AppCustomersRoute
+  AppInsightsRoute: typeof AppInsightsRoute
   AppInventoryRoute: typeof AppInventoryRoute
+  AppInvoicesRoute: typeof AppInvoicesRoute
   AppPosRoute: typeof AppPosRoute
   AppSalesRoute: typeof AppSalesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppCreditRoute: AppCreditRoute,
+  AppCustomersRoute: AppCustomersRoute,
+  AppInsightsRoute: AppInsightsRoute,
   AppInventoryRoute: AppInventoryRoute,
+  AppInvoicesRoute: AppInvoicesRoute,
   AppPosRoute: AppPosRoute,
   AppSalesRoute: AppSalesRoute,
   AppIndexRoute: AppIndexRoute,
