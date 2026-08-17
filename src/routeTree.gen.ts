@@ -19,13 +19,16 @@ import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppBillingRouteImport } from './routes/app.billing'
 import { Route as AppCreditRouteImport } from './routes/app.credit'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
 import { Route as AppInsightsRouteImport } from './routes/app.insights'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
+import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
 import { Route as AppPosRouteImport } from './routes/app.pos'
 import { Route as AppSalesRouteImport } from './routes/app.sales'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,6 +80,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCreditRoute = AppCreditRouteImport.update({
   id: '/credit',
   path: '/credit',
@@ -102,6 +110,11 @@ const AppInvoicesRoute = AppInvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => AppRoute,
 } as any)
+const AppNotificationsRoute = AppNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPosRoute = AppPosRouteImport.update({
   id: '/pos',
   path: '/pos',
@@ -110,6 +123,11 @@ const AppPosRoute = AppPosRouteImport.update({
 const AppSalesRoute = AppSalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -123,13 +141,16 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
@@ -141,13 +162,16 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
@@ -161,13 +185,16 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/sales': typeof AppSalesRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
@@ -182,13 +209,16 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/app/billing'
     | '/app/credit'
     | '/app/customers'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/notifications'
     | '/app/pos'
     | '/app/sales'
+    | '/app/settings'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -200,13 +230,16 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/app/billing'
     | '/app/credit'
     | '/app/customers'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/notifications'
     | '/app/pos'
     | '/app/sales'
+    | '/app/settings'
     | '/app'
   id:
     | '__root__'
@@ -219,13 +252,16 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/onboarding'
     | '/pricing'
+    | '/app/billing'
     | '/app/credit'
     | '/app/customers'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/notifications'
     | '/app/pos'
     | '/app/sales'
+    | '/app/settings'
     | '/app/'
   fileRoutesById: FileRoutesById
 }
@@ -313,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/billing': {
+      id: '/app/billing'
+      path: '/billing'
+      fullPath: '/app/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/credit': {
       id: '/app/credit'
       path: '/credit'
@@ -348,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInvoicesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/notifications': {
+      id: '/app/notifications'
+      path: '/notifications'
+      fullPath: '/app/notifications'
+      preLoaderRoute: typeof AppNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/pos': {
       id: '/app/pos'
       path: '/pos'
@@ -362,28 +412,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSalesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppBillingRoute: typeof AppBillingRoute
   AppCreditRoute: typeof AppCreditRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppInsightsRoute: typeof AppInsightsRoute
   AppInventoryRoute: typeof AppInventoryRoute
   AppInvoicesRoute: typeof AppInvoicesRoute
+  AppNotificationsRoute: typeof AppNotificationsRoute
   AppPosRoute: typeof AppPosRoute
   AppSalesRoute: typeof AppSalesRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBillingRoute: AppBillingRoute,
   AppCreditRoute: AppCreditRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppInsightsRoute: AppInsightsRoute,
   AppInventoryRoute: AppInventoryRoute,
   AppInvoicesRoute: AppInvoicesRoute,
+  AppNotificationsRoute: AppNotificationsRoute,
   AppPosRoute: AppPosRoute,
   AppSalesRoute: AppSalesRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
