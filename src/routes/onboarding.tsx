@@ -431,31 +431,74 @@ function Onboarding() {
 
           {step === 3 && (
             <div className="text-center">
-              <span className="bg-success/15 text-success mx-auto grid size-14 place-items-center rounded-2xl">
-                <PartyPopper className="size-7" />
+              <span
+                className={cn(
+                  "mx-auto grid size-14 place-items-center rounded-2xl",
+                  provisioning ? "bg-primary-soft text-primary" : "bg-success/15 text-success",
+                )}
+              >
+                {provisioning ? (
+                  <Loader2 className="size-7 animate-spin" />
+                ) : (
+                  <PartyPopper className="size-7" />
+                )}
               </span>
               <h1 className="mt-5 text-2xl font-bold">
-                {business || "Your shop"} is live on InuaBiz
+                {provisioning ? "Setting up your shop…" : `${business} is ready to go live`}
               </h1>
               <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-relaxed">
-                Your {TRIAL_DAYS}-day full-access trial has started. We've pre-loaded a sample
-                product so you can complete your first test checkout right away.
+                {provisioning
+                  ? "This takes a few seconds. Keep this page open."
+                  : `Confirm the details below and we'll start your ${TRIAL_DAYS}-day full-access trial with a sample product loaded.`}
               </p>
-              <div className="bg-muted mx-auto mt-6 grid max-w-md gap-2 rounded-xl p-4 text-left text-sm">
-                {[
-                  ["Business", business || "Njoroge Mini Mart"],
-                  ["Category", category],
-                  ["Phone", phone || "0712 345 678"],
-                  ["Payments to", `${payType} · ${payValue || "0712 345 678"}`],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">{k}</span>
-                    <span className="truncate font-medium">{v}</span>
-                  </div>
-                ))}
-              </div>
+
+              {provisioning ? (
+                <ul className="mx-auto mt-6 grid max-w-md gap-2 text-left text-sm">
+                  {provisioningSteps.map((label, i) => {
+                    const done = i < provisionIndex;
+                    const active = i === provisionIndex;
+                    return (
+                      <li
+                        key={label}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                          done
+                            ? "border-success/40 bg-success/10"
+                            : active
+                              ? "border-primary bg-primary-soft"
+                              : "border-border bg-card opacity-60",
+                        )}
+                      >
+                        {done ? (
+                          <Check className="text-success size-4 shrink-0" />
+                        ) : active ? (
+                          <Loader2 className="text-primary size-4 shrink-0 animate-spin" />
+                        ) : (
+                          <span className="border-border size-4 shrink-0 rounded-full border" />
+                        )}
+                        <span className={cn(done && "text-success")}>{label}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="bg-muted mx-auto mt-6 grid max-w-md gap-2 rounded-xl p-4 text-left text-sm">
+                  {[
+                    ["Business", business],
+                    ["Category", category],
+                    ["Phone", phone],
+                    ["Payments to", `${payType} · ${payValue}`],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">{k}</span>
+                      <span className="truncate font-medium">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
 
           <div className="mt-8 flex items-center justify-between gap-3">
             <Button variant="ghost" onClick={back} disabled={step === 0 || busy || provisioning}>
