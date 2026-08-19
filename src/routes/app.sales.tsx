@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Download, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { CircleSlash, Download, Search } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { StatCard } from "@/components/app/StatCard";
+import { StatusEmpty } from "@/components/status/StatusPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, sales } from "@/lib/mock-data";
+import { KES, sales as mockSales } from "@/lib/mock-data";
+import { fetchSales } from "@/lib/data";
 
 export const Route = createFileRoute("/app/sales")({
   head: () => ({
@@ -36,6 +39,10 @@ export const Route = createFileRoute("/app/sales")({
 function Sales() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("all");
+  const { data: sales = mockSales } = useQuery({
+    queryKey: ["sales"],
+    queryFn: fetchSales,
+  });
 
   const rows = sales.filter(
     (s) =>
@@ -95,53 +102,71 @@ function Sales() {
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reference</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Channel</TableHead>
-                <TableHead className="text-right">Items</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.ref}</TableCell>
-                  <TableCell className="text-muted-foreground">{s.time}</TableCell>
-                  <TableCell>{s.customer}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{s.channel}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">{s.items}</TableCell>
-                  <TableCell className="text-right font-semibold">{KES(s.total)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        s.status === "Complete"
-                          ? "secondary"
-                          : s.status === "Failed"
-                            ? "destructive"
-                            : "outline"
-                      }
-                    >
-                      {s.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {rows.length === 0 && (
+          {rows.length === 0 ? (
+            <StatusEmpty
+              icon={CircleSlash}
+              title="No results match"
+              description="Try a different search, or clear filters and browse this duka's sales."
+              primary={{
+                label: "Clear filters",
+                onClick: () => {
+                  setQ("");
+                  setTab("all");
+                },
+              }}
+              secondary={{ label: "Open POS", to: "/app/pos" }}
+              meta="0 results"
+            />
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-muted-foreground py-10 text-center">
-                    No sales match this filter.
-                  </TableCell>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Channel</TableHead>
+                  <TableHead className="text-right">Items</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium">
+                      <Link
+                        to="/app/sales/$saleId"
+                        params={{ saleId: s.id }}
+                        className="hover:underline"
+                      >
+                        {s.ref}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{s.time}</TableCell>
+                    <TableCell>{s.customer}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{s.channel}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{s.items}</TableCell>
+                    <TableCell className="text-right font-semibold">{KES(s.total)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          s.status === "Complete"
+                            ? "secondary"
+                            : s.status === "Failed"
+                              ? "destructive"
+                              : "outline"
+                        }
+                      >
+                        {s.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     </AppShell>

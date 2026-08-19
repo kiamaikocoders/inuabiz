@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Users } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { StatCard } from "@/components/app/StatCard";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { KES, customers } from "@/lib/mock-data";
+import { KES, customers as mockCustomers } from "@/lib/mock-data";
+import { fetchCustomers } from "@/lib/data";
 
 export const Route = createFileRoute("/app/customers")({
   head: () => ({
@@ -25,6 +27,10 @@ export const Route = createFileRoute("/app/customers")({
 
 function Customers() {
   const [q, setQ] = useState("");
+  const { data: customers = mockCustomers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: fetchCustomers,
+  });
   const rows = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.replace(/\s/g, "").includes(q),
@@ -62,7 +68,7 @@ function Customers() {
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map((c) => (
-          <div key={c.id} className="surface-card p-5">
+          <Link key={c.id} to="/app/customers/$customerId" params={{ customerId: c.id }} className="surface-card p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="bg-primary-soft text-primary grid size-11 place-items-center rounded-full text-sm font-bold">
@@ -104,7 +110,7 @@ function Customers() {
             </div>
 
             <p className="text-muted-foreground mt-4 text-xs">Last seen {c.lastSeen}</p>
-          </div>
+          </Link>
         ))}
       </div>
     </AppShell>

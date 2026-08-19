@@ -1,0 +1,84 @@
+# InuaBiz Supabase project config
+project_id = "hnzzkmifgufurkqvnchp"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://inuabiz.co.ke", "https://www.inuabiz.co.ke"]
+enable_signup = true
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+
+[realtime]
+enabled = true
+
+[functions.create-subscription-charge]
+verify_jwt = true
+
+[functions.create-sale-charge]
+verify_jwt = true
+
+[functions.generate-ai-insights]
+verify_jwt = true
+
+[functions.assign-unclaimed-payment]
+verify_jwt = true
+
+[functions.intasend-webhook]
+verify_jwt = false
+
+[functions.poll-pending-payments]
+verify_jwt = false
+
+[functions.create-ratiba-standing-order]
+verify_jwt = true
+
+[functions.create-bill-invoice]
+verify_jwt = true
+
+[functions.cancel-bill-invoice]
+verify_jwt = true
+
+[functions.ratiba-callback]
+verify_jwt = false
+
+[functions.bill-manager-callback]
+verify_jwt = false
+
+[functions.process-ratiba-retries]
+verify_jwt = false
+
+[functions.checkout-sale]
+verify_jwt = true
+
+[functions.daraja-stk-callback]
+verify_jwt = false
+
+[functions.daraja-c2b-confirmation]
+verify_jwt = false
+
+[functions.daraja-c2b-validation]
+verify_jwt = false
+
+[functions.register-c2b-urls]
+verify_jwt = false
+
+[functions.bill-manager-optin]
+verify_jwt = false

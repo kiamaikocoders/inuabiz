@@ -13,6 +13,7 @@ import {
   Settings,
   Sparkles,
   Store,
+  UserRound,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,9 @@ import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { vendorNotifications } from "@/lib/mock-data";
+import { stopGhost, useGhost } from "@/lib/ghost";
+import { useIdentity } from "@/lib/identity";
+import { UserMenu } from "@/components/app/UserMenu";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; exact?: boolean };
 
@@ -36,6 +40,7 @@ const nav: NavItem[] = [
   { to: "/app/billing", label: "Subscription", icon: ChartLine },
   { to: "/app/notifications", label: "Notifications", icon: Bell },
   { to: "/app/settings", label: "Settings", icon: Settings },
+  { to: "/app/profile", label: "Profile", icon: UserRound },
 ];
 
 function NavList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
@@ -103,6 +108,8 @@ export function AppShell({
   children: ReactNode;
 }) {
   const unread = vendorNotifications.filter((n) => !n.read).length;
+  const ghost = useGhost();
+  const identity = useIdentity("vendor");
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -111,6 +118,24 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {ghost && (
+          <div className="flex items-center justify-between gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+            <span>
+              Ghost session · viewing <strong>{ghost.business}</strong> as support
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7"
+              onClick={() => {
+                stopGhost();
+                window.location.href = "/admin/vendors";
+              }}
+            >
+              Exit impersonation
+            </Button>
+          </div>
+        )}
         <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
           <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
             <Sheet>
@@ -145,9 +170,7 @@ export function AppShell({
                   )}
                 </Link>
               </Button>
-              <span className="bg-primary-soft text-primary grid size-9 place-items-center rounded-full text-xs font-bold">
-                MN
-              </span>
+              <UserMenu identity={identity} kind="vendor" />
             </div>
           </div>
         </header>

@@ -11,6 +11,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { TRIAL_DAYS } from "@/lib/mock-data";
+import { completeOnboarding, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -55,9 +56,65 @@ function Onboarding() {
   const [located, setLocated] = useState(false);
   const [payType, setPayType] = useState("personal");
   const [payValue, setPayValue] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const destType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" =
+    payType === "till" ? "TILL" : payType === "paybill" ? "PAYBILL" : "PERSONAL_MPESA";
 
   const next = () => setStep((s) => Math.min(s + 1, 3));
   const back = () => setStep((s) => Math.max(s - 1, 0));
+
+  const continueStep = () => {
+    if (step !== 0) {
+      next();
+      return;
+    }
+    setBusy(true);
+    void (async () => {
+      try {
+        if (otp.length < 4) {
+          const sent = await sendPhoneOtp(phone);
+          toast.info(sent.demo ? "Demo code 1234" : "Code sent", {
+            description: sent.demo ? "Enter any 4 digits, then Continue." : `SMS sent to ${phone}`,
+          });
+          return;
+        }
+        await verifyPhoneOtp(phone, otp);
+        next();
+      } catch (err: unknown) {
+        toast.error("Phone step failed", {
+          description: err instanceof Error ? err.message : "Try again",
+        });
+        if (otp.length >= 4) next();
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  const finish = () => {
+    setBusy(true);
+    void completeOnboarding({
+      businessName: business || "Njoroge Mini Mart",
+      category,
+      phone,
+      destinationType: destType,
+      accountNumber: payValue || phone,
+      ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+    })
+      .then(() => {
+        toast.success("Shop is live", { description: "Opening your POS." });
+        void navigate({ to: "/app/pos" });
+      })
+      .catch((err: unknown) => {
+        toast.error("Could not finish onboarding", {
+          description: err instanceof Error ? err.message : "Opening demo POS instead",
+        });
+        void navigate({ to: "/app/pos" });
+      })
+      .finally(() => setBusy(false));
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,7 +123,7 @@ function Onboarding() {
           <Link to="/">
             <Logo />
           </Link>
-          <Link to="/auth" className="text-muted-foreground text-sm hover:text-foreground">
+          <Link to="/login" className="text-muted-foreground text-sm hover:text-foreground">
             Already have an account?
           </Link>
         </div>
@@ -192,10 +249,30 @@ function Onboarding() {
                     variant={located ? "secondary" : "outline"}
                     className="w-full justify-start"
                     onClick={() => {
-                      setLocated(true);
-                      toast.success("Location pinned", {
-                        description: "Demo pin set near Nairobi CBD.",
-                      });
+                      if (typeof navigator !== "undefined" && navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                            setLocated(true);
+                            toast.success("Location pinned", {
+                              description: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
+                            });
+                          },
+                          () => {
+                            setCoords({ lat: -1.2864, lng: 36.8172 });
+                            setLocated(true);
+                            toast.success("Location pinned", {
+                              description: "Fallback pin near Nairobi CBD.",
+                            });
+                          },
+                        );
+                      } else {
+                        setCoords({ lat: -1.2864, lng: 36.8172 });
+                        setLocated(true);
+                        toast.success("Location pinned", {
+                          description: "Demo pin set near Nairobi CBD.",
+                        });
+                      }
                     }}
                   >
                     <MapPin className="mr-2 size-4" />
@@ -277,12 +354,12 @@ function Onboarding() {
               Back
             </Button>
             {step < 3 ? (
-              <Button onClick={next} size="lg">
-                Continue
+              <Button onClick={continueStep} size="lg" disabled={busy}>
+                {busy ? "Working…" : step === 0 && otp.length < 4 ? "Send code" : "Continue"}
               </Button>
             ) : (
-              <Button size="lg" onClick={() => void navigate({ to: "/app/pos" })}>
-                Go to my POS
+              <Button size="lg" onClick={finish} disabled={busy}>
+                {busy ? "Saving…" : "Go to my POS"}
               </Button>
             )}
           </div>

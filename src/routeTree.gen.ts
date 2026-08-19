@@ -10,19 +10,30 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as R403RouteImport } from './routes/403'
+import { Route as R404RouteImport } from './routes/404'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as ForDukasRouteImport } from './routes/for-dukas'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as KaribuRouteImport } from './routes/karibu'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as AdminBroadcastsRouteImport } from './routes/admin.broadcasts'
+import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
 import { Route as AdminHealthRouteImport } from './routes/admin.health'
 import { Route as AdminMapRouteImport } from './routes/admin.map'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
+import { Route as AdminProfileRouteImport } from './routes/admin.profile'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminUnclaimedRouteImport } from './routes/admin.unclaimed'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
@@ -35,12 +46,29 @@ import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
 import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
 import { Route as AppPosRouteImport } from './routes/app.pos'
+import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppSalesRouteImport } from './routes/app.sales'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AdminTenantsTenantIdRouteImport } from './routes/admin.tenants_.$tenantId'
+import { Route as AppCustomersCustomerIdRouteImport } from './routes/app.customers_.$customerId'
+import { Route as AppInventoryProductIdRouteImport } from './routes/app.inventory_.$productId'
+import { Route as AppInventoryNewRouteImport } from './routes/app.inventory_.new'
+import { Route as AppPosSuccessRouteImport } from './routes/app.pos_.success'
+import { Route as AppSalesSaleIdRouteImport } from './routes/app.sales_.$saleId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R403Route = R403RouteImport.update({
+  id: '/403',
+  path: '/403',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R404Route = R404RouteImport.update({
+  id: '/404',
+  path: '/404',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -68,9 +96,29 @@ const FeaturesRoute = FeaturesRouteImport.update({
   path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForDukasRoute = ForDukasRouteImport.update({
+  id: '/for-dukas',
+  path: '/for-dukas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HowItWorksRoute = HowItWorksRouteImport.update({
   id: '/how-it-works',
   path: '/how-it-works',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KaribuRoute = KaribuRouteImport.update({
+  id: '/karibu',
+  path: '/karibu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceRoute = MaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -83,14 +131,29 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerifyRoute = VerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAiRoute = AdminAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBroadcastsRoute = AdminBroadcastsRouteImport.update({
   id: '/broadcasts',
   path: '/broadcasts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCommunicationsRoute = AdminCommunicationsRouteImport.update({
+  id: '/communications',
+  path: '/communications',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminHealthRoute = AdminHealthRouteImport.update({
@@ -106,6 +169,16 @@ const AdminMapRoute = AdminMapRouteImport.update({
 const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
@@ -168,6 +241,11 @@ const AppPosRoute = AppPosRouteImport.update({
   path: '/pos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSalesRoute = AppSalesRouteImport.update({
   id: '/sales',
   path: '/sales',
@@ -178,21 +256,62 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AdminTenantsTenantIdRoute = AdminTenantsTenantIdRouteImport.update({
+  id: '/tenants_/$tenantId',
+  path: '/tenants/$tenantId',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AppCustomersCustomerIdRoute = AppCustomersCustomerIdRouteImport.update({
+  id: '/customers_/$customerId',
+  path: '/customers/$customerId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryProductIdRoute = AppInventoryProductIdRouteImport.update({
+  id: '/inventory_/$productId',
+  path: '/inventory/$productId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInventoryNewRoute = AppInventoryNewRouteImport.update({
+  id: '/inventory_/new',
+  path: '/inventory/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPosSuccessRoute = AppPosSuccessRouteImport.update({
+  id: '/pos_/success',
+  path: '/pos/success',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSalesSaleIdRoute = AppSalesSaleIdRouteImport.update({
+  id: '/sales_/$saleId',
+  path: '/sales/$saleId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/403': typeof R403Route
+  '/404': typeof R404Route
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
+  '/for-dukas': typeof ForDukasRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/karibu': typeof KaribuRoute
+  '/login': typeof LoginRoute
+  '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/verify': typeof VerifyRoute
+  '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/profile': typeof AdminProfileRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
@@ -204,23 +323,41 @@ export interface FileRoutesByFullPath {
   '/app/invoices': typeof AppInvoicesRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
+  '/app/profile': typeof AppProfileRoute
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
+  '/app/customers/$customerId': typeof AppCustomersCustomerIdRoute
+  '/app/inventory/$productId': typeof AppInventoryProductIdRoute
+  '/app/inventory/new': typeof AppInventoryNewRoute
+  '/app/pos/success': typeof AppPosSuccessRoute
+  '/app/sales/$saleId': typeof AppSalesSaleIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/403': typeof R403Route
+  '/404': typeof R404Route
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
+  '/for-dukas': typeof ForDukasRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/karibu': typeof KaribuRoute
+  '/login': typeof LoginRoute
+  '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/verify': typeof VerifyRoute
+  '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/profile': typeof AdminProfileRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
@@ -232,26 +369,44 @@ export interface FileRoutesByTo {
   '/app/invoices': typeof AppInvoicesRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
+  '/app/profile': typeof AppProfileRoute
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
+  '/app/customers/$customerId': typeof AppCustomersCustomerIdRoute
+  '/app/inventory/$productId': typeof AppInventoryProductIdRoute
+  '/app/inventory/new': typeof AppInventoryNewRoute
+  '/app/pos/success': typeof AppPosSuccessRoute
+  '/app/sales/$saleId': typeof AppSalesSaleIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/403': typeof R403Route
+  '/404': typeof R404Route
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
+  '/for-dukas': typeof ForDukasRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/karibu': typeof KaribuRoute
+  '/login': typeof LoginRoute
+  '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/verify': typeof VerifyRoute
+  '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/profile': typeof AdminProfileRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
@@ -263,27 +418,45 @@ export interface FileRoutesById {
   '/app/invoices': typeof AppInvoicesRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
+  '/app/profile': typeof AppProfileRoute
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/admin/tenants_/$tenantId': typeof AdminTenantsTenantIdRoute
+  '/app/customers_/$customerId': typeof AppCustomersCustomerIdRoute
+  '/app/inventory_/$productId': typeof AppInventoryProductIdRoute
+  '/app/inventory_/new': typeof AppInventoryNewRoute
+  '/app/pos_/success': typeof AppPosSuccessRoute
+  '/app/sales_/$saleId': typeof AppSalesSaleIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/403'
+    | '/404'
     | '/admin'
     | '/app'
     | '/auth'
     | '/contact'
     | '/features'
+    | '/for-dukas'
     | '/how-it-works'
+    | '/karibu'
+    | '/login'
+    | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/verify'
+    | '/admin/ai'
     | '/admin/broadcasts'
+    | '/admin/communications'
     | '/admin/health'
     | '/admin/map'
     | '/admin/notifications'
+    | '/admin/profile'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
@@ -295,23 +468,41 @@ export interface FileRouteTypes {
     | '/app/invoices'
     | '/app/notifications'
     | '/app/pos'
+    | '/app/profile'
     | '/app/sales'
     | '/app/settings'
     | '/admin/'
     | '/app/'
+    | '/admin/tenants/$tenantId'
+    | '/app/customers/$customerId'
+    | '/app/inventory/$productId'
+    | '/app/inventory/new'
+    | '/app/pos/success'
+    | '/app/sales/$saleId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/403'
+    | '/404'
     | '/auth'
     | '/contact'
     | '/features'
+    | '/for-dukas'
     | '/how-it-works'
+    | '/karibu'
+    | '/login'
+    | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/verify'
+    | '/admin/ai'
     | '/admin/broadcasts'
+    | '/admin/communications'
     | '/admin/health'
     | '/admin/map'
     | '/admin/notifications'
+    | '/admin/profile'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
@@ -323,25 +514,43 @@ export interface FileRouteTypes {
     | '/app/invoices'
     | '/app/notifications'
     | '/app/pos'
+    | '/app/profile'
     | '/app/sales'
     | '/app/settings'
     | '/admin'
     | '/app'
+    | '/admin/tenants/$tenantId'
+    | '/app/customers/$customerId'
+    | '/app/inventory/$productId'
+    | '/app/inventory/new'
+    | '/app/pos/success'
+    | '/app/sales/$saleId'
   id:
     | '__root__'
     | '/'
+    | '/403'
+    | '/404'
     | '/admin'
     | '/app'
     | '/auth'
     | '/contact'
     | '/features'
+    | '/for-dukas'
     | '/how-it-works'
+    | '/karibu'
+    | '/login'
+    | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/verify'
+    | '/admin/ai'
     | '/admin/broadcasts'
+    | '/admin/communications'
     | '/admin/health'
     | '/admin/map'
     | '/admin/notifications'
+    | '/admin/profile'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
@@ -353,22 +562,36 @@ export interface FileRouteTypes {
     | '/app/invoices'
     | '/app/notifications'
     | '/app/pos'
+    | '/app/profile'
     | '/app/sales'
     | '/app/settings'
     | '/admin/'
     | '/app/'
+    | '/admin/tenants_/$tenantId'
+    | '/app/customers_/$customerId'
+    | '/app/inventory_/$productId'
+    | '/app/inventory_/new'
+    | '/app/pos_/success'
+    | '/app/sales_/$saleId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  R403Route: typeof R403Route
+  R404Route: typeof R404Route
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
   FeaturesRoute: typeof FeaturesRoute
+  ForDukasRoute: typeof ForDukasRoute
   HowItWorksRoute: typeof HowItWorksRoute
+  KaribuRoute: typeof KaribuRoute
+  LoginRoute: typeof LoginRoute
+  MaintenanceRoute: typeof MaintenanceRoute
   OnboardingRoute: typeof OnboardingRoute
   PricingRoute: typeof PricingRoute
+  VerifyRoute: typeof VerifyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -378,6 +601,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/403': {
+      id: '/403'
+      path: '/403'
+      fullPath: '/403'
+      preLoaderRoute: typeof R403RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/404': {
+      id: '/404'
+      path: '/404'
+      fullPath: '/404'
+      preLoaderRoute: typeof R404RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -415,11 +652,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/for-dukas': {
+      id: '/for-dukas'
+      path: '/for-dukas'
+      fullPath: '/for-dukas'
+      preLoaderRoute: typeof ForDukasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/how-it-works': {
       id: '/how-it-works'
       path: '/how-it-works'
       fullPath: '/how-it-works'
       preLoaderRoute: typeof HowItWorksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/karibu': {
+      id: '/karibu'
+      path: '/karibu'
+      fullPath: '/karibu'
+      preLoaderRoute: typeof KaribuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maintenance': {
+      id: '/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof MaintenanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -436,6 +701,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/verify': {
+      id: '/verify'
+      path: '/verify'
+      fullPath: '/verify'
+      preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
@@ -443,11 +715,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/ai': {
+      id: '/admin/ai'
+      path: '/ai'
+      fullPath: '/admin/ai'
+      preLoaderRoute: typeof AdminAiRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/broadcasts': {
       id: '/admin/broadcasts'
       path: '/broadcasts'
       fullPath: '/admin/broadcasts'
       preLoaderRoute: typeof AdminBroadcastsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/communications': {
+      id: '/admin/communications'
+      path: '/communications'
+      fullPath: '/admin/communications'
+      preLoaderRoute: typeof AdminCommunicationsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/health': {
@@ -469,6 +755,20 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/admin/notifications'
       preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/subscriptions': {
@@ -555,6 +855,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/profile': {
+      id: '/app/profile'
+      path: '/profile'
+      fullPath: '/app/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/sales': {
       id: '/app/sales'
       path: '/sales'
@@ -569,29 +876,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/admin/tenants_/$tenantId': {
+      id: '/admin/tenants_/$tenantId'
+      path: '/tenants/$tenantId'
+      fullPath: '/admin/tenants/$tenantId'
+      preLoaderRoute: typeof AdminTenantsTenantIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/app/customers_/$customerId': {
+      id: '/app/customers_/$customerId'
+      path: '/customers/$customerId'
+      fullPath: '/app/customers/$customerId'
+      preLoaderRoute: typeof AppCustomersCustomerIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/inventory_/$productId': {
+      id: '/app/inventory_/$productId'
+      path: '/inventory/$productId'
+      fullPath: '/app/inventory/$productId'
+      preLoaderRoute: typeof AppInventoryProductIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/inventory_/new': {
+      id: '/app/inventory_/new'
+      path: '/inventory/new'
+      fullPath: '/app/inventory/new'
+      preLoaderRoute: typeof AppInventoryNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pos_/success': {
+      id: '/app/pos_/success'
+      path: '/pos/success'
+      fullPath: '/app/pos/success'
+      preLoaderRoute: typeof AppPosSuccessRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sales_/$saleId': {
+      id: '/app/sales_/$saleId'
+      path: '/sales/$saleId'
+      fullPath: '/app/sales/$saleId'
+      preLoaderRoute: typeof AppSalesSaleIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAiRoute: typeof AdminAiRoute
   AdminBroadcastsRoute: typeof AdminBroadcastsRoute
+  AdminCommunicationsRoute: typeof AdminCommunicationsRoute
   AdminHealthRoute: typeof AdminHealthRoute
   AdminMapRoute: typeof AdminMapRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminProfileRoute: typeof AdminProfileRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminUnclaimedRoute: typeof AdminUnclaimedRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminTenantsTenantIdRoute: typeof AdminTenantsTenantIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAiRoute: AdminAiRoute,
   AdminBroadcastsRoute: AdminBroadcastsRoute,
+  AdminCommunicationsRoute: AdminCommunicationsRoute,
   AdminHealthRoute: AdminHealthRoute,
   AdminMapRoute: AdminMapRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminProfileRoute: AdminProfileRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminUnclaimedRoute: AdminUnclaimedRoute,
   AdminVendorsRoute: AdminVendorsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminTenantsTenantIdRoute: AdminTenantsTenantIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -605,9 +964,15 @@ interface AppRouteChildren {
   AppInvoicesRoute: typeof AppInvoicesRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPosRoute: typeof AppPosRoute
+  AppProfileRoute: typeof AppProfileRoute
   AppSalesRoute: typeof AppSalesRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppCustomersCustomerIdRoute: typeof AppCustomersCustomerIdRoute
+  AppInventoryProductIdRoute: typeof AppInventoryProductIdRoute
+  AppInventoryNewRoute: typeof AppInventoryNewRoute
+  AppPosSuccessRoute: typeof AppPosSuccessRoute
+  AppSalesSaleIdRoute: typeof AppSalesSaleIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -619,23 +984,36 @@ const AppRouteChildren: AppRouteChildren = {
   AppInvoicesRoute: AppInvoicesRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppPosRoute: AppPosRoute,
+  AppProfileRoute: AppProfileRoute,
   AppSalesRoute: AppSalesRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppCustomersCustomerIdRoute: AppCustomersCustomerIdRoute,
+  AppInventoryProductIdRoute: AppInventoryProductIdRoute,
+  AppInventoryNewRoute: AppInventoryNewRoute,
+  AppPosSuccessRoute: AppPosSuccessRoute,
+  AppSalesSaleIdRoute: AppSalesSaleIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  R403Route: R403Route,
+  R404Route: R404Route,
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
   FeaturesRoute: FeaturesRoute,
+  ForDukasRoute: ForDukasRoute,
   HowItWorksRoute: HowItWorksRoute,
+  KaribuRoute: KaribuRoute,
+  LoginRoute: LoginRoute,
+  MaintenanceRoute: MaintenanceRoute,
   OnboardingRoute: OnboardingRoute,
   PricingRoute: PricingRoute,
+  VerifyRoute: VerifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

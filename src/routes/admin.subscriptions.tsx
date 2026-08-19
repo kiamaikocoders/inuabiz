@@ -1,17 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { Repeat, Wallet } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Download, Percent, Repeat, TrendingUp, UserMinus, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
 import { StatCard } from "@/components/app/StatCard";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/admin/StatusPill";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -21,8 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, mrrTrend, statusColor, tenants } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
+import { KES, mrrTrend, tenants } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/admin/subscriptions")({
   head: () => ({
@@ -45,12 +38,51 @@ function Subscriptions() {
   const mrr = active.reduce((s, t) => s + t.mrr, 0);
 
   return (
-    <AdminShell title="Subscriptions & MRR" description="Revenue, trials and billing retries">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="MRR" value={KES(mrr)} delta={29} icon={Wallet} />
-        <StatCard label="ARR run rate" value={KES(mrr * 12)} delta={29} />
-        <StatCard label="Trial conversion" value="68%" delta={5} tone="gold" />
-        <StatCard label="Churn" value="3.1%" delta={-1} hint="monthly" tone="danger" />
+    <AdminShell
+      title="Subscriptions & MRR"
+      description="Revenue, trials and billing retries"
+      actions={
+        <Button
+          size="sm"
+          variant="ink"
+          className="hidden rounded-[10px] sm:inline-flex"
+          onClick={() => {
+            const rows = [
+              "Business,Owner,Status,MRR",
+              ...tenants.map((t) => `${t.business},${t.owner},${t.status},${t.mrr}`),
+            ];
+            const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "inuabiz-subscriptions.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.success("CSV exported");
+          }}
+        >
+          <Download className="size-3.5" /> Export CSV
+        </Button>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="MRR" value={KES(mrr)} delta={29} icon={Wallet} tone="violet" />
+        <StatCard
+          label="ARR run rate"
+          value={KES(mrr * 12)}
+          delta={29}
+          icon={TrendingUp}
+          tone="success"
+        />
+        <StatCard label="Trial conversion" value="68%" delta={5} icon={Percent} tone="gold" />
+        <StatCard
+          label="Churn"
+          value="3.1%"
+          delta={-1}
+          hint="monthly"
+          icon={UserMinus}
+          tone="danger"
+        />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -59,7 +91,11 @@ function Subscriptions() {
           <div className="mt-5 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={mrrTrend} margin={{ left: -12, right: 4, top: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
                 <YAxis tickLine={false} axisLine={false} fontSize={12} />
                 <Tooltip
@@ -128,14 +164,7 @@ function Subscriptions() {
                   <TableCell className="font-medium">{t.business}</TableCell>
                   <TableCell className="text-muted-foreground">{t.owner}</TableCell>
                   <TableCell>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                        statusColor[t.status],
-                      )}
-                    >
-                      {t.status}
-                    </span>
+                    <StatusPill status={t.status} />
                   </TableCell>
                   <TableCell className="text-right font-semibold">
                     {t.mrr ? KES(t.mrr) : "—"}
@@ -144,9 +173,7 @@ function Subscriptions() {
                     {t.status === "Active" ? `${(i % 28) + 1} Sep 2026` : "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={i % 3 === 0 ? "secondary" : "outline"}>
-                      {i % 3 === 0 ? "Ratiba on" : "Manual STK"}
-                    </Badge>
+                    <StatusPill status={i % 3 === 0 ? "Ratiba on" : "Manual STK"} />
                   </TableCell>
                 </TableRow>
               ))}

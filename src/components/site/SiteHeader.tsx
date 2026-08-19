@@ -3,10 +3,13 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/brand/Logo";
+import { InstallAppButton } from "@/components/app/InstallPrompt";
 
 type NavItem = { to: string; label: string };
 
 const nav: NavItem[] = [
+  { to: "/karibu", label: "Karibu" },
+  { to: "/for-dukas", label: "For dukas" },
   { to: "/features", label: "Features" },
   { to: "/pricing", label: "Pricing" },
   { to: "/how-it-works", label: "How it works" },
@@ -35,8 +38,9 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <InstallAppButton />
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/auth">Sign in</Link>
+            <Link to="/login">Sign in</Link>
           </Button>
           <Button size="sm" asChild>
             <Link to="/onboarding">Start free trial</Link>
@@ -62,7 +66,7 @@ export function SiteHeader() {
               ))}
               <div className="mt-4 flex flex-col gap-2">
                 <Button variant="outline" asChild>
-                  <Link to="/auth">Sign in</Link>
+                  <Link to="/login">Sign in</Link>
                 </Button>
                 <Button asChild>
                   <Link to="/onboarding">Start free trial</Link>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Check, CreditCard, Repeat, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
@@ -25,7 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS, paymentHistory } from "@/lib/mock-data";
+import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS, paymentHistory as mockHistory } from "@/lib/mock-data";
+import { prettyKePhone } from "@/lib/phone";
+import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
+import {
+  fetchBillingSnapshot,
+  fetchPaymentHistory,
+  pollSubscriptionPayment,
+} from "@/lib/payments";
 
 export const Route = createFileRoute("/app/billing")({
   head: () => ({
@@ -36,25 +44,116 @@ export const Route = createFileRoute("/app/billing")({
         content:
           "Manage your KES 3,000 monthly InuaBiz subscription, pay by M-Pesa STK push and review every past invoice.",
       },
-      { property: "og:title", content: "InuaBiz subscription" },
-      { property: "og:description", content: "KES 3,000/month, billed by M-Pesa STK push." },
     ],
   }),
   component: Billing,
 });
 
-function Billing() {
-  const [open, setOpen] = useState(false);
-  const [state, setState] = useState<"idle" | "waiting" | "done">("idle");
-  const [autoDebit, setAutoDebit] = useState(false);
-  const daysLeft = 3;
+function daysBetween(fromIso: string | null, toIso: string | null): number {
+  if (!fromIso || !toIso) return TRIAL_DAYS;
+  const ms = new Date(toIso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
 
-  const pay = () => {
+function Billing() {
+  const queryClient = useQueryClient();
+  const { data: snap } = useQuery({
+    queryKey: ["billing"],
+    queryFn: fetchBillingSnapshot,
+  });
+  const { data: history = isSupabaseConfigured() ? [] : mockHistory } = useQuery({
+    queryKey: ["payment-history"],
+    queryFn: fetchPaymentHistory,
+  });
+
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [state, setState] = useState<"idle" | "waiting" | "done" | "failed">("idle");
+  const [busy, setBusy] = useState(false);
+
+  const amount = snap?.amount ?? SUBSCRIPTION_PRICE;
+  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil);
+  const used = Math.min(TRIAL_DAYS, TRIAL_DAYS - daysLeft);
+  const statusLabel =
+    snap?.status === "ACTIVE"
+      ? "Active"
+      : snap?.status === "PAST_DUE"
+        ? "Past due"
+        : `Trial · ${daysLeft} days left`;
+
+  const rows = useMemo(
+    () =>
+      history.length || isSupabaseConfigured()
+        ? history
+        : mockHistory.map((p) => ({
+            id: p.id,
+            invoice: p.invoice,
+            date: p.date,
+            amount: p.amount,
+            channel: p.channel,
+            status: p.status,
+          })),
+    [history],
+  );
+
+  const pay = async () => {
+    setBusy(true);
     setState("waiting");
-    setTimeout(() => {
+    const { data, error } = await invokeFunction<{
+      ok?: boolean;
+      checkout_request_id?: string;
+      transaction?: { invoice_id?: string };
+      message?: string;
+    }>("create-subscription-charge", { phone: phone || snap?.phone });
+    if (error || !data?.ok) {
+      setState("failed");
+      setBusy(false);
+      toast.error("STK failed", { description: error ?? "Could not send the M-Pesa prompt." });
+      return;
+    }
+    const invoiceId = data.transaction?.invoice_id ?? data.checkout_request_id;
+    if (!invoiceId) {
+      setState("done");
+      setBusy(false);
+      toast.success("Prompt sent", { description: data.message });
+      return;
+    }
+    const result = await pollSubscriptionPayment(invoiceId);
+    setBusy(false);
+    if (result === "COMPLETE") {
       setState("done");
       toast.success("Subscription active", { description: "Access extended by 30 days." });
-    }, 2200);
+      void queryClient.invalidateQueries({ queryKey: ["billing"] });
+      void queryClient.invalidateQueries({ queryKey: ["payment-history"] });
+    } else if (result === "FAILED") {
+      setState("failed");
+      toast.error("Payment failed", { description: "PIN cancelled or timed out. Try again." });
+    } else {
+      setState("waiting");
+      toast.info("Still waiting", {
+        description: "Enter PIN on the phone. This page will update when Daraja confirms.",
+      });
+    }
+  };
+
+  const toggleRatiba = async (enabled: boolean) => {
+    if (!enabled) {
+      toast.info("Auto-debit stays on until the standing order is cancelled in M-Pesa.");
+      return;
+    }
+    const { data, error } = await invokeFunction<{
+      ok?: boolean;
+      message?: string;
+      already_enabled?: boolean;
+    }>("create-ratiba-standing-order", { phone: phone || snap?.phone });
+    if (error || !data?.ok) {
+      toast.error("Ratiba opt-in failed", { description: error ?? "Safaricom rejected the request." });
+      return;
+    }
+    toast.success(data.already_enabled ? "Auto-debit already active" : "Check your phone", {
+      description: data.message ?? "Enter PIN to authorise the monthly standing order.",
+    });
+    void queryClient.invalidateQueries({ queryKey: ["billing"] });
   };
 
   return (
@@ -71,12 +170,12 @@ function Billing() {
                 <h2 className="text-primary-foreground mt-1 text-2xl font-bold">InuaBiz Complete</h2>
               </div>
               <Badge className="bg-gold text-gold-foreground border-transparent hover:bg-gold">
-                Trial · {daysLeft} days left
+                {statusLabel}
               </Badge>
             </div>
 
             <p className="text-primary-foreground mt-6 font-display text-4xl font-bold">
-              {KES(SUBSCRIPTION_PRICE)}
+              {KES(amount)}
               <span className="text-primary-foreground/60 text-base font-medium"> /month</span>
             </p>
 
@@ -84,10 +183,10 @@ function Billing() {
               <div className="text-primary-foreground/70 flex justify-between text-xs">
                 <span>Trial progress</span>
                 <span>
-                  {TRIAL_DAYS - daysLeft} of {TRIAL_DAYS} days used
+                  {used} of {TRIAL_DAYS} days used
                 </span>
               </div>
-              <Progress value={((TRIAL_DAYS - daysLeft) / TRIAL_DAYS) * 100} className="mt-2 h-1.5" />
+              <Progress value={(used / TRIAL_DAYS) * 100} className="mt-2 h-1.5" />
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -96,17 +195,20 @@ function Billing() {
                 size="lg"
                 onClick={() => {
                   setState("idle");
+                  setPhone(snap?.phone ? prettyKePhone(snap.phone) : "");
                   setOpen(true);
                 }}
               >
-                <Smartphone className="mr-2 size-4" /> Pay {KES(SUBSCRIPTION_PRICE)} by M-Pesa
+                <Smartphone className="mr-2 size-4" /> Pay {KES(amount)} by M-Pesa
               </Button>
               <Button
                 variant="outline"
                 size="lg"
                 className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
                 onClick={() =>
-                  toast.info("Card payment", { description: "Card checkout via IntaSend." })
+                  toast.info("Card payment", {
+                    description: "Card checkout is IntaSend. Daraja STK is the live rail.",
+                  })
                 }
               >
                 <CreditCard className="mr-2 size-4" /> Pay by card
@@ -121,7 +223,7 @@ function Billing() {
               <Repeat className="text-primary size-4" /> Auto-debit (M-Pesa Ratiba)
             </p>
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-              Authorise a monthly standing order once and renewals happen without any prompt. Up to 3
+              Authorise a monthly standing order once. Renewals happen without a new prompt. Up to 3
               automatic retries over 72 hours if funds are short.
             </p>
             <div className="mt-4 flex items-center justify-between">
@@ -130,25 +232,33 @@ function Billing() {
               </Label>
               <Switch
                 id="ratiba"
-                checked={autoDebit}
-                onCheckedChange={(v) => {
-                  setAutoDebit(v);
-                  toast.info(v ? "Ratiba opt-in prompt sent" : "Auto-debit disabled");
-                }}
+                checked={Boolean(snap?.autoDebit)}
+                onCheckedChange={(v) => void toggleRatiba(v)}
               />
             </div>
-            <Badge variant="outline" className="mt-3">
-              Phase 2 feature
-            </Badge>
+            {snap?.autoDebit && (
+              <Badge variant="secondary" className="mt-3">
+                Standing order active
+              </Badge>
+            )}
           </div>
 
           <div className="surface-card p-5">
             <p className="inline-flex items-center gap-2 font-semibold">
               <CalendarClock className="text-primary size-4" /> Next billing date
             </p>
-            <p className="mt-2 font-display text-xl font-bold">19 Aug 2026</p>
+            <p className="mt-2 font-display text-xl font-bold">
+              {snap?.nextBillingDate
+                ? new Date(snap.nextBillingDate).toLocaleDateString("en-KE", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "—"}
+            </p>
             <p className="text-muted-foreground mt-1 text-sm">
-              STK prompt will be sent to 0722 431 002.
+              STK / Ratiba will be sent to{" "}
+              {snap?.phone ? prettyKePhone(snap.phone) : "your registered line"}.
             </p>
           </div>
         </div>
@@ -168,7 +278,7 @@ function Billing() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paymentHistory.map((p) => (
+              {rows.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.invoice}</TableCell>
                   <TableCell className="text-muted-foreground">{p.date}</TableCell>
@@ -191,7 +301,7 @@ function Billing() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Pay {KES(SUBSCRIPTION_PRICE)} subscription</DialogTitle>
+            <DialogTitle>Pay {KES(amount)} subscription</DialogTitle>
             <DialogDescription>
               An M-Pesa prompt will appear on your phone. Enter your PIN to renew for 30 days.
             </DialogDescription>
@@ -200,7 +310,7 @@ function Billing() {
           {state === "idle" && (
             <div className="space-y-2">
               <Label htmlFor="mp">M-Pesa number</Label>
-              <Input id="mp" defaultValue="0722 431 002" />
+              <Input id="mp" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           )}
 
@@ -211,7 +321,7 @@ function Billing() {
               </span>
               <p className="mt-4 text-sm font-medium">Check your phone</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                "Pay KES 3,000 to InuaBiz Services?"
+                Pay {KES(amount)} to InuaBiz. Waiting for Daraja confirmation…
               </p>
             </div>
           )}
@@ -222,13 +332,17 @@ function Billing() {
                 <Check className="size-7" />
               </span>
               <p className="mt-4 text-sm font-medium">Subscription active</p>
-              <p className="text-muted-foreground mt-1 text-xs">Next billing 16 Sep 2026.</p>
+              <p className="text-muted-foreground mt-1 text-xs">Access extended by 30 days.</p>
             </div>
           )}
 
+          {state === "failed" && (
+            <p className="text-destructive text-sm">Payment did not complete. Try again.</p>
+          )}
+
           <DialogFooter>
-            {state === "idle" && (
-              <Button className="w-full" onClick={pay}>
+            {(state === "idle" || state === "failed") && (
+              <Button className="w-full" disabled={busy} onClick={() => void pay()}>
                 Send STK prompt
               </Button>
             )}

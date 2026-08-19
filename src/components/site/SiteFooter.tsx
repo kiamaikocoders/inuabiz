@@ -18,6 +18,16 @@ export function SiteFooter() {
           <h3 className="text-sm font-semibold">Product</h3>
           <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
             <li>
+              <Link to="/karibu" className="hover:text-foreground">
+                Karibu
+              </Link>
+            </li>
+            <li>
+              <Link to="/for-dukas" className="hover:text-foreground">
+                For dukas
+              </Link>
+            </li>
+            <li>
               <Link to="/features" className="hover:text-foreground">
                 Features
               </Link>
@@ -54,7 +64,7 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link to="/auth" className="hover:text-foreground">
+              <Link to="/login" className="hover:text-foreground">
                 Sign in
               </Link>
             </li>

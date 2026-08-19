@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShieldAlert } from "lucide-react";
+import { Banknote, CircleCheck, Percent, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
 import { StatCard } from "@/components/app/StatCard";
@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { KES, tenants, unclaimedPayments } from "@/lib/mock-data";
+import { suggestUnclaimedMatches } from "@/lib/admin-ai";
 
 export const Route = createFileRoute("/admin/unclaimed")({
   head: () => ({
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/admin/unclaimed")({
 function Unclaimed() {
   const [queue, setQueue] = useState(unclaimedPayments);
   const [assign, setAssign] = useState<Record<string, string>>({});
+  const [matching, setMatching] = useState(false);
 
   const total = queue.reduce((s, p) => s + p.amount, 0);
 
@@ -49,12 +51,61 @@ function Unclaimed() {
     <AdminShell
       title="Unclaimed payments"
       description="Webhooks whose api_ref failed to match a tenant"
+      actions={
+        <div className="hidden gap-2 sm:flex">
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-[10px]"
+            disabled={matching}
+            onClick={() => {
+              setMatching(true);
+              void suggestUnclaimedMatches()
+                .then((matches) => {
+                  const next: Record<string, string> = {};
+                  for (const m of matches) next[m.paymentId] = m.tenantId;
+                  setAssign((prev) => ({ ...prev, ...next }));
+                  toast.success("AI matches filled", {
+                    description: "Review confidence, then assign.",
+                  });
+                })
+                .catch((err: unknown) =>
+                  toast.error("Match failed", {
+                    description: err instanceof Error ? err.message : "Try again",
+                  }),
+                )
+                .finally(() => setMatching(false));
+            }}
+          >
+            <Sparkles className="size-3.5" /> {matching ? "Matching…" : "AI match"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ink"
+            className="rounded-[10px]"
+            onClick={() => {
+              setQueue(unclaimedPayments);
+              setAssign({});
+              toast.success("Queue refreshed");
+            }}
+          >
+            <RefreshCw className="size-3.5" /> Refresh queue
+          </Button>
+        </div>
+      }
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="In queue" value={String(queue.length)} icon={ShieldAlert} tone="danger" />
-        <StatCard label="Value held" value={KES(total)} tone="gold" />
-        <StatCard label="Resolved this month" value="7" delta={-30} hint="fewer than last month" />
-        <StatCard label="Auto-match rate" value="98.4%" delta={1} />
+        <StatCard label="Value held" value={KES(total)} icon={Banknote} tone="gold" />
+        <StatCard
+          label="Resolved this month"
+          value="7"
+          delta={-30}
+          hint="fewer than last month"
+          icon={CircleCheck}
+          tone="success"
+        />
+        <StatCard label="Auto-match rate" value="98.4%" delta={1} icon={Percent} tone="teal" />
       </div>
 
       <div className="mt-4 rounded-xl border border-border bg-muted p-4">

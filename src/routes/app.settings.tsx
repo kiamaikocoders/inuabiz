@@ -1,13 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { MapPin, Save } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { RoleBadge, SettingsCard } from "@/components/app/SettingsCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -15,7 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DEMO_VENDOR,
+  initials,
+  isVendorOwner,
+  persistIdentity,
+  roleLabel,
+  useIdentity,
+} from "@/lib/identity";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -33,138 +41,253 @@ export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
 });
 
+const STAFF = [
+  { name: "Mama Njoroge", role: "Owner", phone: "0722 431 002" },
+  { name: "Kevin M.", role: "Attendant", phone: "0711 220 118" },
+  { name: "Faith A.", role: "Attendant", phone: "0745 991 002" },
+];
+
 function SettingsPage() {
+  const identity = useIdentity("vendor");
+  const owner = isVendorOwner(identity.role);
   const save = () => toast.success("Settings saved", { description: "Front-end demo only for now." });
 
-  return (
-    <AppShell title="Settings" description="Business profile, payments and staff">
-      <Tabs defaultValue="business" className="max-w-3xl">
-        <TabsList>
-          <TabsTrigger value="business">Business</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="staff">Staff</TabsTrigger>
-          <TabsTrigger value="receipts">Receipts</TabsTrigger>
-        </TabsList>
+  const previewAttendant = () => {
+    persistIdentity("vendor", {
+      role: "ATTENDANT",
+      fullName: "Kevin M.",
+      phone: "0711 220 118",
+    });
+    toast.message("Attendant view", { description: "Shop, till and staff are locked." });
+  };
 
-        <TabsContent value="business" className="mt-4">
-          <div className="surface-card space-y-5 p-6">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="bn">Business name</Label>
-                <Input id="bn" defaultValue="Njoroge Mini Mart" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cat">Category</Label>
-                <Select defaultValue="duka">
-                  <SelectTrigger id="cat">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="duka">Duka</SelectItem>
-                    <SelectItem value="boutique">Boutique</SelectItem>
-                    <SelectItem value="chemist">Chemist</SelectItem>
-                    <SelectItem value="hardware">Hardware</SelectItem>
-                    <SelectItem value="eatery">Eatery</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ph">Owner phone</Label>
-                <Input id="ph" defaultValue="0722 431 002" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="em">Email (for receipts)</Label>
-                <Input id="em" type="email" defaultValue="njoroge@example.com" />
-              </div>
+  const restoreOwner = () => {
+    persistIdentity("vendor", {
+      role: DEMO_VENDOR.role,
+      fullName: DEMO_VENDOR.fullName,
+      phone: DEMO_VENDOR.phone,
+    });
+    toast.success("Owner view restored");
+  };
+
+  return (
+    <AppShell
+      title="Settings"
+      description="Business profile, payments and staff"
+      actions={
+        <div className="hidden items-center gap-2 sm:flex">
+          <RoleBadge>{roleLabel(identity.role)}</RoleBadge>
+          {owner ? (
+            <Button size="sm" variant="outline" onClick={previewAttendant}>
+              Preview attendant
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={restoreOwner}>
+              Back to owner
+            </Button>
+          )}
+        </div>
+      }
+    >
+      <p className="text-muted-foreground mb-4 max-w-3xl text-sm">
+        These are shop settings.{" "}
+        <Link to="/app/profile" className="text-primary font-medium underline-offset-4 hover:underline">
+          Edit your personal profile
+        </Link>
+        .
+      </p>
+
+      <div className="grid max-w-5xl gap-5">
+        <SettingsCard
+          title="Business Profile"
+          description={
+            owner
+              ? "Manage your shop's public information."
+              : "Locked. Only the owner can change shop details."
+          }
+          locked={!owner}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="bn" className="text-muted-foreground text-xs">
+                Shop Name
+              </Label>
+              <Input id="bn" defaultValue="Njoroge Mini Mart" disabled={!owner} />
             </div>
-            <Separator />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <Label>Store location</Label>
-                <p className="text-muted-foreground text-sm">
-                  Pinned at -1.2864, 36.8172 · Kasarani
-                </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="cat" className="text-muted-foreground text-xs">
+                Business Category
+              </Label>
+              <Select defaultValue="duka" disabled={!owner}>
+                <SelectTrigger id="cat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="duka">Duka</SelectItem>
+                  <SelectItem value="boutique">Boutique</SelectItem>
+                  <SelectItem value="chemist">Chemist</SelectItem>
+                  <SelectItem value="hardware">Hardware</SelectItem>
+                  <SelectItem value="eatery">Eatery</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="loc" className="text-muted-foreground text-xs">
+                Location
+              </Label>
+              <Input id="loc" defaultValue="Kasarani, Nairobi" disabled={!owner} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ph" className="text-muted-foreground text-xs">
+                Contact Phone
+              </Label>
+              <Input id="ph" defaultValue="0722 431 002" disabled={!owner} />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={save} disabled={!owner}>
+              {owner ? "Save changes" : "Owner only"}
+            </Button>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title="Payment Settings"
+          description={
+            owner
+              ? "Money from sales lands in these channels. All of them reconcile automatically."
+              : "Locked. Till and Paybill are owner-only."
+          }
+          locked={!owner}
+        >
+          <div className="bg-muted/60 space-y-4 rounded-xl px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="bg-primary grid size-7 place-items-center rounded-lg">
+                  <Smartphone className="text-primary-foreground size-3.5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">M-Pesa Integration</p>
+                  <p className="text-primary text-xs">Status: Connected</p>
+                </div>
               </div>
-              <Button variant="outline" onClick={() => toast.success("Location updated")}>
-                <MapPin className="mr-2 size-4" /> Re-detect
+              <Button variant="outline" size="sm" disabled={!owner}>
+                {owner ? "Disconnect" : "Owner only"}
               </Button>
             </div>
-            <Button onClick={save}>
-              <Save className="mr-2 size-4" /> Save changes
-            </Button>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="payments" className="mt-4">
-          <div className="surface-card space-y-5 p-6">
-            <div>
-              <h2 className="font-semibold">Payment destinations</h2>
-              <p className="text-muted-foreground text-sm">
-                Money from sales lands in these channels. All of them reconcile automatically.
-              </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="till" className="text-muted-foreground text-xs">
+                  Buy Goods Till
+                </Label>
+                <Input id="till" defaultValue="889 201" disabled={!owner} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mpesa" className="text-muted-foreground text-xs">
+                  Personal M-Pesa
+                </Label>
+                <Input id="mpesa" defaultValue="0722 431 002" disabled={!owner} />
+              </div>
             </div>
-            {[
-              { label: "Personal M-Pesa", value: "0722 431 002", active: true },
-              { label: "Buy Goods Till", value: "889 201", active: true },
-              { label: "Paybill", value: "Not configured", active: false },
-              { label: "Pochi la Biashara", value: "Not configured", active: false },
-            ].map((c) => (
-              <div
-                key={c.label}
-                className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{c.label}</p>
-                  <p className="text-muted-foreground text-sm">{c.value}</p>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard
+          title="Staff Management"
+          description={
+            owner
+              ? "Attendants can sell but cannot see margins, insights or settings."
+              : "Locked. You cannot invite staff or change roles."
+          }
+          locked={!owner}
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-primary text-primary"
+              disabled={!owner}
+              onClick={() => toast.info("Invite staff by phone number")}
+            >
+              {owner ? "+ Invite an attendant" : "Owner only"}
+            </Button>
+          }
+        >
+          <ul className="divide-y divide-border">
+            {STAFF.map((s) => (
+              <li key={s.name} className="flex items-center justify-between gap-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "grid size-8 place-items-center rounded-full text-[11px] font-bold",
+                      s.role === "Owner"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {initials(s.name)}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">{s.name}</p>
+                    <p className="text-muted-foreground text-xs">{s.phone}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Badge variant={c.active ? "secondary" : "outline"}>
-                    {c.active ? "Active" : "Off"}
-                  </Badge>
-                  <Switch defaultChecked={c.active} />
+                  {s.role === "Owner" ? (
+                    <Badge>{s.role}</Badge>
+                  ) : (
+                    <Badge variant="outline">{s.role}</Badge>
+                  )}
+                  {owner ? (
+                    <button
+                      type="button"
+                      className="text-primary text-xs font-medium"
+                      onClick={() => toast.info(`Edit ${s.name}`)}
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
                 </div>
-              </div>
+              </li>
             ))}
-            <Button onClick={save}>
-              <Save className="mr-2 size-4" /> Save payment settings
+          </ul>
+        </SettingsCard>
+
+        <SettingsCard title="Security" description="Secure the till and this handset.">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold">Change PIN</p>
+              <p className="text-muted-foreground text-xs">Update your 4-digit access PIN</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.info("PIN update", { description: "Demo only — PIN is not stored." })}
+            >
+              Update
             </Button>
           </div>
-        </TabsContent>
-
-        <TabsContent value="staff" className="mt-4">
-          <div className="surface-card space-y-4 p-6">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-semibold">Staff access</h2>
-              <p className="text-muted-foreground text-sm">
-                Attendants can sell but cannot see margins, insights or settings.
+              <p className="text-sm font-semibold">Biometric unlock</p>
+              <p className="text-muted-foreground text-xs">
+                Use fingerprint or Face ID on this handset
               </p>
             </div>
-            {[
-              { name: "Mama Njoroge", role: "Owner", phone: "0722 431 002" },
-              { name: "Kevin M.", role: "Attendant", phone: "0711 220 118" },
-              { name: "Faith A.", role: "Attendant", phone: "0745 991 002" },
-            ].map((s) => (
-              <div
-                key={s.name}
-                className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{s.name}</p>
-                  <p className="text-muted-foreground text-sm">{s.phone}</p>
-                </div>
-                <Badge variant={s.role === "Owner" ? "default" : "outline"}>{s.role}</Badge>
-              </div>
-            ))}
-            <Button variant="outline" onClick={() => toast.info("Invite staff by phone number")}>
-              Invite an attendant
-            </Button>
+            <Switch defaultChecked />
           </div>
-        </TabsContent>
+        </SettingsCard>
 
-        <TabsContent value="receipts" className="mt-4">
-          <div className="surface-card space-y-5 p-6">
-            <div className="space-y-2">
-              <Label htmlFor="rf">Receipt footer message</Label>
+        {owner && (
+          <SettingsCard
+            title="Receipts"
+            description="Footer copy and how digital receipts leave the till."
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="rf" className="text-muted-foreground text-xs">
+                Receipt footer message
+              </Label>
               <Input id="rf" defaultValue="Asante sana! Karibu tena." />
             </div>
             {[
@@ -174,18 +297,18 @@ function SettingsPage() {
             ].map(([l, h, on]) => (
               <div key={l as string} className="flex items-start justify-between gap-4">
                 <div>
-                  <Label className="text-sm">{l as string}</Label>
+                  <p className="text-sm font-semibold">{l as string}</p>
                   <p className="text-muted-foreground text-xs">{h as string}</p>
                 </div>
                 <Switch defaultChecked={on as boolean} />
               </div>
             ))}
-            <Button onClick={save}>
-              <Save className="mr-2 size-4" /> Save receipt settings
-            </Button>
-          </div>
-        </TabsContent>
-      </Tabs>
+            <div className="flex justify-end">
+              <Button onClick={save}>Save receipt settings</Button>
+            </div>
+          </SettingsCard>
+        )}
+      </div>
     </AppShell>
   );
 }

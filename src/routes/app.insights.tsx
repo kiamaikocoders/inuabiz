@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -15,7 +16,9 @@ import { StatCard } from "@/components/app/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { KES, cashflowForecast, insights, products } from "@/lib/mock-data";
+import { KES, cashflowForecast, insights as mockInsights, products } from "@/lib/mock-data";
+import { generateLiveInsights } from "@/lib/ai";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/insights")({
   head: () => ({
@@ -38,20 +41,40 @@ export const Route = createFileRoute("/app/insights")({
 
 function Insights() {
   const topSellers = [...products].sort((a, b) => b.price - a.price).slice(0, 5);
+  const [cards, setCards] = useState(mockInsights);
+  const [model, setModel] = useState("demo");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = () => {
+    setBusy(true);
+    void generateLiveInsights()
+      .then((res) => {
+        setCards(res.items);
+        setModel(res.model);
+        toast.success("Insights refreshed", {
+          description:
+            res.source === "supabase"
+              ? "From generate-ai-insights"
+              : res.source === "gateway"
+                ? "From WYA AI gateway (Gemini)"
+                : "Demo heuristics — sign in for live data",
+        });
+      })
+      .catch((err: unknown) =>
+        toast.error("Could not refresh insights", {
+          description: err instanceof Error ? err.message : "Try again",
+        }),
+      )
+      .finally(() => setBusy(false));
+  };
 
   return (
     <AppShell
       title="AI insights"
       description="What your numbers are trying to tell you"
       actions={
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            toast.success("Insights refreshed", { description: "Recomputed from the last 90 days." })
-          }
-        >
-          <RefreshCw className="mr-2 size-4" /> Refresh
+        <Button size="sm" variant="outline" onClick={refresh} disabled={busy}>
+          <RefreshCw className={cn("mr-2 size-4", busy && "animate-spin")} /> Refresh
         </Button>
       }
     >
@@ -68,9 +91,9 @@ function Insights() {
             <h2 className="font-semibold">Cash-flow forecast</h2>
             <p className="text-muted-foreground text-xs">Actual vs projected weekly revenue</p>
           </div>
-          <Badge variant="secondary">
-            <Sparkles className="mr-1 size-3" /> Model v2
-          </Badge>
+            <Badge variant="secondary">
+              <Sparkles className="mr-1 size-3" /> {model}
+            </Badge>
         </div>
         <div className="mt-5 h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -109,7 +132,7 @@ function Insights() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          {insights.map((i) => (
+          {cards.map((i) => (
             <div key={i.id} className="surface-card p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>

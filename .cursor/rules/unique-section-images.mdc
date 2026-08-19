@@ -1,0 +1,13 @@
+---
+description: Never reuse the same photograph across Figma or marketing sections
+alwaysApply: true
+---
+
+# Unique images per section
+
+Do not reuse one generated or stock photograph across multiple marketing sections, pages, or device mockups.
+
+- Every distinct section (hero, features split, Karibu, For dukas, How it works, Contact, phone inset, stockroom, etc.) must have its **own** image, generated or sourced for that scene.
+- Do not clone an ellipse that already has an image fill and keep the same `imageHash` on another page.
+- Kenyan till/duka scenes must still be specific: different people, time of day, shop type, or crop — not the same duka interior repeated.
+- Never fake official M-PESA or Safaricom wordmarks inside photos.

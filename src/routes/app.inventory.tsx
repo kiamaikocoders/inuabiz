@@ -1,22 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Package, Plus, ScanBarcode, Search, TriangleAlert } from "lucide-react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { CircleSlash, Package, Plus, Search, TriangleAlert } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { StatCard } from "@/components/app/StatCard";
+import { StatusEmpty } from "@/components/status/StatusPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -25,7 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, products } from "@/lib/mock-data";
+import { KES, products as mockProducts } from "@/lib/mock-data";
+import { fetchProducts } from "@/lib/data";
 
 export const Route = createFileRoute("/app/inventory")({
   head: () => ({
@@ -45,7 +37,10 @@ export const Route = createFileRoute("/app/inventory")({
 
 function Inventory() {
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
+  const { data: products = mockProducts } = useQuery({
+    queryKey: ["products"],
+    queryFn: fetchProducts,
+  });
 
   const rows = products.filter(
     (p) =>
@@ -62,61 +57,11 @@ function Inventory() {
       title="Inventory"
       description="Stock levels, reorder points and margins"
       actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="mr-1 size-4" /> Add product
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add a product</DialogTitle>
-              <DialogDescription>
-                Scan a barcode or type the details. Set a reorder level to get low-stock alerts.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4">
-              <Button variant="outline" className="justify-start">
-                <ScanBarcode className="mr-2 size-4" /> Scan barcode with camera
-              </Button>
-              <div className="space-y-2">
-                <Label htmlFor="pn">Product name</Label>
-                <Input id="pn" placeholder="Unga Pembe 2kg" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pc">Cost price</Label>
-                  <Input id="pc" type="number" placeholder="155" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pp">Selling price</Label>
-                  <Input id="pp" type="number" placeholder="195" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ps">Opening stock</Label>
-                  <Input id="ps" type="number" placeholder="24" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pr">Reorder level</Label>
-                  <Input id="pr" type="number" placeholder="10" />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  setOpen(false);
-                  toast.success("Product saved", { description: "Front-end demo only for now." });
-                }}
-              >
-                Save product
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" asChild>
+          <Link to="/app/inventory/new">
+            <Plus className="mr-1 size-4" /> Add product
+          </Link>
+        </Button>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -159,46 +104,63 @@ function Inventory() {
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Margin</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((p) => {
-                const margin = ((p.price - p.cost) / p.price) * 100;
-                const low = p.stock <= p.reorderLevel;
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">
-                      {p.emoji} {p.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{p.sku}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{p.category}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{KES(p.cost)}</TableCell>
-                    <TableCell className="text-right font-semibold">{KES(p.price)}</TableCell>
-                    <TableCell className="text-right">{margin.toFixed(0)}%</TableCell>
-                    <TableCell className="text-right">{p.stock}</TableCell>
-                    <TableCell>
-                      <Badge variant={low ? "destructive" : "secondary"}>
-                        {low ? "Reorder" : "Healthy"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {rows.length === 0 ? (
+            <StatusEmpty
+              icon={CircleSlash}
+              title="No results match"
+              description="Try a different search, or clear filters and browse inventory for this duka."
+              primary={{ label: "Clear filters", onClick: () => setQ("") }}
+              secondary={{ label: "Add product", to: "/app/inventory/new" }}
+              meta="0 results"
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Margin</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((p) => {
+                  const margin = ((p.price - p.cost) / p.price) * 100;
+                  const low = p.stock <= p.reorderLevel;
+                  return (
+                    <TableRow key={p.id} className="cursor-pointer">
+                      <TableCell className="font-medium">
+                        <Link
+                          to="/app/inventory/$productId"
+                          params={{ productId: p.id }}
+                          className="hover:underline"
+                        >
+                          {p.emoji} {p.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{p.sku}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{p.category}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{KES(p.cost)}</TableCell>
+                      <TableCell className="text-right font-semibold">{KES(p.price)}</TableCell>
+                      <TableCell className="text-right">{margin.toFixed(0)}%</TableCell>
+                      <TableCell className="text-right">{p.stock}</TableCell>
+                      <TableCell>
+                        <Badge variant={low ? "destructive" : "secondary"}>
+                          {low ? "Reorder" : "Healthy"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     </AppShell>
