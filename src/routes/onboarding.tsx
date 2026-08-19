@@ -292,22 +292,38 @@ function Onboarding() {
                   <Label htmlFor="ph">Mobile number</Label>
                   <Input
                     id="ph"
+                    inputMode="tel"
+                    aria-invalid={Boolean(errors["phone"])}
                     placeholder="0712 345 678"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      setError("phone");
+                    }}
                   />
+                  <FieldError message={errors["phone"]} />
                 </div>
                 <div className="space-y-2">
                   <Label>SMS code</Label>
-                  <InputOTP maxLength={4} value={otp} onChange={setOtp}>
+                  <InputOTP
+                    maxLength={4}
+                    value={otp}
+                    onChange={(v) => {
+                      setOtp(v);
+                      setError("otp");
+                    }}
+                  >
                     <InputOTPGroup className="gap-3">
                       {[0, 1, 2, 3].map((i) => (
                         <InputOTPSlot key={i} index={i} className="size-12 rounded-xl border" />
                       ))}
                     </InputOTPGroup>
                   </InputOTP>
+                  <FieldError message={errors["otp"]} />
                   <p className="text-muted-foreground text-xs">
-                    Demo mode — enter any four digits.
+                    {otpSent
+                      ? "Demo mode — enter any four digits."
+                      : "Tap Send code and we'll SMS a four-digit code."}
                   </p>
                 </div>
               </div>
@@ -325,10 +341,16 @@ function Onboarding() {
                   <Label htmlFor="bn">Business name</Label>
                   <Input
                     id="bn"
+                    aria-invalid={Boolean(errors["business"])}
                     placeholder="Njoroge Mini Mart"
                     value={business}
-                    onChange={(e) => setBusiness(e.target.value)}
+                    maxLength={60}
+                    onChange={(e) => {
+                      setBusiness(e.target.value);
+                      setError("business");
+                    }}
                   />
+                  <FieldError message={errors["business"]} />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
@@ -362,6 +384,7 @@ function Onboarding() {
                           (pos) => {
                             setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                             setLocated(true);
+                            setError("location");
                             toast.success("Location pinned", {
                               description: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
                             });
@@ -369,6 +392,7 @@ function Onboarding() {
                           () => {
                             setCoords({ lat: -1.2864, lng: 36.8172 });
                             setLocated(true);
+                            setError("location");
                             toast.success("Location pinned", {
                               description: "Fallback pin near Nairobi CBD.",
                             });
@@ -384,8 +408,11 @@ function Onboarding() {
                     }}
                   >
                     <MapPin className="mr-2 size-4" />
-                    {located ? "Location pinned · -1.2864, 36.8172" : "Detect my location"}
+                    {located && coords
+                      ? `Location pinned · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
+                      : "Detect my location"}
                   </Button>
+                  <FieldError message={errors["location"]} />
                 </div>
               </div>
             </div>
@@ -397,7 +424,12 @@ function Onboarding() {
               <p className="text-muted-foreground mt-2 text-sm">
                 Pick whatever you already use today. You can add more channels later.
               </p>
-              <RadioGroup value={payType} onValueChange={setPayType} className="mt-7 space-y-3">
+              <RadioGroup
+                value={payType}
+                onValueChange={(v) => {
+                  setPayType(v);
+                  setError("payValue");
+                }} className="mt-7 space-y-3">
                 {payTypes.map((p) => (
                   <label
                     key={p.id}
@@ -541,7 +573,7 @@ function Onboarding() {
   );
 }
 
-function FieldError({ message }: { message?: string }) {
+function FieldError({ message }: { message?: string | undefined }) {
   if (!message) return null;
   return (
     <p className="text-destructive flex items-center gap-1.5 text-xs font-medium">
