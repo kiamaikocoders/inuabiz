@@ -417,15 +417,26 @@ function Onboarding() {
               </RadioGroup>
               <div className="mt-5 space-y-2">
                 <Label htmlFor="pv">
-                  {payType === "personal" ? "M-Pesa number" : payType === "till" ? "Till number" : "Paybill number"}
+                  {payType === "personal"
+                    ? "M-Pesa number"
+                    : payType === "till"
+                      ? "Till number"
+                      : "Paybill number"}
                 </Label>
                 <Input
                   id="pv"
+                  inputMode="numeric"
+                  aria-invalid={Boolean(errors["payValue"])}
                   placeholder={payType === "personal" ? "0712 345 678" : "123456"}
                   value={payValue}
-                  onChange={(e) => setPayValue(e.target.value)}
+                  onChange={(e) => {
+                    setPayValue(e.target.value);
+                    setError("payValue");
+                  }}
                 />
+                <FieldError message={errors["payValue"]} />
               </div>
+
             </div>
           )}
 
