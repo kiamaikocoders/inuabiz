@@ -72,7 +72,7 @@ function Billing() {
   const [busy, setBusy] = useState(false);
 
   const amount = snap?.amount ?? SUBSCRIPTION_PRICE;
-  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil);
+  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil ?? null);
   const used = Math.min(TRIAL_DAYS, TRIAL_DAYS - daysLeft);
   const statusLabel =
     snap?.status === "ACTIVE"
