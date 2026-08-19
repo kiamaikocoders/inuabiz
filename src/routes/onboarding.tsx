@@ -1,6 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Check, MapPin, PartyPopper, Smartphone, Store, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  AlertCircle,
+  Check,
+  Loader2,
+  MapPin,
+  PartyPopper,
+  Smartphone,
+  Store,
+  Wallet,
+} from "lucide-react";
+import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +22,8 @@ import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { TRIAL_DAYS } from "@/lib/mock-data";
 import { completeOnboarding, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
+import { to254 } from "@/lib/phone";
+
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
