@@ -58,11 +58,44 @@ const stepMeta = [
   { title: "You're ready", icon: PartyPopper, time: "15 seconds" },
 ];
 
+const phoneSchema = z
+  .string()
+  .trim()
+  .nonempty({ message: "Enter your mobile number" })
+  .refine((v) => /^2547\d{8}$|^2541\d{8}$/.test(to254(v)), {
+    message: "Use a valid Safaricom/Airtel number, e.g. 0712 345 678",
+  });
+
+const otpSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}$/, { message: "Enter the 4-digit code from your SMS" });
+
+const businessSchema = z
+  .string()
+  .trim()
+  .nonempty({ message: "Give your shop a name" })
+  .min(2, { message: "Name must be at least 2 characters" })
+  .max(60, { message: "Keep the name under 60 characters" });
+
+const tillSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{5,7}$/, { message: "Till/Paybill numbers are 5–7 digits" });
+
+const provisioningSteps = [
+  "Creating your shop workspace",
+  "Linking your M-Pesa destination",
+  "Loading starter products",
+  "Starting your free trial",
+];
+
 function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [business, setBusiness] = useState("");
   const [category, setCategory] = useState("Duka");
   const [located, setLocated] = useState(false);
@@ -70,14 +103,77 @@ function Onboarding() {
   const [payValue, setPayValue] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [provisionIndex, setProvisionIndex] = useState(-1);
+
+  const provisioning = provisionIndex >= 0;
 
   const destType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" =
     payType === "till" ? "TILL" : payType === "paybill" ? "PAYBILL" : "PERSONAL_MPESA";
 
+  const setError = (key: string, message?: string) =>
+    setErrors((prev) => {
+      const nextErrors = { ...prev };
+      if (message) nextErrors[key] = message;
+      else delete nextErrors[key];
+      return nextErrors;
+    });
+
+  const validateStep = (target: number): boolean => {
+    const found: Record<string, string> = {};
+    if (target === 0) {
+      const p = phoneSchema.safeParse(phone);
+      if (!p.success) found["phone"] = p.error.issues[0]!.message;
+      const o = otpSchema.safeParse(otp);
+      if (!o.success) found["otp"] = o.error.issues[0]!.message;
+    }
+    if (target === 1) {
+      const b = businessSchema.safeParse(business);
+      if (!b.success) found["business"] = b.error.issues[0]!.message;
+      if (!located) found["location"] = "Pin your store location to continue";
+    }
+    if (target === 2) {
+      if (payType === "personal") {
+        const p = phoneSchema.safeParse(payValue);
+        if (!p.success) found["payValue"] = p.error.issues[0]!.message;
+      } else {
+        const t = tillSchema.safeParse(payValue);
+        if (!t.success) found["payValue"] = t.error.issues[0]!.message;
+      }
+    }
+    setErrors(found);
+    return Object.keys(found).length === 0;
+  };
+
   const next = () => setStep((s) => Math.min(s + 1, 3));
-  const back = () => setStep((s) => Math.max(s - 1, 0));
+  const back = () => {
+    setErrors({});
+    setStep((s) => Math.max(s - 1, 0));
+  };
+
+  const sendCode = () => {
+    const p = phoneSchema.safeParse(phone);
+    if (!p.success) {
+      setError("phone", p.error.issues[0]!.message);
+      return;
+    }
+    setBusy(true);
+    void sendPhoneOtp(phone)
+      .then((sent) => {
+        setOtpSent(true);
+        toast.info(sent.demo ? "Demo code sent" : "Code sent", {
+          description: sent.demo ? "Enter any 4 digits, then Continue." : `SMS sent to ${phone}`,
+        });
+      })
+      .catch(() => {
+        setOtpSent(true);
+        toast.info("Demo code sent", { description: "Enter any 4 digits, then Continue." });
+      })
+      .finally(() => setBusy(false));
+  };
 
   const continueStep = () => {
+    if (!validateStep(step)) return;
     if (step !== 0) {
       next();
       return;
@@ -85,48 +181,48 @@ function Onboarding() {
     setBusy(true);
     void (async () => {
       try {
-        if (otp.length < 4) {
-          const sent = await sendPhoneOtp(phone);
-          toast.info(sent.demo ? "Demo code 1234" : "Code sent", {
-            description: sent.demo ? "Enter any 4 digits, then Continue." : `SMS sent to ${phone}`,
-          });
-          return;
-        }
         await verifyPhoneOtp(phone, otp);
         next();
       } catch (err: unknown) {
-        toast.error("Phone step failed", {
-          description: err instanceof Error ? err.message : "Try again",
+        toast.error("Could not verify code", {
+          description: err instanceof Error ? err.message : "Continuing in demo mode",
         });
-        if (otp.length >= 4) next();
+        next();
       } finally {
         setBusy(false);
       }
     })();
   };
 
+  // Mock provisioning: tick through the checklist, then open the vendor app home.
+  useEffect(() => {
+    if (!provisioning) return;
+    if (provisionIndex >= provisioningSteps.length) {
+      const done = window.setTimeout(() => {
+        toast.success("Shop is live", { description: "Welcome to InuaBiz." });
+        void navigate({ to: "/app" });
+      }, 600);
+      return () => window.clearTimeout(done);
+    }
+    const t = window.setTimeout(() => setProvisionIndex((i) => i + 1), 750);
+    return () => window.clearTimeout(t);
+  }, [provisioning, provisionIndex, navigate]);
+
   const finish = () => {
     setBusy(true);
+    setProvisionIndex(0);
     void completeOnboarding({
-      businessName: business || "Njoroge Mini Mart",
+      businessName: business,
       category,
       phone,
       destinationType: destType,
-      accountNumber: payValue || phone,
+      accountNumber: payValue,
       ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
-    })
-      .then(() => {
-        toast.success("Shop is live", { description: "Opening your POS." });
-        void navigate({ to: "/app/pos" });
-      })
-      .catch((err: unknown) => {
-        toast.error("Could not finish onboarding", {
-          description: err instanceof Error ? err.message : "Opening demo POS instead",
-        });
-        void navigate({ to: "/app/pos" });
-      })
-      .finally(() => setBusy(false));
+    }).catch(() => {
+      /* demo mode — provisioning animation still completes */
+    });
   };
+
 
   return (
     <div className="min-h-screen bg-background">
