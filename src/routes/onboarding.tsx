@@ -458,16 +458,26 @@ function Onboarding() {
           )}
 
           <div className="mt-8 flex items-center justify-between gap-3">
-            <Button variant="ghost" onClick={back} disabled={step === 0}>
+            <Button variant="ghost" onClick={back} disabled={step === 0 || busy || provisioning}>
               Back
             </Button>
-            {step < 3 ? (
+            {step === 0 && !otpSent ? (
+              <Button onClick={sendCode} size="lg" disabled={busy}>
+                {busy ? "Sending…" : "Send code"}
+              </Button>
+            ) : step < 3 ? (
               <Button onClick={continueStep} size="lg" disabled={busy}>
-                {busy ? "Working…" : step === 0 && otp.length < 4 ? "Send code" : "Continue"}
+                {busy ? "Working…" : "Continue"}
               </Button>
             ) : (
-              <Button size="lg" onClick={finish} disabled={busy}>
-                {busy ? "Saving…" : "Go to my POS"}
+              <Button size="lg" onClick={finish} disabled={busy || provisioning}>
+                {provisioning ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" /> Setting up…
+                  </>
+                ) : (
+                  "Go to my dashboard"
+                )}
               </Button>
             )}
           </div>
@@ -476,3 +486,14 @@ function Onboarding() {
     </div>
   );
 }
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="text-destructive flex items-center gap-1.5 text-xs font-medium">
+      <AlertCircle className="size-3.5 shrink-0" />
+      {message}
+    </p>
+  );
+}
+
