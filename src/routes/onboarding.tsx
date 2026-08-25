@@ -1,29 +1,48 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Check,
   Loader2,
+  Mail,
   MapPin,
   PartyPopper,
+  RotateCcw,
   Smartphone,
   Store,
   Wallet,
+  WifiOff,
 } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Logo } from "@/components/brand/Logo";
+import { OnboardingHelpDialog } from "@/components/app/OnboardingHelpDialog";
 import { cn } from "@/lib/utils";
 import { TRIAL_DAYS } from "@/lib/mock-data";
 import { completeOnboarding, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
 import { to254 } from "@/lib/phone";
-
+import { useNetworkOnline } from "@/lib/network";
+import { trackExposure } from "@/lib/experiments";
+import {
+  trackConnectivity,
+  trackOnboardingAbandoned,
+  trackOnboardingCompleted,
+  trackOnboardingResumed,
+  trackOnboardingStart,
+  trackStepBack,
+  trackStepCompleted,
+  trackStepViewed,
+  trackSummaryEmail,
+  trackValidationFailed,
+} from "@/lib/analytics";
+import { clearDraft, hasMeaningfulProgress, loadDraft, saveDraft } from "@/lib/onboarding-progress";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -49,6 +68,14 @@ const payTypes = [
   { id: "personal", label: "Personal M-Pesa number", hint: "Fastest to start — no registration" },
   { id: "till", label: "Buy Goods Till number", hint: "Best for busy counters" },
   { id: "paybill", label: "Paybill number", hint: "Best for account-based payments" },
+];
+
+/** Guided A/B variant: one concrete tip per step. */
+const stepTips = [
+  "Use the number you keep on you all day — the login code and M-Pesa alerts land there.",
+  "Name your shop exactly as customers know it; it prints on every receipt.",
+  "Not sure? Start with your personal M-Pesa number — you can add a Till later.",
+  "Check the summary once, then we'll load a sample product so you can test a sale.",
 ];
 
 const stepMeta = [
@@ -105,11 +132,123 @@ function Onboarding() {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [provisionIndex, setProvisionIndex] = useState(-1);
+  const [resumed, setResumed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [variant, setVariant] = useState<"control" | "guided">("control");
+  const [wasOffline, setWasOffline] = useState(false);
+  const [emailCopy, setEmailCopy] = useState(false);
+  const [summaryEmail, setSummaryEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const { online, retry } = useNetworkOnline();
+
+
+
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const startedAtRef = useRef<number>(Date.now());
+  const stepEnteredAtRef = useRef<number>(Date.now());
+  const finishedRef = useRef(false);
+  const stepRef = useRef(0);
+  stepRef.current = step;
 
   const provisioning = provisionIndex >= 0;
 
   const destType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" =
     payType === "till" ? "TILL" : payType === "paybill" ? "PAYBILL" : "PERSONAL_MPESA";
+
+  /* -------- resume a saved draft on first paint -------- */
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft && hasMeaningfulProgress(draft)) {
+      setStep(draft.step);
+      setPhone(draft.phone);
+      setOtpSent(draft.otpSent);
+      setBusiness(draft.business);
+      setCategory(draft.category);
+      setPayType(draft.payType);
+      setPayValue(draft.payValue);
+      setCoords(draft.coords);
+      setLocated(draft.coords != null);
+      setResumed(true);
+      startedAtRef.current = draft.startedAt;
+      trackOnboardingResumed(draft.step);
+      trackStepViewed(draft.step, { resumed: true });
+    } else {
+      trackOnboardingStart();
+      trackStepViewed(0, { resumed: false });
+    }
+    setVariant(trackExposure("onboarding_copy", "onboarding_flow"));
+    setHydrated(true);
+  }, []);
+
+  /* -------- connectivity: keep the draft safe across signal drops -------- */
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!online) {
+      setWasOffline(true);
+      trackConnectivity("offline", stepRef.current);
+      setAnnouncement("You are offline. Your progress is saved and you can continue when back.");
+      return;
+    }
+    if (wasOffline) {
+      trackConnectivity("online", stepRef.current);
+      setAnnouncement("Back online. You can continue where you left off.");
+      toast.success("Back online", { description: "Your onboarding progress was kept safe." });
+      setWasOffline(false);
+    }
+  }, [online, hydrated, wasOffline]);
+
+  /* -------- persist progress on every meaningful change -------- */
+  useEffect(() => {
+    if (!hydrated || finishedRef.current) return;
+    saveDraft({
+      step,
+      phone,
+      otpSent,
+      business,
+      category,
+      payType,
+      payValue,
+      coords,
+      startedAt: startedAtRef.current,
+    });
+  }, [hydrated, step, phone, otpSent, business, category, payType, payValue, coords]);
+
+  /* -------- funnel drop-off -------- */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onHide = () => {
+      if (finishedRef.current || document.visibilityState !== "hidden") return;
+      trackOnboardingAbandoned(stepRef.current, "page_hidden", Date.now() - startedAtRef.current);
+    };
+    const onUnload = () => {
+      if (finishedRef.current) return;
+      trackOnboardingAbandoned(stepRef.current, "unload", Date.now() - startedAtRef.current);
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onUnload);
+      if (!finishedRef.current) {
+        trackOnboardingAbandoned(
+          stepRef.current,
+          "navigated_away",
+          Date.now() - startedAtRef.current,
+        );
+      }
+    };
+  }, []);
+
+  /* -------- focus management + screen-reader step announcements -------- */
+  useEffect(() => {
+    if (!hydrated) return;
+    stepEnteredAtRef.current = Date.now();
+    setAnnouncement(`Step ${step + 1} of 4: ${stepMeta[step]!.title}`);
+    const t = window.setTimeout(() => headingRef.current?.focus(), 60);
+    return () => window.clearTimeout(t);
+  }, [step, hydrated]);
 
   const setError = (key: string, message?: string) =>
     setErrors((prev) => {
@@ -142,19 +281,58 @@ function Onboarding() {
       }
     }
     setErrors(found);
-    return Object.keys(found).length === 0;
+    const fields = Object.keys(found);
+    if (fields.length > 0) {
+      trackValidationFailed(target, fields);
+      window.setTimeout(() => errorSummaryRef.current?.focus(), 40);
+      return false;
+    }
+    return true;
   };
 
-  const next = () => setStep((s) => Math.min(s + 1, 3));
+  const next = () => {
+    trackStepCompleted(stepRef.current, Date.now() - stepEnteredAtRef.current);
+    setStep((s) => {
+      const target = Math.min(s + 1, 3);
+      trackStepViewed(target);
+      return target;
+    });
+  };
+
   const back = () => {
     setErrors({});
-    setStep((s) => Math.max(s - 1, 0));
+    setStep((s) => {
+      const target = Math.max(s - 1, 0);
+      if (target !== s) trackStepBack(s, target);
+      return target;
+    });
+  };
+
+  const restart = () => {
+    clearDraft();
+    setStep(0);
+    setPhone("");
+    setOtp("");
+    setOtpSent(false);
+    setBusiness("");
+    setCategory("Duka");
+    setPayType("personal");
+    setPayValue("");
+    setCoords(null);
+    setLocated(false);
+    setErrors({});
+    setResumed(false);
+    startedAtRef.current = Date.now();
+    trackOnboardingStart({ restarted: true });
+    toast.info("Started a fresh setup");
   };
 
   const sendCode = () => {
     const p = phoneSchema.safeParse(phone);
     if (!p.success) {
       setError("phone", p.error.issues[0]!.message);
+      trackValidationFailed(0, ["phone"]);
+      window.setTimeout(() => errorSummaryRef.current?.focus(), 40);
       return;
     }
     setBusy(true);
@@ -164,6 +342,7 @@ function Onboarding() {
         toast.info(sent.demo ? "Demo code sent" : "Code sent", {
           description: sent.demo ? "Enter any 4 digits, then Continue." : `SMS sent to ${phone}`,
         });
+        setAnnouncement("Verification code sent. Enter the four digit code.");
       })
       .catch(() => {
         setOtpSent(true);
@@ -208,9 +387,31 @@ function Onboarding() {
     return () => window.clearTimeout(t);
   }, [provisioning, provisionIndex, navigate]);
 
-  const finish = () => {
+  const finish = useCallback(() => {
+    if (emailCopy && !z.string().email().safeParse(summaryEmail).success) {
+      setErrors({ summaryEmail: "Enter a valid email address for your summary" });
+      trackSummaryEmail("failed", { reason: "invalid_email" });
+      window.setTimeout(() => errorSummaryRef.current?.focus(), 40);
+      return;
+    }
+    setErrors({});
     setBusy(true);
     setProvisionIndex(0);
+    trackStepCompleted(3, Date.now() - stepEnteredAtRef.current);
+    trackOnboardingCompleted(Date.now() - startedAtRef.current, {
+      category,
+      destination_type: destType,
+      located,
+      summary_email: emailCopy,
+    });
+    if (emailCopy) {
+      setEmailSent(true);
+      trackSummaryEmail("sent", { domain: summaryEmail.split("@")[1] ?? "" });
+      toast.success("Summary on the way", { description: `We'll email ${summaryEmail}.` });
+    }
+    finishedRef.current = true;
+    clearDraft();
+    setAnnouncement("Setting up your shop. This takes a few seconds.");
     void completeOnboarding({
       businessName: business,
       category,
@@ -221,8 +422,19 @@ function Onboarding() {
     }).catch(() => {
       /* demo mode — provisioning animation still completes */
     });
-  };
+  }, [
+    business,
+    category,
+    coords,
+    destType,
+    emailCopy,
+    located,
+    payValue,
+    phone,
+    summaryEmail,
+  ]);
 
+  const errorList = Object.entries(errors);
 
   return (
     <div className="min-h-screen bg-background">
@@ -238,18 +450,38 @@ function Onboarding() {
       </header>
 
       <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+        <p aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
+
+        {resumed && !provisioning && (
+          <div className="border-primary/40 bg-primary-soft mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+            <p className="text-primary text-sm font-medium">
+              We saved your progress — you're back on step {step + 1} of 4.
+            </p>
+            <Button type="button" size="sm" variant="outline" onClick={restart}>
+              <RotateCcw className="mr-1.5 size-3.5" /> Start over
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-xs font-medium">
           <span className="text-muted-foreground">
             Step {step + 1} of 4 · {stepMeta[step]!.time}
           </span>
           <span className="text-primary">{TRIAL_DAYS}-day free trial</span>
         </div>
-        <Progress value={((step + 1) / 4) * 100} className="mt-3 h-1.5" />
+        <Progress
+          value={((step + 1) / 4) * 100}
+          className="mt-3 h-1.5"
+          aria-label={`Onboarding progress: step ${step + 1} of 4`}
+        />
 
-        <div className="mt-8 hidden gap-2 sm:grid sm:grid-cols-4">
+        <ol className="mt-8 hidden gap-2 sm:grid sm:grid-cols-4">
           {stepMeta.map((s, i) => (
-            <div
+            <li
               key={s.title}
+              aria-current={i === step ? "step" : undefined}
               className={cn(
                 "rounded-xl border px-3 py-2.5",
                 i === step
@@ -276,14 +508,72 @@ function Onboarding() {
                   {s.title}
                 </span>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
+
+        {!online && (
+          <div
+            role="status"
+            className="border-warning/40 bg-warning/10 mt-6 flex flex-wrap items-center gap-3 rounded-xl border p-4"
+          >
+            <WifiOff className="text-warning size-4 shrink-0" />
+            <p className="min-w-0 flex-1 text-xs leading-relaxed">
+              <span className="font-semibold">You're offline.</span> Everything you've typed is
+              saved — keep this page open and continue as soon as the signal returns.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                trackConnectivity("retry_clicked", step);
+                void retry().then((ok) => {
+                  if (!ok) toast.error("Still offline", { description: "Your progress is safe." });
+                });
+              }}
+            >
+              <RotateCcw className="mr-1.5 size-3.5" /> Check again
+            </Button>
+          </div>
+        )}
 
         <div className="surface-card mt-6 p-6 sm:p-8">
+          {variant === "guided" && !provisioning && (
+            <p className="border-primary/30 bg-primary-soft text-primary mb-6 rounded-xl border px-4 py-3 text-xs leading-relaxed">
+              <span className="font-semibold">Tip:</span> {stepTips[step]}
+            </p>
+          )}
+          {errorList.length > 0 && (
+            <div
+              ref={errorSummaryRef}
+              tabIndex={-1}
+              role="alert"
+              aria-labelledby="onboarding-error-title"
+              className="border-destructive/40 bg-destructive/10 mb-6 rounded-xl border p-4"
+            >
+              <p
+                id="onboarding-error-title"
+                className="text-destructive flex items-center gap-2 text-sm font-semibold"
+              >
+                <AlertCircle className="size-4 shrink-0" />
+                {errorList.length === 1
+                  ? "Fix 1 field to continue"
+                  : `Fix ${errorList.length} fields to continue`}
+              </p>
+              <ul className="text-destructive mt-2 list-disc space-y-1 pl-8 text-xs">
+                {errorList.map(([key, message]) => (
+                  <li key={key}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {step === 0 && (
             <div>
-              <h1 className="text-2xl font-bold">Let's start with your number</h1>
+              <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
+                Let's start with your number
+              </h1>
+
               <p className="text-muted-foreground mt-2 text-sm">
                 This is how you'll sign in and where subscription prompts will arrive.
               </p>
@@ -294,6 +584,8 @@ function Onboarding() {
                     id="ph"
                     inputMode="tel"
                     aria-invalid={Boolean(errors["phone"])}
+                    aria-describedby={errors["phone"] ? "ph-error" : undefined}
+                    autoComplete="tel"
                     placeholder="0712 345 678"
                     value={phone}
                     onChange={(e) => {
@@ -301,11 +593,15 @@ function Onboarding() {
                       setError("phone");
                     }}
                   />
-                  <FieldError message={errors["phone"]} />
+                  <FieldError id="ph-error" message={errors["phone"]} />
                 </div>
                 <div className="space-y-2">
-                  <Label>SMS code</Label>
+                  <Label htmlFor="otp-input">SMS code</Label>
                   <InputOTP
+                    id="otp-input"
+                    aria-label="Four digit SMS verification code"
+                    aria-invalid={Boolean(errors["otp"])}
+                    aria-describedby={errors["otp"] ? "otp-error otp-hint" : "otp-hint"}
                     maxLength={4}
                     value={otp}
                     onChange={(v) => {
@@ -319,8 +615,8 @@ function Onboarding() {
                       ))}
                     </InputOTPGroup>
                   </InputOTP>
-                  <FieldError message={errors["otp"]} />
-                  <p className="text-muted-foreground text-xs">
+                  <FieldError id="otp-error" message={errors["otp"]} />
+                  <p id="otp-hint" className="text-muted-foreground text-xs">
                     {otpSent
                       ? "Demo mode — enter any four digits."
                       : "Tap Send code and we'll SMS a four-digit code."}
@@ -332,7 +628,9 @@ function Onboarding() {
 
           {step === 1 && (
             <div>
-              <h1 className="text-2xl font-bold">Tell us about your business</h1>
+              <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
+                Tell us about your business
+              </h1>
               <p className="text-muted-foreground mt-2 text-sm">
                 Your location powers the store map and regional insights. Nothing is shown publicly.
               </p>
@@ -342,6 +640,8 @@ function Onboarding() {
                   <Input
                     id="bn"
                     aria-invalid={Boolean(errors["business"])}
+                    aria-describedby={errors["business"] ? "bn-error" : undefined}
+                    autoComplete="organization"
                     placeholder="Njoroge Mini Mart"
                     value={business}
                     maxLength={60}
@@ -350,15 +650,18 @@ function Onboarding() {
                       setError("business");
                     }}
                   />
-                  <FieldError message={errors["business"]} />
+                  <FieldError id="bn-error" message={errors["business"]} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
-                  <div className="flex flex-wrap gap-2">
+                  <span id="cat-label" className="text-sm font-medium">
+                    Category
+                  </span>
+                  <div className="flex flex-wrap gap-2" role="group" aria-labelledby="cat-label">
                     {categories.map((c) => (
                       <button
                         key={c}
                         type="button"
+                        aria-pressed={category === c}
                         onClick={() => setCategory(c)}
                         className={cn(
                           "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
@@ -378,6 +681,7 @@ function Onboarding() {
                     type="button"
                     variant={located ? "secondary" : "outline"}
                     className="w-full justify-start"
+                    aria-describedby={errors["location"] ? "loc-error" : undefined}
                     onClick={() => {
                       if (typeof navigator !== "undefined" && navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(
@@ -412,7 +716,7 @@ function Onboarding() {
                       ? `Location pinned · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
                       : "Detect my location"}
                   </Button>
-                  <FieldError message={errors["location"]} />
+                  <FieldError id="loc-error" message={errors["location"]} />
                 </div>
               </div>
             </div>
@@ -420,7 +724,9 @@ function Onboarding() {
 
           {step === 2 && (
             <div>
-              <h1 className="text-2xl font-bold">Where should money land?</h1>
+              <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
+                Where should money land?
+              </h1>
               <p className="text-muted-foreground mt-2 text-sm">
                 Pick whatever you already use today. You can add more channels later.
               </p>
@@ -429,7 +735,9 @@ function Onboarding() {
                 onValueChange={(v) => {
                   setPayType(v);
                   setError("payValue");
-                }} className="mt-7 space-y-3">
+                }}
+                className="mt-7 space-y-3"
+              >
                 {payTypes.map((p) => (
                   <label
                     key={p.id}
@@ -459,6 +767,7 @@ function Onboarding() {
                   id="pv"
                   inputMode="numeric"
                   aria-invalid={Boolean(errors["payValue"])}
+                  aria-describedby={errors["payValue"] ? "pv-error" : undefined}
                   placeholder={payType === "personal" ? "0712 345 678" : "123456"}
                   value={payValue}
                   onChange={(e) => {
@@ -466,9 +775,8 @@ function Onboarding() {
                     setError("payValue");
                   }}
                 />
-                <FieldError message={errors["payValue"]} />
+                <FieldError id="pv-error" message={errors["payValue"]} />
               </div>
-
             </div>
           )}
 
@@ -486,7 +794,7 @@ function Onboarding() {
                   <PartyPopper className="size-7" />
                 )}
               </span>
-              <h1 className="mt-5 text-2xl font-bold">
+              <h1 ref={headingRef} tabIndex={-1} className="mt-5 text-2xl font-bold outline-none">
                 {provisioning ? "Setting up your shop…" : `${business} is ready to go live`}
               </h1>
               <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-relaxed">
@@ -525,42 +833,100 @@ function Onboarding() {
                   })}
                 </ul>
               ) : (
-                <div className="bg-muted mx-auto mt-6 grid max-w-md gap-2 rounded-xl p-4 text-left text-sm">
-                  {[
-                    ["Business", business],
-                    ["Category", category],
-                    ["Phone", phone],
-                    ["Payments to", `${payType} · ${payValue}`],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-4">
-                      <span className="text-muted-foreground">{k}</span>
-                      <span className="truncate font-medium">{v}</span>
+                <>
+                  <div className="bg-muted mx-auto mt-6 grid max-w-md gap-2 rounded-xl p-4 text-left text-sm">
+                    {[
+                      ["Business", business],
+                      ["Category", category],
+                      ["Phone", phone],
+                      ["Payments to", `${payType} · ${payValue}`],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">{k}</span>
+                        <span className="truncate font-medium">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-border mx-auto mt-4 max-w-md rounded-xl border p-4 text-left">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="email-copy"
+                        checked={emailCopy}
+                        onCheckedChange={(checked) => {
+                          const on = checked === true;
+                          setEmailCopy(on);
+                          if (on) trackSummaryEmail("requested", { step_id: "review_and_finish" });
+                          else trackSummaryEmail("skipped");
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <Label htmlFor="email-copy" className="text-sm font-semibold">
+                          Email me a copy of my setup and next steps
+                        </Label>
+                        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                          Your shop details, trial end date and a short checklist for your first
+                          sale.
+                        </p>
+                        {emailCopy && (
+                          <div className="mt-3 space-y-2">
+                            <Label htmlFor="summary-email" className="text-xs">
+                              Email address
+                            </Label>
+                            <Input
+                              id="summary-email"
+                              type="email"
+                              inputMode="email"
+                              placeholder="you@duka.co.ke"
+                              value={summaryEmail}
+                              onChange={(e) => setSummaryEmail(e.target.value)}
+                              aria-invalid={Boolean(errors["summaryEmail"])}
+                              aria-describedby={
+                                errors["summaryEmail"] ? "summary-email-error" : undefined
+                              }
+                            />
+                            <FieldError
+                              id="summary-email-error"
+                              message={errors["summaryEmail"]}
+                            />
+                            {emailSent && (
+                              <p className="text-success flex items-center gap-1.5 text-xs font-medium">
+                                <Mail className="size-3.5" /> Summary queued to {summaryEmail}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                </>
               )}
             </div>
           )}
 
-
           <div className="mt-8 flex items-center justify-between gap-3">
-            <Button variant="ghost" onClick={back} disabled={step === 0 || busy || provisioning}>
-              Back
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={back} disabled={step === 0 || busy || provisioning}>
+                Back
+              </Button>
+              <OnboardingHelpDialog step={step} />
+            </div>
             {step === 0 && !otpSent ? (
-              <Button onClick={sendCode} size="lg" disabled={busy}>
-                {busy ? "Sending…" : "Send code"}
+              <Button onClick={sendCode} size="lg" disabled={busy || !online}>
+                {busy ? "Sending…" : !online ? "Waiting for signal…" : "Send code"}
               </Button>
             ) : step < 3 ? (
               <Button onClick={continueStep} size="lg" disabled={busy}>
                 {busy ? "Working…" : "Continue"}
               </Button>
             ) : (
-              <Button size="lg" onClick={finish} disabled={busy || provisioning}>
+              <Button size="lg" onClick={finish} disabled={busy || provisioning || !online}>
                 {provisioning ? (
                   <>
                     <Loader2 className="mr-2 size-4 animate-spin" /> Setting up…
                   </>
+                ) : !online ? (
+                  "Waiting for signal…"
                 ) : (
                   "Go to my dashboard"
                 )}
@@ -573,13 +939,16 @@ function Onboarding() {
   );
 }
 
-function FieldError({ message }: { message?: string | undefined }) {
+function FieldError({ id, message }: { id?: string; message?: string | undefined }) {
   if (!message) return null;
   return (
-    <p className="text-destructive flex items-center gap-1.5 text-xs font-medium">
+    <p
+      id={id}
+      role="alert"
+      className="text-destructive flex items-center gap-1.5 text-xs font-medium"
+    >
       <AlertCircle className="size-3.5 shrink-0" />
       {message}
     </p>
   );
 }
-
