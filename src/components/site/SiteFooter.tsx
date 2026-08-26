@@ -8,8 +8,9 @@ export function SiteFooter() {
         <div className="md:col-span-2">
           <Logo />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
-            InuaBiz — "Lift Your Business". A mobile-first micro-POS and business operations engine
-            built for Kenyan dukas, boutiques, chemists and eateries.
+            InuaBiz — "Lift Your Business". A mobile-first till for Kenyan dukas, boutiques,
+            chemists and eateries. From KES 3,000 per shop / month — Compliance and enterprise on
+            the pricing page.
           </p>
           <p className="mt-4 text-xs text-muted-foreground">Nairobi, Kenya · hello@inuabiz.co.ke</p>
         </div>
@@ -42,16 +43,6 @@ export function SiteFooter() {
                 How it works
               </Link>
             </li>
-            <li>
-              <Link to="/app" className="hover:text-foreground">
-                Vendor demo
-              </Link>
-            </li>
-            <li>
-              <Link to="/admin" className="hover:text-foreground">
-                Admin demo
-              </Link>
-            </li>
           </ul>
         </div>
 
@@ -69,7 +60,7 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link to="/onboarding" className="hover:text-foreground">
+              <Link to="/signup" className="hover:text-foreground">
                 Start free trial
               </Link>
             </li>
@@ -79,7 +70,7 @@ export function SiteFooter() {
       <div className="border-t border-border">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>© {new Date().getFullYear()} InuaBiz. All rights reserved.</p>
-          <p>Payments powered by IntaSend & M-Pesa</p>
+          <p>Customer payments and billing run on M-Pesa</p>
         </div>
       </div>
     </footer>

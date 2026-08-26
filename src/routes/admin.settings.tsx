@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { MAPBOX_TOKEN } from "@/lib/mapbox";
-import { SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { COMPLIANCE_PRICE, SETUP_FEE, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 import { initials, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -31,8 +31,8 @@ const OPERATORS = [
 function AdminSettings() {
   const identity = useIdentity("admin");
   const save = (label: string) =>
-    toast.success(`${label} saved`, {
-      description: "Platform defaults updated for this session.",
+    toast.info(`${label} not persisted`, {
+      description: "Plan amounts are constants in code. Rails and operators are not saved from this form yet.",
     });
 
   return (
@@ -97,26 +97,40 @@ function AdminSettings() {
 
         <SettingsCard
           title="Plan"
-          description="Self-serve shops pay this amount after trial. Billing is STK via IntaSend."
+          description="Self-serve Standard is KES 3,000 per shop after a 3-day trial, billed by Daraja STK. Extra shops pay before they go live. Compliance (ETR) at KES 4,500 and setup at KES 1,000 are quoted — not this form."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="price" className="text-muted-foreground text-xs">
-                Monthly price (KES)
+                Standard / shop (KES)
               </Label>
-              <Input id="price" type="number" defaultValue={SUBSCRIPTION_PRICE} />
+              <Input id="price" type="number" defaultValue={SUBSCRIPTION_PRICE} readOnly />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="trial" className="text-muted-foreground text-xs">
                 Trial length (days)
               </Label>
-              <Input id="trial" type="number" defaultValue={TRIAL_DAYS} />
+              <Input id="trial" type="number" defaultValue={TRIAL_DAYS} readOnly />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="comp" className="text-muted-foreground text-xs">
+                Compliance ETR / shop (KES)
+              </Label>
+              <Input id="comp" type="number" defaultValue={COMPLIANCE_PRICE} readOnly />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="setup" className="text-muted-foreground text-xs">
+                Assisted setup (KES)
+              </Label>
+              <Input id="setup" type="number" defaultValue={SETUP_FEE} readOnly />
             </div>
           </div>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold">Allow self-serve onboarding</p>
-              <p className="text-muted-foreground text-xs">Phone OTP → tenant in under two minutes</p>
+              <p className="text-muted-foreground text-xs">
+                Email + password + OTP, then shop setup. First shop is the 3-day trial.
+              </p>
             </div>
             <Switch defaultChecked />
           </div>
@@ -127,7 +141,7 @@ function AdminSettings() {
 
         <SettingsCard
           title="Billing rails"
-          description="Subscription collections land here. Same pattern as a duka till — connected, then the numbers."
+          description="Self-serve shop billing is Daraja STK. Paybill and shortcode live in edge-function secrets — this form does not write them."
         >
           <div className="bg-muted/60 space-y-4 rounded-xl px-4 py-3.5">
             <div className="flex items-center justify-between gap-3">
@@ -136,8 +150,8 @@ function AdminSettings() {
                   <Smartphone className="text-primary-foreground size-3.5" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">IntaSend · M-Pesa STK</p>
-                  <p className="text-primary text-xs">Status: Connected</p>
+                  <p className="text-sm font-semibold">Daraja · M-Pesa STK</p>
+                  <p className="text-primary text-xs">Live rail for subscriptions and extra shops</p>
                 </div>
               </div>
               <Button
@@ -153,13 +167,13 @@ function AdminSettings() {
                 <Label htmlFor="paybill" className="text-muted-foreground text-xs">
                   Subscription Paybill
                 </Label>
-                <Input id="paybill" defaultValue="4044040" />
+                <Input id="paybill" defaultValue="(edge secret)" readOnly />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bill-phone" className="text-muted-foreground text-xs">
                   STK billing phone
                 </Label>
-                <Input id="bill-phone" defaultValue={identity.phone} />
+                <Input id="bill-phone" defaultValue={identity.phone} readOnly />
               </div>
             </div>
           </div>
@@ -167,7 +181,7 @@ function AdminSettings() {
 
         <SettingsCard
           title="Operators"
-          description="Who can impersonate vendors, read unclaimed STK and change platform defaults."
+          description="Sample roster for this screen. Invites and edits are not written to the database yet."
           action={
             <Button
               variant="outline"

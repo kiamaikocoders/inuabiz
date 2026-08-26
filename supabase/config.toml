@@ -68,6 +68,12 @@ verify_jwt = false
 [functions.checkout-sale]
 verify_jwt = true
 
+[functions.payhero-webhook]
+verify_jwt = false
+
+[functions.confirm-sale-mpesa]
+verify_jwt = true
+
 [functions.daraja-stk-callback]
 verify_jwt = false
 

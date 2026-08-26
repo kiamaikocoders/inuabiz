@@ -9,13 +9,13 @@ Live sandbox rail: **Daraja Lipa Na M-Pesa Express** for POS + SaaS. Ratiba is l
 
 | Piece | Detail |
 |-------|--------|
-| POS | `checkout-sale` creates the sale then STK (`174379` + official passkey) |
-| SaaS | `create-subscription-charge` STK for KES 3,000 |
-| Callback | `daraja-stk-callback` marks `payment_transactions` COMPLETE and sale PAID / subscription ACTIVE |
-| Poll | `poll-pending-payments` queries `/mpesa/stkpushquery/v1/query` if the callback is late |
-| Mock | `DARAJA_MOCK=true` only — live default is `false` |
+| SaaS | `create-subscription-charge` → **PayHero** STK (KES 3,000+) |
+| Extra shop | `provision-shop` → PayHero STK |
+| Callback | `payhero-webhook` → `subscription_payments` + tenant ACTIVE |
+| Poll | `poll-pending-payments` → PayHero `/transaction-status` |
+| POS | **No platform STK** — `checkout-sale` opens PENDING sale; C2B or manual confirm |
 
-### C2B (Paybill / Till)
+### C2B (Paybill / Till — vendor sales)
 
 | Piece | Detail |
 |-------|--------|

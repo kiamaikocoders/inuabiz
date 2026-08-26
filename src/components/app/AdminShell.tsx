@@ -26,6 +26,10 @@ import { cn } from "@/lib/utils";
 import { adminNotifications, tenants, unclaimedPayments } from "@/lib/mock-data";
 import { useIdentity } from "@/lib/identity";
 import { UserMenu } from "@/components/app/UserMenu";
+import { useQuery } from "@tanstack/react-query";
+import { fetchTenants } from "@/lib/data";
+import { fetchUnclaimedPayments } from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type NavItem = {
   to: string;
@@ -144,12 +148,16 @@ function SidebarInner({
   onQueryChange,
   dark,
   onDarkChange,
+  vendorCount,
+  unclaimedCount,
 }: {
   onNavigate?: (() => void) | undefined;
   query: string;
   onQueryChange: (value: string) => void;
   dark: boolean;
   onDarkChange: (value: boolean) => void;
+  vendorCount: number;
+  unclaimedCount: number;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
@@ -223,11 +231,19 @@ function SidebarInner({
                       <Icon className="size-3.5" strokeWidth={2.4} />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {item.badge ? (
+                    {(() => {
+                      const badge =
+                        item.to === "/admin/vendors"
+                          ? vendorCount
+                          : item.to === "/admin/unclaimed"
+                            ? unclaimedCount
+                            : item.badge;
+                      return badge ? (
                       <span className="bg-gold/20 text-gold-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
-                        {item.badge}
+                        {badge}
                       </span>
-                    ) : null}
+                      ) : null;
+                    })()}
                   </Link>
                 );
               })}
@@ -270,6 +286,19 @@ export function AdminShell({
 }) {
   const unread = adminNotifications.filter((n) => !n.read).length;
   const identity = useIdentity("admin");
+  const live = isSupabaseConfigured();
+  const { data: vendors = [] } = useQuery({
+    queryKey: ["admin-tenants"],
+    queryFn: fetchTenants,
+    enabled: live,
+  });
+  const { data: unclaimed = [] } = useQuery({
+    queryKey: ["admin-unclaimed"],
+    queryFn: fetchUnclaimedPayments,
+    enabled: live,
+  });
+  const vendorCount = live ? vendors.length : tenants.length;
+  const unclaimedCount = live ? unclaimed.length : unclaimedPayments.length;
   const [query, setQuery] = useState("");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -296,6 +325,8 @@ export function AdminShell({
           onQueryChange={setQuery}
           dark={dark}
           onDarkChange={onDarkChange}
+          vendorCount={vendorCount}
+          unclaimedCount={unclaimedCount}
         />
       </aside>
 
@@ -315,6 +346,8 @@ export function AdminShell({
                   onQueryChange={setQuery}
                   dark={dark}
                   onDarkChange={onDarkChange}
+                  vendorCount={vendorCount}
+                  unclaimedCount={unclaimedCount}
                 />
               </SheetContent>
             </Sheet>

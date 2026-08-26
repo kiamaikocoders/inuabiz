@@ -8,6 +8,19 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    server: {
+      host: "localhost",
+      port: 8080,
+      strictPort: true,
+      hmr: {
+        // Keep HMR on the same origin the browser uses (avoids ws://localhost fail when
+        // the tab is on 127.0.0.1 or a tunnel, and stops half-dead client sessions).
+        protocol: "ws",
+        host: "localhost",
+        port: 8080,
+        clientPort: 8080,
+      },
+    },
     plugins: [
       VitePWA({
         registerType: "autoUpdate",
@@ -45,10 +58,14 @@ export default defineConfig({
         },
         workbox: {
           globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
-          navigateFallback: "/",
+          // TanStack Start SSR: never rewrite navigations to `/`. That serves a root-only
+          // shell and crashes hydrate with "Expected to find a match below the root match".
+          navigateFallback: undefined,
+          navigateFallbackDenylist: [/.*/],
         },
+        // SW in Vite dev breaks Start SSR hydration + HMR; enable only for production builds.
         devOptions: {
-          enabled: true,
+          enabled: false,
         },
       }),
     ],

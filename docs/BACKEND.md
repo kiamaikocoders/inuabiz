@@ -27,15 +27,18 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 
 | Function | JWT | Purpose |
 |----------|-----|---------|
-| `checkout-sale` | yes | POS cart → sale + cash/credit/Daraja STK |
-| `create-subscription-charge` | yes | Daraja STK Push KES 3,000 SaaS renewal |
-| `create-sale-charge` | yes | Daraja STK for an existing sale (`sale_id` + `customer_phone`) |
-| `daraja-stk-callback` | **no** | Safaricom STK result → mark sale paid / activate subscription |
-| `daraja-c2b-confirmation` | **no** | Paybill/Till confirmation → match sale or unclaimed queue |
+| `checkout-sale` | yes | POS cart → sale + cash/credit/**vendor M-Pesa wait** (no platform STK) |
+| `confirm-sale-mpesa` | yes | Manual M-Pesa code confirm for personal/Pochi vendors |
+| `create-subscription-charge` | yes | **PayHero** STK Push — vendor pays InuaBiz subscription |
+| `payhero-webhook` | **no** | PayHero callback → activate subscription / extra shop |
+| `provision-shop` | yes | Extra shop via **PayHero** STK (KES 3,000) |
+| `create-sale-charge` | yes | **Deprecated** — returns 410 (vendor sales use checkout-sale MPESA) |
+| `daraja-stk-callback` | **no** | Legacy Safaricom STK (pre-PayHero subscription rows only) |
+| `daraja-c2b-confirmation` | **no** | Till/Paybill C2B → match `tenant_payment_destinations` + open sale |
 | `daraja-c2b-validation` | **no** | Accept C2B payments (sandbox) |
 | `register-c2b-urls` | **no** | Register C2B confirmation/validation URLs (`x-cron-secret`) |
-| `intasend-webhook` | **no** | IntaSend callbacks (legacy rail) |
-| `poll-pending-payments` | **no** | Cron: Daraja STK query (then IntaSend) for PENDING > 3 minutes |
+| `intasend-webhook` | **no** | **Legacy** IntaSend callbacks (replaced by PayHero) |
+| `poll-pending-payments` | **no** | Cron: PayHero status (+ legacy Daraja STK) for PENDING > 3 min |
 | `assign-unclaimed-payment` | yes | Super-admin maps orphan payment to tenant |
 | `generate-ai-insights` | yes | Weekly cash-flow / bestsellers / reorder (heuristic + optional OpenAI) |
 | `create-ratiba-standing-order` | yes | Opt vendor into M-Pesa Ratiba monthly KES 3,000 auto-debit |
@@ -69,6 +72,19 @@ Vendor AI stays on `ai_insights` + `generate-ai-insights`. Super-admin AI is sep
 
 Realtime publication includes `notifications`.
 
+## Payment architecture
+
+| Flow | Rail | Money lands on |
+|------|------|----------------|
+| **Subscription** (vendor → InuaBiz) | PayHero STK | InuaBiz PayHero channel (wallet → till in Phase 2) |
+| **POS sale** (customer → vendor) | Daraja C2B listener + manual code | Vendor till/paybill/phone from onboarding |
+
+PayHero webhook URL:
+
+```
+https://hnzzkmifgufurkqvnchp.supabase.co/functions/v1/payhero-webhook
+```
+
 ## Secrets to set (Dashboard → Edge Functions → Secrets)
 
 > **Note:** Supabase MCP cannot write Dashboard Edge secrets. Daraja sandbox credentials
@@ -76,15 +92,18 @@ Realtime publication includes `notifications`.
 > `public.get_app_secret` (service_role only). Dashboard env vars still override if set.
 
 ```bash
-INTASEND_SECRET_KEY=
-INTASEND_PUBLISHABLE_KEY=
-INTASEND_WEBHOOK_SECRET=          # challenge token IntaSend sends
-INTASEND_SANDBOX=true             # false in production
-INTASEND_HOST=https://api.inuabiz.co.ke
+# PayHero — InuaBiz subscription collection (vendor → platform)
+PAYHERO_AUTH_TOKEN=               # Basic auth token from app.payhero.co.ke → API Keys
+PAYHERO_CHANNEL_ID=               # Phase 1: service wallet channel; Phase 2: Buy Goods till channel
+
 SUBSCRIPTION_AMOUNT_KES=3000      # also in private.app_secrets
 CRON_SECRET=                      # poll-pending-payments + process-ratiba-retries
 OPENAI_API_KEY=                   # optional; heuristic works without it
 OPENAI_MODEL=gpt-4o-mini
+
+# Legacy IntaSend (deprecated — do not configure for new deployments)
+# INTASEND_SECRET_KEY=
+# INTASEND_PUBLISHABLE_KEY=
 
 # Safaricom Daraja 2.0 — sandbox values live in private.app_secrets (MCP)
 DARAJA_CONSUMER_KEY=              # optional override

@@ -557,7 +557,18 @@ export function functionsPublicBase(): string {
   return `${url}/functions/v1`;
 }
 
-export async function subscriptionAmountKes(): Promise<number> {
+export async function subscriptionAmountKes(tenantId?: string): Promise<number> {
+  if (tenantId) {
+    try {
+      const service = getServiceClient();
+      const { data } = await service.rpc("subscription_amount_for_tenant", {
+        p_tenant_id: tenantId,
+      });
+      if (data != null && Number.isFinite(Number(data))) return Number(data);
+    } catch {
+      /* fall through to platform default */
+    }
+  }
   const raw = (await resolveSecret("SUBSCRIPTION_AMOUNT_KES")) ?? "3000";
   return Number(raw);
 }

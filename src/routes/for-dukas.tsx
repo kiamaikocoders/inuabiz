@@ -13,7 +13,7 @@ export const Route = createFileRoute("/for-dukas")({
       {
         name: "description",
         content:
-          "Made for Kenyan duka owners: fast phone POS, digital kukopesha ledger, automatic M-Pesa reconciliation and stock alerts. 14-day free trial, KES 3,000/month.",
+          "Made for Kenyan duka owners: fast phone POS, digital kukopesha ledger, automatic M-Pesa matching, extra shops and stock alerts. 3-day free trial, KES 3,000 per shop / month.",
       },
       { property: "og:title", content: "InuaBiz for dukas" },
     ],
@@ -30,7 +30,7 @@ const pains = [
   {
     icon: Smartphone,
     pain: "M-Pesa SMS you cannot match to a sale",
-    fix: "STK push from the cart. Till and Paybill land in the same ledger. Unclaimed payments sit in a queue, not in your head.",
+    fix: "STK push from the cart. Till and Paybill land on the same sale — you stop hunting SMS threads.",
   },
   {
     icon: Package,
@@ -58,7 +58,7 @@ function ForDukas() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button size="lg" variant="secondary" asChild>
-                  <Link to="/onboarding">
+                  <Link to="/signup">
                     Open my duka on InuaBiz <ArrowRight className="ml-1 size-4" />
                   </Link>
                 </Button>
@@ -68,7 +68,7 @@ function ForDukas() {
                   className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
                   asChild
                 >
-                  <Link to="/app/pos">Try the POS demo</Link>
+                  <Link to="/how-it-works">How a day on the till works</Link>
                 </Button>
               </div>
             </div>
@@ -101,7 +101,8 @@ function ForDukas() {
           <div className="mt-12 flex items-center gap-3">
             <Store className="text-primary size-5" />
             <p className="text-sm text-muted-foreground">
-              Also used by chemists, boutiques and eateries — same app, same price.
+              Also used by chemists, boutiques and eateries — Standard from KES 3,000 / shop, or a
+              custom license.
             </p>
           </div>
         </section>

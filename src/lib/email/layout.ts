@@ -36,6 +36,8 @@ export type InuaBizEmailOpts = {
   noticeBody?: string;
   noticeColor?: string;
   heroTone?: EmailTone;
+  /** Large 6-digit code. Pass `{{ .Token }}` for Gotrue auth HTML. */
+  otpCode?: string;
 };
 
 /** Escape text for HTML email bodies. */
@@ -100,6 +102,9 @@ export function renderInuaBizEmail(opts: InuaBizEmailOpts): string {
   const ctaText = opts.ctaText ?? CREAM;
   const noticeColor = opts.noticeColor ?? GOLD;
   const ctaHref = opts.ctaUrl || site;
+  const otp = opts.otpCode
+    ? `<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:32px;line-height:40px;font-weight:800;letter-spacing:0.18em;color:${INK};text-align:center;">${opts.otpCode}</p>`
+    : "";
   const cta = opts.ctaLabel
     ? `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
@@ -175,6 +180,7 @@ export function renderInuaBizEmail(opts: InuaBizEmailOpts): string {
                 <tr><td style="padding:24px;">
                   <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:16px;line-height:25px;font-weight:700;color:${INK};">${escapeHtml(greeting)}</p>
                   ${opts.bodyHtml}
+                  ${otp}
                   ${detailsBlock(opts.details ?? [])}
                   ${cta}
                   ${notice}

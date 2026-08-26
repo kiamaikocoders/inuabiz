@@ -1,15 +1,21 @@
 import {
   getServiceClient,
   handleOptions,
-  intasendPaymentStatus,
   jsonResponse,
-  mapIntaSendState,
 } from "../_shared/cors.ts";
-import { darajaStkQuery, resolveSecret } from "../_shared/daraja.ts";
+import { resolveSecret } from "../_shared/daraja.ts";
+import {
+  mapPayHeroStatus,
+  payheroTransactionStatus,
+} from "../_shared/payhero.ts";
+import {
+  applyCompleteSubscription,
+  applyShopAddon,
+} from "../_shared/subscription-billing.ts";
 
 /**
- * Re-check PENDING payments older than 3 minutes (Daraja STK first, then IntaSend).
- * Invoke via cron or manually with x-cron-secret / service role.
+ * Re-check PENDING PayHero subscription payments older than 3 minutes.
+ * Legacy Daraja STK rows are still queried when channel is MPESA_STK.
  */
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -39,7 +45,7 @@ Deno.serve(async (req) => {
 
     const { data: pending, error } = await service
       .from("payment_transactions")
-      .select("id, invoice_id, purpose, tenant_id, sale_id, api_ref, payment_channel, tracking_id")
+      .select("id, invoice_id, purpose, tenant_id, sale_id, api_ref, payment_channel, tracking_id, metadata")
       .eq("status", "PENDING")
       .lt("created_at", cutoff)
       .limit(50);
@@ -50,16 +56,17 @@ Deno.serve(async (req) => {
 
     for (const row of pending ?? []) {
       try {
-        const checkoutId = String(row.tracking_id ?? row.invoice_id);
-        const isDarajaStk =
-          row.payment_channel === "MPESA_STK" ||
-          checkoutId.startsWith("ws_CO_") ||
-          checkoutId.startsWith("mock-c-");
-
+        const channel = String(row.payment_channel ?? "");
         let mapped: "PENDING" | "COMPLETE" | "FAILED" | "CANCELLED" = "PENDING";
         let payload: unknown = null;
 
-        if (isDarajaStk) {
+        if (channel === "PAYHERO") {
+          const statusPayload = await payheroTransactionStatus(String(row.invoice_id));
+          payload = statusPayload;
+          mapped = mapPayHeroStatus(statusPayload.status);
+        } else if (channel === "MPESA_STK") {
+          const { darajaStkQuery } = await import("../_shared/daraja.ts");
+          const checkoutId = String(row.tracking_id ?? row.invoice_id);
           const queried = await darajaStkQuery(checkoutId);
           payload = queried.raw;
           mapped = queried.outcome === "COMPLETE"
@@ -68,11 +75,8 @@ Deno.serve(async (req) => {
               ? "FAILED"
               : "PENDING";
         } else {
-          const statusPayload = await intasendPaymentStatus(row.invoice_id);
-          payload = statusPayload;
-          const state =
-            statusPayload.invoice?.state ?? statusPayload.state ?? "PENDING";
-          mapped = mapIntaSendState(state);
+          results.push({ invoice_id: row.invoice_id, state: "SKIP" });
+          continue;
         }
 
         if (mapped === "PENDING") {
@@ -90,42 +94,27 @@ Deno.serve(async (req) => {
 
         if (mapped === "COMPLETE") {
           if (row.purpose === "SAAS_SUBSCRIPTION" && row.tenant_id) {
-            const periodEnd = new Date();
-            periodEnd.setDate(periodEnd.getDate() + 30);
+            await applyCompleteSubscription(
+              service,
+              row.tenant_id as string,
+              row.invoice_id as string,
+            );
+            const meta = row.metadata as Record<string, unknown> | null;
+            if (meta?.kind === "SHOP_ADDON") {
+              await applyShopAddon(service, row.tenant_id as string, meta);
+            }
             await service
-              .from("tenants")
-              .update({
-                status: "ACTIVE",
-                access_until: periodEnd.toISOString(),
-              })
-              .eq("id", row.tenant_id);
-            await service
-              .from("subscriptions")
-              .update({
-                status: "ACTIVE",
-                current_period_end: periodEnd.toISOString(),
-                last_invoice_id: row.invoice_id,
-              })
-              .eq("tenant_id", row.tenant_id);
-          }
-          if (row.purpose === "VENDOR_SALE" && row.sale_id) {
-            await service
-              .from("sales")
-              .update({
-                status: "PAID",
-                paid_at: new Date().toISOString(),
-                payment_channel: "MPESA_STK",
-              })
-              .eq("id", row.sale_id);
+              .from("subscription_payments")
+              .update({ status: "SUCCESS" })
+              .eq("payhero_reference", row.invoice_id);
           }
         }
 
-        if (mapped === "FAILED" && row.sale_id) {
+        if (mapped === "FAILED" && row.purpose === "SAAS_SUBSCRIPTION") {
           await service
-            .from("sales")
-            .update({ status: "DRAFT" })
-            .eq("id", row.sale_id)
-            .eq("status", "PENDING_PAYMENT");
+            .from("subscription_payments")
+            .update({ status: "FAILED" })
+            .eq("payhero_reference", row.invoice_id);
         }
 
         results.push({ invoice_id: row.invoice_id, state: mapped });

@@ -28,7 +28,9 @@ const CATEGORY_MAP: Record<string, Tenant["category"]> = {
 };
 
 const CHANNEL_MAP: Record<string, Sale["channel"]> = {
-  MPESA_STK: "M-Pesa STK",
+  MPESA_STK: "M-Pesa",
+  MPESA: "M-Pesa",
+  PAYHERO: "PayHero",
   CASH: "Cash",
   TILL: "Till",
   PAYBILL: "Paybill",
@@ -236,4 +238,29 @@ export async function startImpersonation(tenant: Tenant): Promise<GhostSession> 
   }
   startGhost(session);
   return session;
+}
+
+export type PaymentDestination = {
+  destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL";
+  accountNumber: string;
+  accountName: string | null;
+};
+
+export async function fetchPrimaryPaymentDestination(): Promise<PaymentDestination | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  if (!profile?.tenant_id) return null;
+  const { data } = await sb
+    .from("tenant_payment_destinations")
+    .select("destination_type, account_number, account_name")
+    .eq("tenant_id", profile.tenant_id)
+    .eq("is_primary", true)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    destinationType: data.destination_type as PaymentDestination["destinationType"],
+    accountNumber: String(data.account_number),
+    accountName: (data.account_name as string | null) ?? null,
+  };
 }

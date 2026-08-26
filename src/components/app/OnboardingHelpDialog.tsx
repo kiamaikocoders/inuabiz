@@ -23,12 +23,12 @@ type StepHelp = { title: string; intro: string; faqs: Faq[] };
 
 const HELP: StepHelp[] = [
   {
-    title: "Help with phone verification",
-    intro: "The code is a 4-digit SMS sent to the number you typed. In demo mode any 4 digits work.",
+    title: "Help with your M-Pesa number",
+    intro: "This Kenyan mobile number receives subscription STK prompts and customer payment alerts for this shop.",
     faqs: [
       {
-        q: "The SMS code never arrived",
-        a: "Wait 60 seconds, confirm the number starts 07/01 and has 10 digits, then tap Send code again. If you're on a weak network, step outside or switch from data to a stronger signal and retry.",
+        q: "Why do you need my number?",
+        a: "It is the M-Pesa handset for this shop — subscription PIN prompts and customer STK land here. You already signed in with email.",
       },
       {
         q: "My number is rejected as invalid",
@@ -36,11 +36,11 @@ const HELP: StepHelp[] = [
       },
       {
         q: "Can I use a different number later?",
-        a: "Yes. Your login number can be changed in Settings once your shop is live, and it does not have to match your M-Pesa payment destination.",
+        a: "Yes. Change it in Settings once your shop is live. It does not have to match your M-Pesa payment destination.",
       },
       {
-        q: "I already have an account on this number",
-        a: "Use the Already have an account link at the top to sign in instead — onboarding creates a new shop.",
+        q: "I never finished this page last time",
+        a: "Sign in with email and password. The app sends you back here until shop setup is complete — you cannot open POS until then.",
       },
     ],
   },
@@ -62,7 +62,7 @@ const HELP: StepHelp[] = [
       },
       {
         q: "My category isn't listed",
-        a: "Pick the closest match — categories only pre-load starter products and benchmarks, and you can change it any time.",
+        a: "Pick Other, or the closest match. Category only changes this shop's till and fields — you can switch it any time in Settings.",
       },
     ],
   },
@@ -143,7 +143,7 @@ export function OnboardingHelpDialog({ step }: { step: number }) {
           ))}
         </Accordion>
         <p className="text-muted-foreground text-xs">
-          Still stuck? WhatsApp support on 0700 000 000 — your progress stays saved.
+          Still stuck? Email hello@inuabiz.co.ke — your progress stays saved.
         </p>
       </DialogContent>
     </Dialog>

@@ -1,0 +1,588 @@
+import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { prettyKePhone } from "@/lib/phone";
+import type { TaxClass } from "@/lib/tax";
+import type { LastSale, ReceiptLine } from "@/lib/last-sale";
+import type { NotificationItem } from "@/lib/mock-data";
+import { parseCategory } from "@/lib/category";
+
+export type ShopRow = {
+  id: string;
+  name: string;
+  category: string;
+  address_text: string | null;
+  phone: string | null;
+  is_default: boolean;
+};
+
+export type TenantHeader = {
+  id: string;
+  name: string;
+  legal_name: string | null;
+  kra_pin: string | null;
+  email: string | null;
+  phone: string;
+  address_text: string | null;
+  category: string;
+  vat_registered: boolean;
+};
+
+export type StaffRow = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: string;
+  active_shop_id: string | null;
+};
+
+export async function fetchTenantAccess(): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb) return true;
+  const { data, error } = await sb.rpc("tenant_has_access");
+  if (error) return true;
+  return Boolean(data);
+}
+
+export async function fetchShops(): Promise<ShopRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("shops")
+    .select("id, name, category, address_text, phone, is_default")
+    .order("created_at");
+  if (error || !data) return [];
+  return data as ShopRow[];
+}
+
+export async function setActiveShop(shopId: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.rpc("set_active_shop", { p_shop_id: shopId });
+  if (error) throw new Error(error.message);
+}
+
+export async function createShop(input: {
+  name: string;
+  category: string;
+  address_text?: string;
+}): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  if (!profile?.tenant_id) throw new Error("Complete onboarding first");
+  const { error } = await sb.from("shops").insert({
+    tenant_id: profile.tenant_id,
+    name: input.name,
+    category: parseCategory(input.category),
+    address_text: input.address_text ?? null,
+    is_default: false,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchTenantHeader(): Promise<TenantHeader | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  if (!profile?.tenant_id) return null;
+  const { data } = await sb
+    .from("tenants")
+    .select("id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered")
+    .eq("id", profile.tenant_id)
+    .maybeSingle();
+  return (data as TenantHeader | null) ?? null;
+}
+
+export async function saveTenantHeader(patch: {
+  name?: string;
+  legal_name?: string;
+  kra_pin?: string | null;
+  email?: string | null;
+  phone?: string;
+  address_text?: string | null;
+  category?: string;
+  vat_registered?: boolean;
+}): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("tenant_id, active_shop_id")
+    .maybeSingle();
+  if (!profile?.tenant_id) throw new Error("No tenant");
+  const payload = { ...patch };
+  if (payload.category) payload.category = parseCategory(payload.category);
+  const { error } = await sb.from("tenants").update(payload).eq("id", profile.tenant_id);
+  if (error) throw new Error(error.message);
+  if (payload.category && profile.active_shop_id) {
+    const { error: shopErr } = await sb
+      .from("shops")
+      .update({ category: payload.category })
+      .eq("id", profile.active_shop_id);
+    if (shopErr) throw new Error(shopErr.message);
+  }
+}
+
+export async function fetchStaff(): Promise<StaffRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("profiles")
+    .select("id, full_name, phone, role, active_shop_id")
+    .order("created_at");
+  if (error || !data) return [];
+  return data as StaffRow[];
+}
+
+export const EMAIL_RECEIPT_KEY = "inuabiz:email-receipt";
+
+/** Shop-copy receipts stay off until Settings → Send email receipt is turned on. */
+export function emailReceiptEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(EMAIL_RECEIPT_KEY) === "true";
+}
+
+export async function inviteStaff(
+  shopId: string,
+  phone: string,
+  fullName: string,
+  email?: string,
+): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.rpc("invite_shop_staff", {
+    p_shop_id: shopId,
+    p_phone: phone,
+    p_full_name: fullName,
+  });
+  if (error) throw new Error(error.message);
+  const to = email?.trim().toLowerCase() ?? "";
+  if (!to.includes("@")) return;
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  const { data: shop } = await sb.from("shops").select("name").eq("id", shopId).maybeSingle();
+  const { error: mailErr } = await invokeFunction("dispatch-outbound", {
+    template_id: "invite-staff",
+    to,
+    tenant_id: profile?.tenant_id,
+    vars: {
+      shop: (shop?.name as string | undefined) ?? "",
+    },
+  });
+  if (mailErr) throw new Error(mailErr);
+}
+
+export async function fetchNotifications(): Promise<NotificationItem[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("notifications")
+    .select("id, title, message, type, priority, is_read, created_at")
+    .order("created_at", { ascending: false })
+    .limit(80);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id as string,
+    title: row.title as string,
+    message: row.message as string,
+    type: (String(row.type) === "PAYMENT" ? "SYSTEM" : String(row.type)) as NotificationItem["type"],
+    priority: String(row.priority) as NotificationItem["priority"],
+    read: Boolean(row.is_read),
+    time: new Date(row.created_at as string).toLocaleTimeString("en-KE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  }));
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  await sb.from("notifications").update({ is_read: true }).eq("id", id);
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return;
+  await sb.from("notifications").update({ is_read: true }).eq("recipient_id", user.id);
+}
+
+export type Prefs = {
+  channel_in_app: boolean;
+  channel_email: boolean;
+  channel_sms: boolean;
+  channel_whatsapp: boolean;
+  channel_sound: boolean;
+};
+
+export async function fetchNotificationPrefs(): Promise<Prefs | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data } = await sb
+    .from("notification_preferences")
+    .select("channel_in_app, channel_email, channel_sms, channel_whatsapp, channel_sound")
+    .maybeSingle();
+  return (data as Prefs | null) ?? null;
+}
+
+export async function saveNotificationPrefs(patch: Partial<Prefs>): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return;
+  const { error } = await sb
+    .from("notification_preferences")
+    .update(patch)
+    .eq("profile_id", user.id);
+  if (error) throw new Error(error.message);
+}
+
+export type UnclaimedRow = {
+  id: string;
+  invoiceId: string;
+  amount: number;
+  account: string;
+  apiRef: string;
+  received: string;
+  reason: string;
+};
+
+export async function fetchUnclaimedPayments(): Promise<UnclaimedRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("unclaimed_payments")
+    .select("id, invoice_id, amount, created_at, raw_webhook_payload, resolved_at")
+    .is("resolved_at", null)
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map((row) => {
+    const raw = (row.raw_webhook_payload ?? {}) as Record<string, unknown>;
+    return {
+      id: row.id as string,
+      invoiceId: row.invoice_id as string,
+      amount: Number(row.amount),
+      account: String(raw["account"] ?? raw["MSISDN"] ?? "—"),
+      apiRef: String(raw["api_ref"] ?? raw["BillRefNumber"] ?? "—"),
+      received: new Date(row.created_at as string).toLocaleString("en-KE"),
+      reason: String(raw["reason"] ?? "Unmatched api_ref"),
+    };
+  });
+}
+
+export async function assignUnclaimed(id: string, tenantId: string): Promise<void> {
+  const { error } = await invokeFunction("assign-unclaimed-payment", {
+    unclaimed_payment_id: id,
+    tenant_id: tenantId,
+  });
+  if (error) throw new Error(error);
+}
+
+export type MrrSnapshot = {
+  mrr_kes: number;
+  active_tenants: number;
+  trial_tenants: number;
+  past_due_tenants: number;
+  conversions_this_month: number;
+};
+
+export async function fetchMrrSnapshot(): Promise<MrrSnapshot | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data, error } = await sb.from("admin_mrr_snapshot").select("*").maybeSingle();
+  if (error || !data) return null;
+  return {
+    mrr_kes: Number(data.mrr_kes ?? 0),
+    active_tenants: Number(data.active_tenants ?? 0),
+    trial_tenants: Number(data.trial_tenants ?? 0),
+    past_due_tenants: Number(data.past_due_tenants ?? 0),
+    conversions_this_month: Number(data.conversions_this_month ?? 0),
+  };
+}
+
+export type AuditInvoice = {
+  id: string;
+  invoice_number: string;
+  created_at: string;
+  customer_name: string;
+  vat_16_amount: number;
+  vat_0_amount: number;
+  exempt_amount: number;
+  total_amount: number;
+  payment_method: string;
+  mpesa_receipt_code: string | null;
+  kra_pin: string | null;
+};
+
+export async function fetchAuditInvoices(fromIso?: string, toIso?: string): Promise<AuditInvoice[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  let q = sb
+    .from("invoices")
+    .select(
+      "id, invoice_number, created_at, customer_name, vat_16_amount, vat_0_amount, exempt_amount, total_amount, payment_method, mpesa_receipt_code",
+    )
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (fromIso) q = q.gte("created_at", fromIso);
+  if (toIso) q = q.lte("created_at", toIso);
+  const { data, error } = await q;
+  if (error || !data) return [];
+  const header = await fetchTenantHeader();
+  return data.map((row) => ({
+    ...(row as Omit<AuditInvoice, "kra_pin">),
+    kra_pin: header?.kra_pin ?? null,
+  }));
+}
+
+export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null> {
+  const sb = getSupabase();
+  if (!sb || !isSupabaseConfigured()) return null;
+  const { data: sale, error } = await sb
+    .from("sales")
+    .select(
+      "id, total, status, payment_channel, customer_phone, created_at, shop_id, discount_amount",
+    )
+    .eq("id", saleId)
+    .maybeSingle();
+  if (error || !sale) return null;
+
+  const { data: items } = await sb
+    .from("sale_items")
+    .select("product_name, qty, unit_price, tax_class")
+    .eq("sale_id", saleId);
+
+  const { data: invoice } = await sb
+    .from("invoices")
+    .select(
+      "invoice_number, vat_16_amount, vat_0_amount, exempt_amount, subtotal, total_amount, mpesa_receipt_code, customer_name",
+    )
+    .eq("sale_id", saleId)
+    .maybeSingle();
+
+  const header = await fetchTenantHeader();
+  let shopName = header?.legal_name || header?.name || "Shop";
+  let location = header?.address_text || "";
+  if (sale.shop_id) {
+    const { data: shop } = await sb
+      .from("shops")
+      .select("name, address_text")
+      .eq("id", sale.shop_id)
+      .maybeSingle();
+    if (shop?.name) shopName = shop.name as string;
+    if (shop?.address_text) location = shop.address_text as string;
+  }
+
+  const lines: ReceiptLine[] = (items ?? []).map((i) => ({
+    name: i.product_name as string,
+    qty: Number(i.qty),
+    price: Number(i.unit_price),
+    taxClass: (i.tax_class as TaxClass) ?? "STANDARD_16",
+  }));
+
+  const created = new Date(sale.created_at as string);
+  const phone = (sale.customer_phone as string | null) ?? null;
+  const receipt: LastSale = {
+    id: sale.id as string,
+    ref: (invoice?.invoice_number as string | undefined) ?? `SL-${String(sale.id).slice(0, 8)}`,
+    total: Number(invoice?.total_amount ?? sale.total),
+    items: lines.length,
+    channel: String(sale.payment_channel ?? "CASH"),
+    customer: (invoice?.customer_name as string) ?? prettyKePhone((sale.customer_phone as string) ?? "") ?? "Walk-in",
+    shop: shopName,
+    location,
+    when: created.toLocaleString("en-KE"),
+    footer: "Provisional Tax Document — Audit-Ready Record Generated via InuaBiz System.",
+    lines,
+  };
+  if (phone) receipt.phone = phone;
+  const legal = header?.legal_name ?? header?.name;
+  if (legal) receipt.legalName = legal;
+  if (header?.kra_pin) receipt.kraPin = header.kra_pin;
+  if (header?.email) receipt.email = header.email;
+  if (header?.phone) receipt.merchantPhone = header.phone;
+  if (invoice) {
+    receipt.vat16 = Number(invoice.vat_16_amount);
+    receipt.vat0 = Number(invoice.vat_0_amount);
+    receipt.exempt = Number(invoice.exempt_amount);
+    receipt.subtotalExVat = Number(invoice.subtotal);
+  }
+  if (invoice?.mpesa_receipt_code) receipt.mpesaReceipt = invoice.mpesa_receipt_code as string;
+  return receipt;
+}
+
+export function playPosChime(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.value = 0.08;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function downloadCsv(filename: string, rows: string[][]): void {
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export type FloorTable = {
+  id: string;
+  label: string;
+  seats: number;
+  status: "FREE" | "SEATED" | "BILLING";
+};
+
+export type ShopTicket = {
+  id: string;
+  kind: "KITCHEN" | "SERVICE";
+  status: "NEW" | "PREP" | "READY" | "SERVED" | "DONE";
+  title: string;
+  items: { name: string; qty: number }[];
+  duration_minutes: number | null;
+  table_label: string | null;
+  created_at: string;
+};
+
+async function activeShopContext(): Promise<{ tenantId: string; shopId: string } | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("tenant_id, active_shop_id")
+    .maybeSingle();
+  if (!profile?.tenant_id || !profile.active_shop_id) return null;
+  return { tenantId: profile.tenant_id as string, shopId: profile.active_shop_id as string };
+}
+
+export async function fetchFloorTables(): Promise<FloorTable[]> {
+  const sb = getSupabase();
+  const ctx = await activeShopContext();
+  if (!sb || !ctx) return [];
+  const { data, error } = await sb
+    .from("shop_floor_tables")
+    .select("id, label, seats, status")
+    .eq("shop_id", ctx.shopId)
+    .order("label");
+  if (error) return [];
+  if (data?.length) {
+    return data.map((row) => ({
+      id: row.id as string,
+      label: row.label as string,
+      seats: Number(row.seats),
+      status: row.status as FloorTable["status"],
+    }));
+  }
+  const seed = Array.from({ length: 8 }, (_, i) => ({
+    tenant_id: ctx.tenantId,
+    shop_id: ctx.shopId,
+    label: `T${i + 1}`,
+    seats: i < 4 ? 4 : 6,
+    status: "FREE",
+  }));
+  const { data: inserted } = await sb
+    .from("shop_floor_tables")
+    .insert(seed)
+    .select("id, label, seats, status");
+  return (inserted ?? []).map((row) => ({
+    id: row.id as string,
+    label: row.label as string,
+    seats: Number(row.seats),
+    status: row.status as FloorTable["status"],
+  }));
+}
+
+export async function setFloorTableStatus(
+  tableId: string,
+  status: FloorTable["status"],
+): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.from("shop_floor_tables").update({ status }).eq("id", tableId);
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchShopTickets(kind?: "KITCHEN" | "SERVICE"): Promise<ShopTicket[]> {
+  const sb = getSupabase();
+  const ctx = await activeShopContext();
+  if (!sb || !ctx) return [];
+  let q = sb
+    .from("shop_tickets")
+    .select("id, kind, status, title, items, duration_minutes, created_at, table_id")
+    .eq("shop_id", ctx.shopId)
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (kind) q = q.eq("kind", kind);
+  const { data, error } = await q;
+  if (error || !data) return [];
+  const { data: tables } = await sb
+    .from("shop_floor_tables")
+    .select("id, label")
+    .eq("shop_id", ctx.shopId);
+  const labels = new Map((tables ?? []).map((t) => [t.id as string, t.label as string]));
+  return data.map((row) => ({
+    id: row.id as string,
+    kind: row.kind as ShopTicket["kind"],
+    status: row.status as ShopTicket["status"],
+    title: row.title as string,
+    items: Array.isArray(row.items) ? (row.items as ShopTicket["items"]) : [],
+    duration_minutes: row.duration_minutes == null ? null : Number(row.duration_minutes),
+    table_label: row.table_id ? (labels.get(row.table_id as string) ?? null) : null,
+    created_at: row.created_at as string,
+  }));
+}
+
+export async function createShopTicket(input: {
+  kind: "KITCHEN" | "SERVICE";
+  title: string;
+  items: { name: string; qty: number }[];
+  tableId?: string | null;
+  saleId?: string | null;
+  durationMinutes?: number | null;
+}): Promise<void> {
+  const sb = getSupabase();
+  const ctx = await activeShopContext();
+  if (!sb || !ctx) return;
+  const { error } = await sb.from("shop_tickets").insert({
+    tenant_id: ctx.tenantId,
+    shop_id: ctx.shopId,
+    sale_id: input.saleId ?? null,
+    table_id: input.tableId ?? null,
+    kind: input.kind,
+    title: input.title,
+    items: input.items,
+    duration_minutes: input.durationMinutes ?? null,
+  });
+  if (error) throw new Error(error.message);
+  if (input.tableId) {
+    await setFloorTableStatus(input.tableId, "SEATED");
+  }
+}
+
+export async function setShopTicketStatus(
+  id: string,
+  status: ShopTicket["status"],
+): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.from("shop_tickets").update({ status }).eq("id", id);
+  if (error) throw new Error(error.message);
+}

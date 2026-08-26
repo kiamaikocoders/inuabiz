@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_ai_runs: {
+        Row: {
+          completion_tokens: number | null
+          created_at: string
+          created_by: string | null
+          estimated_cost_kes: number
+          id: string
+          input: Json
+          model: string | null
+          output: Json
+          prompt_tokens: number | null
+          run_type: string
+        }
+        Insert: {
+          completion_tokens?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_cost_kes?: number
+          id?: string
+          input?: Json
+          model?: string | null
+          output?: Json
+          prompt_tokens?: number | null
+          run_type: string
+        }
+        Update: {
+          completion_tokens?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_cost_kes?: number
+          id?: string
+          input?: Json
+          model?: string | null
+          output?: Json
+          prompt_tokens?: number | null
+          run_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_ai_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_impersonation_audit: {
         Row: {
           admin_id: string
@@ -121,12 +168,215 @@ export type Database = {
           },
         ]
       }
+      bill_invoices: {
+        Row: {
+          account_reference: string
+          amount: number
+          billed_email: string | null
+          billed_full_name: string
+          billed_period: string
+          billed_phone: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_id: string | null
+          daraja_response: Json | null
+          due_date: string
+          external_reference: string
+          id: string
+          invoice_items: Json | null
+          invoice_name: string
+          mpesa_receipt: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          payment_transaction_id: string | null
+          sale_id: string | null
+          status: Database["public"]["Enums"]["bill_invoice_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_reference: string
+          amount: number
+          billed_email?: string | null
+          billed_full_name: string
+          billed_period: string
+          billed_phone: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_id?: string | null
+          daraja_response?: Json | null
+          due_date: string
+          external_reference: string
+          id?: string
+          invoice_items?: Json | null
+          invoice_name: string
+          mpesa_receipt?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_transaction_id?: string | null
+          sale_id?: string | null
+          status?: Database["public"]["Enums"]["bill_invoice_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_reference?: string
+          amount?: number
+          billed_email?: string | null
+          billed_full_name?: string
+          billed_period?: string
+          billed_phone?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_id?: string | null
+          daraja_response?: Json | null
+          due_date?: string
+          external_reference?: string
+          id?: string
+          invoice_items?: Json | null
+          invoice_name?: string
+          mpesa_receipt?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_transaction_id?: string | null
+          sale_id?: string | null
+          status?: Database["public"]["Enums"]["bill_invoice_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_loyalty_stats"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "bill_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_invoices_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_invoices_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_templates: {
+        Row: {
+          category: string
+          description: string | null
+          html: string
+          id: string
+          name: string
+          subject: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          description?: string | null
+          html: string
+          id: string
+          name: string
+          subject: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          description?: string | null
+          html?: string
+          id?: string
+          name?: string
+          subject?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          message: string
+          name: string
+          phone: string | null
+          topic: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          message: string
+          name: string
+          phone?: string | null
+          topic?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          message?: string
+          name?: string
+          phone?: string | null
+          topic?: string
+        }
+        Relationships: []
+      }
       credit_entries: {
         Row: {
           amount: number
           created_at: string
           created_by: string | null
           customer_id: string
+          due_at: string | null
           entry_type: Database["public"]["Enums"]["credit_entry_type"]
           id: string
           note: string | null
@@ -138,6 +388,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id: string
+          due_at?: string | null
           entry_type: Database["public"]["Enums"]["credit_entry_type"]
           id?: string
           note?: string | null
@@ -149,6 +400,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string
+          due_at?: string | null
           entry_type?: Database["public"]["Enums"]["credit_entry_type"]
           id?: string
           note?: string | null
@@ -203,7 +455,9 @@ export type Database = {
       customers: {
         Row: {
           created_at: string
+          email: string | null
           id: string
+          kra_pin: string | null
           name: string | null
           notes: string | null
           phone: string | null
@@ -212,7 +466,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email?: string | null
           id?: string
+          kra_pin?: string | null
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -221,7 +477,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email?: string | null
           id?: string
+          kra_pin?: string | null
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -238,6 +496,259 @@ export type Database = {
           },
           {
             foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_send_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: number
+          metadata: Json
+          provider_id: string | null
+          status: string
+          subject: string
+          template_id: string
+          to_email: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: number
+          metadata?: Json
+          provider_id?: string | null
+          status?: string
+          subject: string
+          template_id: string
+          to_email: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: number
+          metadata?: Json
+          provider_id?: string | null
+          status?: string
+          subject?: string
+          template_id?: string
+          to_email?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_send_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_items: {
+        Row: {
+          classification_code: string | null
+          id: string
+          invoice_id: string
+          item_description: string
+          line_total: number
+          qty: number
+          sale_item_id: string | null
+          tax_class: Database["public"]["Enums"]["tax_class"]
+          tenant_id: string
+          unit_price: number
+          vat_amount: number
+        }
+        Insert: {
+          classification_code?: string | null
+          id?: string
+          invoice_id: string
+          item_description: string
+          line_total: number
+          qty: number
+          sale_item_id?: string | null
+          tax_class: Database["public"]["Enums"]["tax_class"]
+          tenant_id: string
+          unit_price: number
+          vat_amount?: number
+        }
+        Update: {
+          classification_code?: string | null
+          id?: string
+          invoice_id?: string
+          item_description?: string
+          line_total?: number
+          qty?: number
+          sale_item_id?: string | null
+          tax_class?: Database["public"]["Enums"]["tax_class"]
+          tenant_id?: string
+          unit_price?: number
+          vat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_sequences: {
+        Row: {
+          last_n: number
+          tenant_id: string
+          year: number
+        }
+        Insert: {
+          last_n?: number
+          tenant_id: string
+          year: number
+        }
+        Update: {
+          last_n?: number
+          tenant_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sequences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_sequences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          cashier_id: string | null
+          created_at: string
+          customer_kra_pin: string | null
+          customer_name: string
+          etims_status: Database["public"]["Enums"]["etims_status"]
+          exempt_amount: number
+          id: string
+          invoice_number: string
+          kra_control_number: string | null
+          kra_qr_code_url: string | null
+          mpesa_receipt_code: string | null
+          payment_method: string
+          sale_id: string
+          shop_id: string | null
+          subtotal: number
+          tenant_id: string
+          total_amount: number
+          vat_0_amount: number
+          vat_16_amount: number
+        }
+        Insert: {
+          cashier_id?: string | null
+          created_at?: string
+          customer_kra_pin?: string | null
+          customer_name?: string
+          etims_status?: Database["public"]["Enums"]["etims_status"]
+          exempt_amount?: number
+          id?: string
+          invoice_number: string
+          kra_control_number?: string | null
+          kra_qr_code_url?: string | null
+          mpesa_receipt_code?: string | null
+          payment_method: string
+          sale_id: string
+          shop_id?: string | null
+          subtotal: number
+          tenant_id: string
+          total_amount: number
+          vat_0_amount?: number
+          vat_16_amount?: number
+        }
+        Update: {
+          cashier_id?: string | null
+          created_at?: string
+          customer_kra_pin?: string | null
+          customer_name?: string
+          etims_status?: Database["public"]["Enums"]["etims_status"]
+          exempt_amount?: number
+          id?: string
+          invoice_number?: string
+          kra_control_number?: string | null
+          kra_qr_code_url?: string | null
+          mpesa_receipt_code?: string | null
+          payment_method?: string
+          sale_id?: string
+          shop_id?: string | null
+          subtotal?: number
+          tenant_id?: string
+          total_amount?: number
+          vat_0_amount?: number
+          vat_16_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_cashier_id_fkey"
+            columns: ["cashier_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -362,6 +873,7 @@ export type Database = {
           currency: string
           id: string
           invoice_id: string
+          metadata: Json | null
           payment_channel: Database["public"]["Enums"]["payment_channel"]
           purpose: Database["public"]["Enums"]["payment_purpose"]
           raw_webhook_payload: Json | null
@@ -379,6 +891,7 @@ export type Database = {
           currency?: string
           id?: string
           invoice_id: string
+          metadata?: Json | null
           payment_channel?: Database["public"]["Enums"]["payment_channel"]
           purpose: Database["public"]["Enums"]["payment_purpose"]
           raw_webhook_payload?: Json | null
@@ -396,6 +909,7 @@ export type Database = {
           currency?: string
           id?: string
           invoice_id?: string
+          metadata?: Json | null
           payment_channel?: Database["public"]["Enums"]["payment_channel"]
           purpose?: Database["public"]["Enums"]["payment_purpose"]
           raw_webhook_payload?: Json | null
@@ -431,33 +945,51 @@ export type Database = {
       }
       platform_broadcasts: {
         Row: {
+          audience: string
           body: string
+          channel: string
           created_at: string
           created_by: string | null
+          email_dispatched_at: string | null
           ends_at: string | null
           id: string
           is_active: boolean
+          published_at: string | null
+          recipient_count: number
           starts_at: string
+          status: string
           title: string
         }
         Insert: {
+          audience?: string
           body: string
+          channel?: string
           created_at?: string
           created_by?: string | null
+          email_dispatched_at?: string | null
           ends_at?: string | null
           id?: string
           is_active?: boolean
+          published_at?: string | null
+          recipient_count?: number
           starts_at?: string
+          status?: string
           title: string
         }
         Update: {
+          audience?: string
           body?: string
+          channel?: string
           created_at?: string
           created_by?: string | null
+          email_dispatched_at?: string | null
           ends_at?: string | null
           id?: string
           is_active?: boolean
+          published_at?: string | null
+          recipient_count?: number
           starts_at?: string
+          status?: string
           title?: string
         }
         Relationships: [
@@ -470,9 +1002,43 @@ export type Database = {
           },
         ]
       }
+      platform_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
+          attrs: Json
           barcode: string | null
+          classification_code: string | null
           cost_price: number
           created_at: string
           id: string
@@ -481,13 +1047,17 @@ export type Database = {
           low_stock_threshold: number
           name: string
           selling_price: number
+          shop_id: string | null
           sku: string | null
           stock_qty: number
+          tax_class: Database["public"]["Enums"]["tax_class"]
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          attrs?: Json
           barcode?: string | null
+          classification_code?: string | null
           cost_price?: number
           created_at?: string
           id?: string
@@ -496,13 +1066,17 @@ export type Database = {
           low_stock_threshold?: number
           name: string
           selling_price: number
+          shop_id?: string | null
           sku?: string | null
           stock_qty?: number
+          tax_class?: Database["public"]["Enums"]["tax_class"]
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          attrs?: Json
           barcode?: string | null
+          classification_code?: string | null
           cost_price?: number
           created_at?: string
           id?: string
@@ -511,12 +1085,21 @@ export type Database = {
           low_stock_threshold?: number
           name?: string
           selling_price?: number
+          shop_id?: string | null
           sku?: string | null
           stock_qty?: number
+          tax_class?: Database["public"]["Enums"]["tax_class"]
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "products_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -535,39 +1118,52 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_shop_id: string | null
           created_at: string
           full_name: string | null
           id: string
           is_active: boolean
           onboarding_completed_at: string | null
+          pending_shop_name: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           tenant_id: string | null
           updated_at: string
         }
         Insert: {
+          active_shop_id?: string | null
           created_at?: string
           full_name?: string | null
           id: string
           is_active?: boolean
           onboarding_completed_at?: string | null
+          pending_shop_name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           tenant_id?: string | null
           updated_at?: string
         }
         Update: {
+          active_shop_id?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
           is_active?: boolean
           onboarding_completed_at?: string | null
+          pending_shop_name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_active_shop_id_fkey"
+            columns: ["active_shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -584,8 +1180,78 @@ export type Database = {
           },
         ]
       }
+      ratiba_debit_attempts: {
+        Row: {
+          amount: number
+          attempt_number: number
+          created_at: string
+          id: string
+          payment_transaction_id: string | null
+          raw_callback: Json | null
+          standing_order_id: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          subscription_id: string
+          tenant_id: string
+        }
+        Insert: {
+          amount?: number
+          attempt_number?: number
+          created_at?: string
+          id?: string
+          payment_transaction_id?: string | null
+          raw_callback?: Json | null
+          standing_order_id?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          subscription_id: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          attempt_number?: number
+          created_at?: string
+          id?: string
+          payment_transaction_id?: string | null
+          raw_callback?: Json | null
+          standing_order_id?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          subscription_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratiba_debit_attempts_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratiba_debit_attempts_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratiba_debit_attempts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratiba_debit_attempts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
+          attrs: Json
+          classification_code: string | null
           cost_price: number
           id: string
           line_total: number
@@ -593,10 +1259,13 @@ export type Database = {
           product_name: string
           qty: number
           sale_id: string
+          tax_class: Database["public"]["Enums"]["tax_class"]
           tenant_id: string
           unit_price: number
         }
         Insert: {
+          attrs?: Json
+          classification_code?: string | null
           cost_price?: number
           id?: string
           line_total: number
@@ -604,10 +1273,13 @@ export type Database = {
           product_name: string
           qty: number
           sale_id: string
+          tax_class?: Database["public"]["Enums"]["tax_class"]
           tenant_id: string
           unit_price: number
         }
         Update: {
+          attrs?: Json
+          classification_code?: string | null
           cost_price?: number
           id?: string
           line_total?: number
@@ -615,6 +1287,7 @@ export type Database = {
           product_name?: string
           qty?: number
           sale_id?: string
+          tax_class?: Database["public"]["Enums"]["tax_class"]
           tenant_id?: string
           unit_price?: number
         }
@@ -660,6 +1333,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           payment_channel: Database["public"]["Enums"]["payment_channel"] | null
+          shop_id: string | null
           status: Database["public"]["Enums"]["sale_status"]
           subtotal: number
           tenant_id: string
@@ -678,6 +1352,7 @@ export type Database = {
           payment_channel?:
             | Database["public"]["Enums"]["payment_channel"]
             | null
+          shop_id?: string | null
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal?: number
           tenant_id: string
@@ -696,6 +1371,7 @@ export type Database = {
           payment_channel?:
             | Database["public"]["Enums"]["payment_channel"]
             | null
+          shop_id?: string | null
           status?: Database["public"]["Enums"]["sale_status"]
           subtotal?: number
           tenant_id?: string
@@ -725,6 +1401,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sales_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -740,42 +1423,321 @@ export type Database = {
           },
         ]
       }
+      shop_floor_tables: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          seats: number
+          shop_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          seats?: number
+          shop_id: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          seats?: number
+          shop_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_floor_tables_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_floor_tables_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_floor_tables_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_invites: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          shop_id: string
+          tenant_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          phone: string
+          role?: Database["public"]["Enums"]["user_role"]
+          shop_id: string
+          tenant_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          phone?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          shop_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_invites_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_tickets: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          items: Json
+          kind: string
+          sale_id: string | null
+          shop_id: string
+          status: string
+          table_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          items?: Json
+          kind?: string
+          sale_id?: string | null
+          shop_id: string
+          status?: string
+          table_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          items?: Json
+          kind?: string
+          sale_id?: string | null
+          shop_id?: string
+          status?: string
+          table_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_tickets_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_tickets_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_tickets_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "shop_floor_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shops: {
+        Row: {
+          address_text: string | null
+          category: Database["public"]["Enums"]["business_category"]
+          created_at: string
+          id: string
+          is_default: boolean
+          location_lat: number | null
+          location_lng: number | null
+          name: string
+          phone: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          address_text?: string | null
+          category?: Database["public"]["Enums"]["business_category"]
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          location_lat?: number | null
+          location_lng?: number | null
+          name: string
+          phone?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          address_text?: string | null
+          category?: Database["public"]["Enums"]["business_category"]
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          location_lat?: number | null
+          location_lng?: number | null
+          name?: string
+          phone?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shops_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shops_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           amount: number
+          auto_debit_enabled: boolean
           created_at: string
           currency: string
           current_period_end: string | null
           current_period_start: string | null
           id: string
           last_invoice_id: string | null
+          next_billing_date: string | null
           plan_code: string
+          ratiba_custom_sto_id: string | null
+          ratiba_last_attempt_at: string | null
+          ratiba_opt_in_phone: string | null
+          ratiba_raw_response: Json | null
+          ratiba_retry_count: number
+          ratiba_standing_order_id: string | null
           status: Database["public"]["Enums"]["tenant_status"]
           tenant_id: string
           updated_at: string
         }
         Insert: {
           amount?: number
+          auto_debit_enabled?: boolean
           created_at?: string
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
           last_invoice_id?: string | null
+          next_billing_date?: string | null
           plan_code?: string
+          ratiba_custom_sto_id?: string | null
+          ratiba_last_attempt_at?: string | null
+          ratiba_opt_in_phone?: string | null
+          ratiba_raw_response?: Json | null
+          ratiba_retry_count?: number
+          ratiba_standing_order_id?: string | null
           status?: Database["public"]["Enums"]["tenant_status"]
           tenant_id: string
           updated_at?: string
         }
         Update: {
           amount?: number
+          auto_debit_enabled?: boolean
           created_at?: string
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
           last_invoice_id?: string | null
+          next_billing_date?: string | null
           plan_code?: string
+          ratiba_custom_sto_id?: string | null
+          ratiba_last_attempt_at?: string | null
+          ratiba_opt_in_phone?: string | null
+          ratiba_raw_response?: Json | null
+          ratiba_retry_count?: number
+          ratiba_standing_order_id?: string | null
           status?: Database["public"]["Enums"]["tenant_status"]
           tenant_id?: string
           updated_at?: string
@@ -848,7 +1810,10 @@ export type Database = {
           address_text: string | null
           category: Database["public"]["Enums"]["business_category"]
           created_at: string
+          email: string | null
           id: string
+          kra_pin: string | null
+          legal_name: string | null
           location_lat: number | null
           location_lng: number | null
           name: string
@@ -856,13 +1821,17 @@ export type Database = {
           status: Database["public"]["Enums"]["tenant_status"]
           trial_ends_at: string
           updated_at: string
+          vat_registered: boolean
         }
         Insert: {
           access_until?: string
           address_text?: string | null
           category?: Database["public"]["Enums"]["business_category"]
           created_at?: string
+          email?: string | null
           id?: string
+          kra_pin?: string | null
+          legal_name?: string | null
           location_lat?: number | null
           location_lng?: number | null
           name: string
@@ -870,13 +1839,17 @@ export type Database = {
           status?: Database["public"]["Enums"]["tenant_status"]
           trial_ends_at?: string
           updated_at?: string
+          vat_registered?: boolean
         }
         Update: {
           access_until?: string
           address_text?: string | null
           category?: Database["public"]["Enums"]["business_category"]
           created_at?: string
+          email?: string | null
           id?: string
+          kra_pin?: string | null
+          legal_name?: string | null
           location_lat?: number | null
           location_lng?: number | null
           name?: string
@@ -884,6 +1857,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["tenant_status"]
           trial_ends_at?: string
           updated_at?: string
+          vat_registered?: boolean
         }
         Relationships: []
       }
@@ -1033,9 +2007,33 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: number
       }
+      get_app_secret: { Args: { p_name: string }; Returns: string }
+      invite_shop_staff: {
+        Args: { p_full_name?: string; p_phone: string; p_shop_id: string }
+        Returns: string
+      }
+      issue_sale_invoice: { Args: { p_sale_id: string }; Returns: string }
+      set_active_shop: { Args: { p_shop_id: string }; Returns: undefined }
+      subscription_amount_for_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
+      sync_tenant_subscription_amount: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       tenant_has_access: { Args: { p_tenant_id?: string }; Returns: boolean }
+      tenant_is_write_locked: {
+        Args: { p_tenant_id?: string }
+        Returns: boolean
+      }
+      upsert_app_secret: {
+        Args: { p_name: string; p_value: string }
+        Returns: undefined
+      }
     }
     Enums: {
+      bill_invoice_status: "DRAFT" | "SENT" | "PAID" | "CANCELLED" | "FAILED"
       business_category:
         | "DUKA"
         | "BOUTIQUE"
@@ -1043,7 +2041,11 @@ export type Database = {
         | "HARDWARE"
         | "EATERY"
         | "OTHER"
+        | "ELECTRONICS"
+        | "AGRITECH"
+        | "SERVICES"
       credit_entry_type: "CHARGE" | "REPAYMENT" | "ADJUSTMENT"
+      etims_status: "PENDING_UPGRADE" | "SUBMITTED" | "FAILED"
       notification_priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL"
       notification_type:
         | "SALE"
@@ -1052,9 +2054,20 @@ export type Database = {
         | "SYSTEM"
         | "CREDIT"
         | "PAYMENT"
-      payment_channel: "MPESA_STK" | "CARD" | "PAYBILL" | "CASH" | "CREDIT"
+      payment_channel:
+        | "MPESA_STK"
+        | "CARD"
+        | "PAYBILL"
+        | "CASH"
+        | "CREDIT"
+        | "RATIBA"
+        | "BILL_MANAGER"
       payment_destination_type: "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI"
-      payment_purpose: "SAAS_SUBSCRIPTION" | "VENDOR_SALE" | "OTHER"
+      payment_purpose:
+        | "SAAS_SUBSCRIPTION"
+        | "VENDOR_SALE"
+        | "OTHER"
+        | "BILL_INVOICE"
       payment_status: "PENDING" | "COMPLETE" | "FAILED" | "CANCELLED"
       recipient_role: "SUPER_ADMIN" | "VENDOR_ADMIN" | "CUSTOMER"
       sale_status:
@@ -1064,6 +2077,7 @@ export type Database = {
         | "CREDIT"
         | "CANCELLED"
         | "REFUNDED"
+      tax_class: "STANDARD_16" | "ZERO_RATED" | "EXEMPT"
       tenant_status: "TRIAL" | "ACTIVE" | "PAST_DUE" | "SUSPENDED" | "CANCELLED"
       user_role: "SUPER_ADMIN" | "VENDOR_ADMIN" | "VENDOR_STAFF"
     }
@@ -1193,6 +2207,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      bill_invoice_status: ["DRAFT", "SENT", "PAID", "CANCELLED", "FAILED"],
       business_category: [
         "DUKA",
         "BOUTIQUE",
@@ -1200,8 +2215,12 @@ export const Constants = {
         "HARDWARE",
         "EATERY",
         "OTHER",
+        "ELECTRONICS",
+        "AGRITECH",
+        "SERVICES",
       ],
       credit_entry_type: ["CHARGE", "REPAYMENT", "ADJUSTMENT"],
+      etims_status: ["PENDING_UPGRADE", "SUBMITTED", "FAILED"],
       notification_priority: ["LOW", "NORMAL", "HIGH", "CRITICAL"],
       notification_type: [
         "SALE",
@@ -1211,9 +2230,22 @@ export const Constants = {
         "CREDIT",
         "PAYMENT",
       ],
-      payment_channel: ["MPESA_STK", "CARD", "PAYBILL", "CASH", "CREDIT"],
+      payment_channel: [
+        "MPESA_STK",
+        "CARD",
+        "PAYBILL",
+        "CASH",
+        "CREDIT",
+        "RATIBA",
+        "BILL_MANAGER",
+      ],
       payment_destination_type: ["PERSONAL_MPESA", "TILL", "PAYBILL", "POCHI"],
-      payment_purpose: ["SAAS_SUBSCRIPTION", "VENDOR_SALE", "OTHER"],
+      payment_purpose: [
+        "SAAS_SUBSCRIPTION",
+        "VENDOR_SALE",
+        "OTHER",
+        "BILL_INVOICE",
+      ],
       payment_status: ["PENDING", "COMPLETE", "FAILED", "CANCELLED"],
       recipient_role: ["SUPER_ADMIN", "VENDOR_ADMIN", "CUSTOMER"],
       sale_status: [
@@ -1224,6 +2256,7 @@ export const Constants = {
         "CANCELLED",
         "REFUNDED",
       ],
+      tax_class: ["STANDARD_16", "ZERO_RATED", "EXEMPT"],
       tenant_status: ["TRIAL", "ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELLED"],
       user_role: ["SUPER_ADMIN", "VENDOR_ADMIN", "VENDOR_STAFF"],
     },

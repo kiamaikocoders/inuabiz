@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import {
+  VendorMpesaPaymentDialog,
+  type PaymentDestinationInfo,
+} from "@/components/app/VendorMpesaPaymentDialog";
 import { StatusEmpty } from "@/components/status/StatusPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +31,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StkPaymentDialog } from "@/components/app/StkPaymentDialog";
 import { cn } from "@/lib/utils";
 import { KES, products as mockProducts } from "@/lib/mock-data";
-import { fetchProducts, fetchShopCustomers } from "@/lib/data";
+import {
+  fetchPrimaryPaymentDestination,
+  fetchProducts,
+  fetchShopCustomers,
+} from "@/lib/data";
 import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { saveLastSale, type LastSale } from "@/lib/last-sale";
 import { pollSaleStatus } from "@/lib/payments";
@@ -50,12 +57,12 @@ export const Route = createFileRoute("/app/pos")({
       {
         name: "description",
         content:
-          "Fast mobile checkout: search or scan products, apply discounts and trigger an M-Pesa STK push in seconds.",
+          "Fast mobile checkout: search or scan products, apply discounts and confirm M-Pesa to your till.",
       },
       { property: "og:title", content: "InuaBiz point of sale" },
       {
         property: "og:description",
-        content: "Checkout, discounts and M-Pesa STK push in seconds.",
+        content: "Checkout, discounts and M-Pesa confirmation in seconds.",
       },
     ],
   }),
@@ -76,6 +83,11 @@ function POS() {
     queryFn: fetchShopCustomers,
     enabled: isSupabaseConfigured(),
   });
+  const { data: paymentDestination } = useQuery({
+    queryKey: ["payment-destination"],
+    queryFn: fetchPrimaryPaymentDestination,
+    enabled: isSupabaseConfigured(),
+  });
   const products = liveProducts ?? (isSupabaseConfigured() ? [] : mockProducts);
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
   const [query, setQuery] = useState("");
@@ -85,11 +97,16 @@ function POS() {
   const [payOpen, setPayOpen] = useState(false);
   const [creditOpen, setCreditOpen] = useState(false);
   const [creditCustomerId, setCreditCustomerId] = useState("");
-  const [stkPhone, setStkPhone] = useState("");
-  const [stkState, setStkState] = useState<"idle" | "waiting" | "done" | "failed">("idle");
+  const [mpesaState, setMpesaState] = useState<"idle" | "waiting" | "done" | "failed">("idle");
   const [saleRef, setSaleRef] = useState("SL-10239");
+  const [activeSaleId, setActiveSaleId] = useState<string | null>(null);
+  const [billRef, setBillRef] = useState("");
+  const [checkoutDestination, setCheckoutDestination] = useState<PaymentDestinationInfo | null>(
+    null,
+  );
+  const [receiptCode, setReceiptCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const stkTimer = useRef<number | null>(null);
+  const mockTimer = useRef<number | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -124,7 +141,6 @@ function POS() {
     channel: string,
     customer: string,
     saleId?: string,
-    phone?: string,
   ): LastSale => {
     const now = new Date();
     const when = `Today · ${now.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })} EAT`;
@@ -135,7 +151,7 @@ function POS() {
       items: lines.length,
       channel,
       customer,
-      phone: phone ?? customer,
+      phone: customer,
       shop: identity.shop,
       location: "Kasarani, Nairobi",
       when,
@@ -151,97 +167,154 @@ function POS() {
     void navigate({ to: "/app/pos/success" });
   };
 
-  const checkout = async (channel: "CASH" | "MPESA_STK" | "CREDIT", customerId?: string) => {
+  const startMpesaCheckout = async () => {
+    if (!lines.length) return;
+    setBusy(true);
+    setMpesaState("waiting");
+    setReceiptCode("");
+
+    if (!isSupabaseConfigured()) {
+      setCheckoutDestination(
+        paymentDestination ?? {
+          destinationType: "PERSONAL_MPESA",
+          accountNumber: "0712 345 678",
+          accountName: "Demo shop",
+        },
+      );
+      setBillRef("DEMO1234");
+      setBusy(false);
+      setPayOpen(true);
+      return;
+    }
+
+    const { data, error } = await invokeFunction<{
+      ok?: boolean;
+      sale?: { id: string; status: string; payment_bill_ref?: string };
+      payment_destination?: PaymentDestinationInfo & {
+        destination_type?: string;
+        account_number?: string;
+        account_name?: string | null;
+      };
+      bill_ref?: string;
+      message?: string;
+    }>("checkout-sale", {
+      items: lines.map((l) => ({ product_id: l.id, qty: l.qty })),
+      discount_amount: discount,
+      channel: "MPESA",
+    });
+
+    setBusy(false);
+    if (error || !data?.ok || !data.sale) {
+      setMpesaState("failed");
+      toast.error("Could not open sale", { description: error ?? "Try again." });
+      return;
+    }
+
+    setActiveSaleId(data.sale.id);
+    setBillRef(data.bill_ref ?? data.sale.payment_bill_ref ?? "");
+    const raw = data.payment_destination;
+    setCheckoutDestination(
+      raw
+        ? {
+            destinationType: (raw.destinationType ??
+              raw.destination_type ??
+              "PERSONAL_MPESA") as PaymentDestinationInfo["destinationType"],
+            accountNumber: raw.accountNumber ?? raw.account_number ?? "",
+            accountName: raw.accountName ?? raw.account_name ?? null,
+          }
+        : paymentDestination ?? null,
+    );
+    setPayOpen(true);
+
+    const dest = raw?.destination_type ?? raw?.destinationType;
+    if (dest && dest !== "PERSONAL_MPESA") {
+      const result = await pollSaleStatus(data.sale.id);
+      if (result === "PAID") {
+        setMpesaState("done");
+        toast.success("Payment received", { description: `${KES(total)} confirmed via M-Pesa.` });
+      } else if (result === "FAILED") {
+        setMpesaState("failed");
+      } else {
+        toast.info("Waiting for customer payment", {
+          description: data.message ?? "Daraja will mark this sale paid when funds arrive.",
+        });
+      }
+    }
+  };
+
+  const checkout = async (channel: "CASH" | "CREDIT", customerId?: string) => {
     if (!lines.length) return;
     setBusy(true);
 
     if (!isSupabaseConfigured()) {
+      setBusy(false);
       if (channel === "CASH") {
-        setBusy(false);
         toast.success("Cash sale recorded");
         finishSale("Cash", "Walk-in");
-        return;
-      }
-      if (channel === "CREDIT") {
-        setBusy(false);
+      } else {
         setCreditOpen(false);
         const customer = shopCustomers.find((c) => c.id === customerId);
         toast.success("Added to credit ledger", {
           description: customer ? `Attached to ${customer.name}.` : "Credit sale recorded.",
         });
         finishSale("Credit", customer?.name ?? "Customer");
-        return;
       }
-      setStkState("waiting");
-      setBusy(false);
-      if (stkTimer.current) window.clearTimeout(stkTimer.current);
-      stkTimer.current = window.setTimeout(() => {
-        saveLastSale(buildSale("M-Pesa STK", stkPhone, undefined, stkPhone));
-        setStkState("done");
-        toast.success("Payment received", { description: `${KES(total)} confirmed via M-Pesa.` });
-      }, 2200);
       return;
     }
 
     const { data, error } = await invokeFunction<{
       ok?: boolean;
-      sale?: { id: string; status: string; total: number };
-      message?: string;
+      sale?: { id: string };
     }>("checkout-sale", {
       items: lines.map((l) => ({ product_id: l.id, qty: l.qty })),
       discount_amount: discount,
       channel,
-      customer_phone: channel === "MPESA_STK" ? stkPhone : undefined,
       customer_id: customerId,
     });
+    setBusy(false);
     if (error || !data?.ok || !data.sale) {
-      setBusy(false);
-      setStkState("failed");
       toast.error("Checkout failed", { description: error ?? "Could not record the sale." });
       return;
     }
 
     if (channel === "CASH") {
-      setBusy(false);
       toast.success("Cash sale recorded");
       finishSale("Cash", "Walk-in", data.sale.id);
       return;
     }
 
-    if (channel === "CREDIT") {
-      setBusy(false);
-      setCreditOpen(false);
-      const customer = shopCustomers.find((c) => c.id === customerId);
-      toast.success("Added to credit ledger", {
-        description: customer ? `Attached to ${customer.name}.` : "Credit sale recorded.",
-      });
-      finishSale("Credit", customer?.name ?? "Customer", data.sale.id);
-      return;
-    }
-
-    setStkState("waiting");
-    const result = await pollSaleStatus(data.sale.id);
-    setBusy(false);
-    if (result === "PAID") {
-      setStkState("done");
-      toast.success("Payment received", { description: `${KES(total)} confirmed via M-Pesa.` });
-      saveLastSale(buildSale("M-Pesa STK", stkPhone, data.sale.id, stkPhone));
-    } else if (result === "FAILED") {
-      setStkState("failed");
-      toast.error("Payment failed", { description: "PIN cancelled or timed out." });
-    } else {
-      toast.info("Still waiting for PIN", {
-        description: "Leave this open — Daraja will mark the sale paid when confirmed.",
-      });
-    }
+    setCreditOpen(false);
+    const customer = shopCustomers.find((c) => c.id === customerId);
+    toast.success("Added to credit ledger", {
+      description: customer ? `Attached to ${customer.name}.` : "Credit sale recorded.",
+    });
+    finishSale("Credit", customer?.name ?? "Customer", data.sale.id);
   };
 
-  const startStk = () => {
-    if (!stkPhone.trim()) {
-      toast.error("Enter the customer phone number");
+  const confirmManualMpesa = async () => {
+    if (!activeSaleId || !receiptCode.trim()) return;
+    setBusy(true);
+
+    if (!isSupabaseConfigured()) {
+      setBusy(false);
+      setMpesaState("done");
+      saveLastSale(buildSale("M-Pesa", receiptCode, activeSaleId));
+      toast.success("Payment confirmed");
       return;
     }
-    void checkout("MPESA_STK");
+
+    const { data, error } = await invokeFunction<{ ok?: boolean; message?: string }>(
+      "confirm-sale-mpesa",
+      { sale_id: activeSaleId, mpesa_receipt_code: receiptCode.trim() },
+    );
+    setBusy(false);
+    if (error || !data?.ok) {
+      toast.error("Could not confirm", { description: error ?? "Check the M-Pesa code." });
+      return;
+    }
+    setMpesaState("done");
+    toast.success("Payment confirmed", { description: `${KES(total)} recorded.` });
+    saveLastSale(buildSale("M-Pesa", receiptCode, activeSaleId));
   };
 
   return (
@@ -345,21 +418,11 @@ function POS() {
                   <p className="text-muted-foreground text-xs">{KES(l.product.price)} each</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-7"
-                    onClick={() => dec(l.id)}
-                  >
+                  <Button variant="outline" size="icon" className="size-7" onClick={() => dec(l.id)}>
                     <Minus className="size-3" />
                   </Button>
                   <span className="w-6 text-center text-sm font-semibold">{l.qty}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-7"
-                    onClick={() => add(l.id)}
-                  >
+                  <Button variant="outline" size="icon" className="size-7" onClick={() => add(l.id)}>
                     <Plus className="size-3" />
                   </Button>
                   <Button
@@ -399,67 +462,58 @@ function POS() {
           </div>
 
           <div className="mt-5 grid gap-2">
+            <Button
+              size="lg"
+              disabled={lines.length === 0 || busy}
+              onClick={() => void startMpesaCheckout()}
+            >
+              <Smartphone className="mr-2 size-4" /> M-Pesa
+            </Button>
+            <div className="grid grid-cols-2 gap-2">
               <Button
-                size="lg"
+                variant="outline"
+                disabled={lines.length === 0 || busy}
+                onClick={() => void checkout("CASH")}
+              >
+                <Wallet className="mr-2 size-4" /> Cash
+              </Button>
+              <Button
+                variant="outline"
                 disabled={lines.length === 0 || busy}
                 onClick={() => {
-                  setStkState("idle");
-                  setPayOpen(true);
+                  if (!shopCustomers.length) {
+                    toast.error("Add a customer first", {
+                      description: "Credit sales attach to a customer on the Customers page.",
+                    });
+                    return;
+                  }
+                  setCreditCustomerId(shopCustomers[0]?.id ?? "");
+                  setCreditOpen(true);
                 }}
               >
-                <Smartphone className="mr-2 size-4" /> M-Pesa STK push
+                On credit
               </Button>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  disabled={lines.length === 0 || busy}
-                  onClick={() => void checkout("CASH")}
-                >
-                  <Wallet className="mr-2 size-4" /> Cash
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={lines.length === 0 || busy}
-                  onClick={() => {
-                    if (!shopCustomers.length) {
-                      toast.error("Add a customer first", {
-                        description: "Credit sales attach to a customer on the Customers page.",
-                      });
-                      return;
-                    }
-                    setCreditCustomerId(shopCustomers[0]?.id ?? "");
-                    setCreditOpen(true);
-                  }}
-                >
-                  On credit
-                </Button>
-              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <StkPaymentDialog
+      <VendorMpesaPaymentDialog
         open={payOpen}
         onOpenChange={setPayOpen}
-        state={stkState}
-        phone={stkPhone}
-        onPhoneChange={setStkPhone}
+        state={mpesaState === "idle" ? "waiting" : mpesaState}
         total={total}
         saleRef={saleRef}
-        customerLabel={stkPhone ? `Walk-in · ${stkPhone}` : "Walk-in"}
+        billRef={billRef}
+        destination={checkoutDestination}
+        receiptCode={receiptCode}
+        onReceiptChange={setReceiptCode}
         busy={busy}
-        onSend={startStk}
+        onConfirmManual={() => void confirmManualMpesa()}
         onCancel={() => {
-          if (stkTimer.current) window.clearTimeout(stkTimer.current);
-          setStkState("idle");
-        }}
-        onManualVerify={() => {
-          if (stkTimer.current) window.clearTimeout(stkTimer.current);
-          toast.info("Manual verify", {
-            description: "If the PIN prompt stalled, confirm with the M-Pesa SMS code.",
-          });
-          saveLastSale(buildSale("M-Pesa STK", stkPhone, undefined, stkPhone));
-          setStkState("done");
+          if (mockTimer.current) window.clearTimeout(mockTimer.current);
+          setMpesaState("failed");
+          setPayOpen(false);
         }}
         onPrint={() => {
           setPayOpen(false);
@@ -467,12 +521,13 @@ function POS() {
           setDiscount(0);
           void navigate({ to: "/app/pos/success" });
         }}
-        onSms={() => toast.success("SMS receipt queued", { description: `Sent to ${stkPhone}.` })}
+        onSms={() => toast.success("SMS receipt queued")}
         onNewSale={() => {
           setPayOpen(false);
           setCart([]);
           setDiscount(0);
-          setStkState("idle");
+          setMpesaState("idle");
+          setActiveSaleId(null);
         }}
       />
 

@@ -48,6 +48,28 @@ export function getUserClient(authHeader: string): SupabaseClient {
   });
 }
 
+type AuthUser = { id: string; email?: string; phone?: string };
+
+/** Resolve the signed-in user from the request JWT (works with verify_jwt=true). */
+export async function requireAuthUser(
+  req: Request,
+): Promise<{ user: AuthUser } | Response> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return jsonResponse({ error: "Unauthorized", code: "missing_auth" }, 401);
+  }
+
+  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const client = getUserClient(authHeader);
+  const { data: { user }, error } = await client.auth.getUser(jwt);
+  if (error || !user) {
+    console.error("requireAuthUser", error?.message ?? "no user");
+    return jsonResponse({ error: "Unauthorized", code: "invalid_session" }, 401);
+  }
+
+  return { user: user as AuthUser };
+}
+
 export type IntaSendStkResponse = {
   invoice?: { invoice_id?: string; state?: string; [k: string]: unknown };
   invoice_id?: string;

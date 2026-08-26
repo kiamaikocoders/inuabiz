@@ -19,9 +19,11 @@ export const KES2 = (n: number) =>
   }).format(n);
 
 export const SUBSCRIPTION_PRICE = 3000;
-export const TRIAL_DAYS = 14;
+export const COMPLIANCE_PRICE = 4500;
+export const SETUP_FEE = 1000;
+export const TRIAL_DAYS = 3;
 
-/* ---------------------------------- Vendor --------------------------------- */
+import type { ProductAttrs } from "@/lib/category";
 
 export type Product = {
   id: string;
@@ -33,6 +35,9 @@ export type Product = {
   stock: number;
   reorderLevel: number;
   emoji: string;
+  taxClass?: "STANDARD_16" | "ZERO_RATED" | "EXEMPT";
+  classificationCode?: string;
+  attrs?: ProductAttrs;
 };
 
 export const products: Product[] = [
@@ -56,7 +61,7 @@ export type Sale = {
   time: string;
   items: number;
   total: number;
-  channel: "M-Pesa STK" | "Cash" | "Till" | "Paybill" | "Credit";
+  channel: "M-Pesa STK" | "M-Pesa" | "PayHero" | "Cash" | "Till" | "Paybill" | "Credit";
   customer: string;
   status: "Complete" | "Pending" | "Failed";
 };
@@ -229,7 +234,7 @@ export type Tenant = {
   business: string;
   owner: string;
   phone: string;
-  category: "Duka" | "Boutique" | "Chemist" | "Hardware" | "Eatery";
+  category: string;
   town: string;
   status: "Active" | "Trial" | "Error" | "Suspended";
   mrr: number;
@@ -331,7 +336,7 @@ export const adminNotifications: AdminNotificationItem[] = [
   {
     id: "an2",
     title: "New vendor registration",
-    message: "Lavington Pharma signed up and started a 14-day trial.",
+    message: "Lavington Pharma signed up and started a 3-day trial.",
     type: "SYSTEM",
     priority: "HIGH",
     read: false,
@@ -551,7 +556,7 @@ export const adminNotifications: AdminNotificationItem[] = [
   },
   {
     id: "an11",
-    title: "IntaSend degraded",
+    title: "Daraja callback delayed",
     message: "3 webhook retries in the last hour. Delivery still catching up.",
     type: "SYSTEM",
     priority: "NORMAL",
@@ -568,7 +573,7 @@ export const adminNotifications: AdminNotificationItem[] = [
     source: "health_probe",
     owner: "SRE · Auto",
     tenant: "Platform",
-    shop: "IntaSend",
+    shop: "Daraja",
     primaryHref: "/admin/health",
     primaryLabel: "Open health",
   },
@@ -577,14 +582,14 @@ export const adminNotifications: AdminNotificationItem[] = [
 export const platformHealth = [
   { name: "PostgreSQL", detail: "Connection pool 34 / 100", status: "Healthy", value: 34 },
   { name: "Edge Functions", detail: "p95 latency 214 ms", status: "Healthy", value: 62 },
-  { name: "IntaSend Webhooks", detail: "3 retries in last hour", status: "Degraded", value: 78 },
+  { name: "Daraja callbacks", detail: "Demo fixture — not live probe data", status: "Healthy", value: 12 },
   { name: "AI Insights API", detail: "KES 4,120 spend this month", status: "Healthy", value: 41 },
   { name: "Realtime Channels", detail: "128 concurrent sockets", status: "Healthy", value: 28 },
 ];
 
 export const broadcasts = [
   { id: "b1", message: "Scheduled maintenance on Sunday 02:00 – 03:00 EAT.", audience: "All vendors", status: "Scheduled", sent: "18 Aug" },
-  { id: "b2", message: "New feature: WhatsApp debt reminders are now live.", audience: "All vendors", status: "Sent", sent: "11 Aug" },
+  { id: "b2", message: "New feature: email credit reminders are now live.", audience: "All vendors", status: "Sent", sent: "11 Aug" },
   { id: "b3", message: "M-Pesa downtime resolved. Reconciliation caught up.", audience: "Active vendors", status: "Sent", sent: "02 Aug" },
 ];
 

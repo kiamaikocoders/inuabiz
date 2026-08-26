@@ -1,6 +1,6 @@
 insert into public.communication_templates (id, category, name, subject, html, description)
 values
-('welcome-trial', 'auth', 'Welcome — trial started', 'Your till is live — 14-day trial', $html$<!DOCTYPE html>
+('welcome-trial', 'auth', 'Welcome — trial started', 'Your till is live — 3-day trial', $html$<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -52,7 +52,7 @@ values
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;">
                 <tr><td style="padding:24px;">
                   <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:16px;line-height:25px;font-weight:700;color:#121816;">Hello Mama Njoroge,</p>
-                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">Your 14-day trial is on. POS, M-Pesa reconciliation, duka debt and stock alerts are ready on this phone.</p>
+                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">Your 3-day trial is on. POS, M-Pesa reconciliation, duka debt and stock alerts are ready on this phone.</p>
                   
                   
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
@@ -94,7 +94,7 @@ values
     </tr>
   </table>
 </body>
-</html>$html$, 'Sent after onboarding when a vendor starts the 14-day trial.'),
+</html>$html$, 'Sent after onboarding when a vendor starts the 3-day trial.'),
 ('invite-staff', 'auth', 'Invite staff', 'You''re invited to the till', $html$<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -147,7 +147,7 @@ values
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;">
                 <tr><td style="padding:24px;">
                   <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:16px;line-height:25px;font-weight:700;color:#121816;">Hello Faith Wanjiku,</p>
-                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">You have been invited to sell on Mama Njoroge&#39;s duka. Open the link on this phone to join with OTP — no password to remember.</p>
+                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">You have been invited to sell on Mama Njoroge&#39;s duka. Open the link, then sign in with the phone number on this invite.</p>
                   
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;background:#F0EDE8;border-radius:10px;">
       <tr><td style="padding:16px;">
@@ -207,8 +207,8 @@ values
     </tr>
   </table>
 </body>
-</html>$html$, 'Vendor admin invites a cashier. Join with OTP — no password.'),
-('confirm-email', 'auth', 'Confirm email', 'Confirm this email for receipts & alerts', $html$<!DOCTYPE html>
+</html>$html$, 'Vendor admin invites a cashier by phone, and optionally emails this branded invite.'),
+('confirm-email', 'auth', 'Signup OTP', 'Your InuaBiz email code', $html$<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -247,10 +247,10 @@ values
             <td style="padding:0 0 14px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;border-radius:12px;">
                 <tr><td style="padding:20px;">
-                  <span style="display:inline-block;background:#F4A261;color:#1A1510;font-family:Arial,sans-serif;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:0.04em;">VERIFY</span>
-                  <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:30px;line-height:36px;font-weight:800;color:#121816;">Confirm this</p>
-                  <p style="margin:0;font-family:Arial,sans-serif;font-size:30px;line-height:36px;font-weight:800;color:#F4A261;">email.</p>
-                  <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:14px;line-height:20px;color:#66736B;">Receipts and alerts will land here.</p>
+                  <span style="display:inline-block;background:#F4A261;color:#1A1510;font-family:Arial,sans-serif;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:0.04em;">CODE</span>
+                  <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:30px;line-height:36px;font-weight:800;color:#121816;">Your email</p>
+                  <p style="margin:0;font-family:Arial,sans-serif;font-size:30px;line-height:36px;font-weight:800;color:#F4A261;">code.</p>
+                  <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:14px;line-height:20px;color:#66736B;">Enter this 6-digit code to finish sign-up.</p>
                 </td></tr>
               </table>
             </td>
@@ -260,21 +260,31 @@ values
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;">
                 <tr><td style="padding:24px;">
                   <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:16px;line-height:25px;font-weight:700;color:#121816;">Hello Mama Njoroge,</p>
-                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">Confirm njoroge.duka@gmail.com so we can send sale receipts, invoice copies and stock alerts. This does not change how you sign in — you still use your phone and OTP.</p>
+                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">This code expires in one hour. After you enter it we send you to shop setup. Your first shop starts a 3-day trial.</p>
                   
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;background:#F0EDE8;border-radius:10px;">
+      <tr><td style="padding:16px;">
+        <p style="margin:0 0 10px 0;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#F4A261;letter-spacing:0.04em;">DETAILS</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:12px;color:#66736B;width:120px;vertical-align:top;">Code</td>
+          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:13px;color:#121816;font-weight:600;">{{ .Token }}</td>
+        </tr></table>
+      </td></tr>
+    </table>
                   
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="{{ .ConfirmationURL }}" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Confirm email</a>
+            <a href="https://app.inuabiz.co.ke/signup" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">I have the code</a>
           </td>
         </tr>
       </table>
                   
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;border-radius:10px;">
         <tr><td style="padding:16px;">
-          <p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#F4A261;">DIDN&#39;T ADD THIS EMAIL?</p>
-          <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#66736B;">If you did not add this address in Settings, ignore this message. Nothing changes until you tap confirm.</p>
+          <p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#F4A261;">DIDN&#39;T CREATE AN ACCOUNT?</p>
+          <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#66736B;">If you did not sign up for InuaBiz, ignore this email. Nobody else can use the code.</p>
         </td></tr>
       </table>
                 </td></tr>
@@ -302,7 +312,7 @@ values
     </tr>
   </table>
 </body>
-</html>$html$, 'Settings → confirm address for receipts. Sign-in stays phone OTP.'),
+</html>$html$, 'Auth confirmation after email/password sign-up. Enter the 6-digit code, then finish shop onboarding.'),
 ('magic-link-admin', 'auth', 'Magic link — admin', 'Sign in to the InuaBiz desk', $html$<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -617,7 +627,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;border-radius:10px;">
         <tr><td style="padding:16px;">
           <p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#F4A261;">NEED A COPY?</p>
-          <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#66736B;">This is a customer receipt, not a tax invoice. For wholesale invoices ask the shopkeeper.</p>
+          <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#66736B;">Electronic tax record (ETR) from this till. Keep it for your books. It is not a KRA control-unit printout.</p>
         </td></tr>
       </table>
                 </td></tr>
@@ -879,124 +889,7 @@ values
     </tr>
   </table>
 </body>
-</html>$html$, 'Net-7 invoice past due; keep the credit line open.'),
-('credit-reminder', 'transactional', 'Credit reminder', 'Ali Hassan still owes KES 760', $html$<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>InuaBiz</title>
-</head>
-<body style="margin:0;padding:0;background:#F7F4EF;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F4EF;">
-    <tr>
-      <td align="center" style="padding:20px 12px;">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
-          <tr>
-            <td align="center" style="padding:0 0 14px 0;">
-              <table role="presentation" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td valign="middle" style="padding-right:10px;">
-                    <img src="{{ .SiteURL }}/emails/inuabiz-logo.png" alt="InuaBiz" width="40" height="40" style="display:block;border:0;width:40px;height:40px;border-radius:10px;" />
-                  </td>
-                  <td valign="middle" style="font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:#121816;letter-spacing:-0.02em;">Inua<span style="color:#F4A261;">Biz</span></td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 0 14px 0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0B6E4F;border-radius:12px;">
-                <tr>
-                  <td align="center" valign="middle" height="180" style="height:180px;background:#0B6E4F;background-image:linear-gradient(135deg,#0B6E4F,#053828);border-radius:12px;">
-                    <img src="{{ .SiteURL }}/emails/inuabiz-logo.png" alt="" width="72" height="72" style="display:block;border:0;width:72px;height:72px;border-radius:18px;" />
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 0 14px 0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;border-radius:12px;">
-                <tr><td style="padding:20px;">
-                  <span style="display:inline-block;background:#F4A261;color:#1A1510;font-family:Arial,sans-serif;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:0.04em;">CREDIT</span>
-                  <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:30px;line-height:36px;font-weight:800;color:#121816;">Ali Hassan</p>
-                  <p style="margin:0;font-family:Arial,sans-serif;font-size:30px;line-height:36px;font-weight:800;color:#F4A261;">owes KES 760.</p>
-                  <p style="margin:10px 0 0 0;font-family:Arial,sans-serif;font-size:14px;line-height:20px;color:#66736B;">Duka debt · 5 days on the book</p>
-                </td></tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 0 14px 0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;">
-                <tr><td style="padding:24px;">
-                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:16px;line-height:25px;font-weight:700;color:#121816;">Hello Mama Njoroge,</p>
-                  <p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#66736B;">A gentle nudge you asked us to send. Ali Hassan still has KES 760 on credit from last Thursday&#39;s sale. You can mark it paid from the till when he settles.</p>
-                  
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;background:#F0EDE8;border-radius:10px;">
-      <tr><td style="padding:16px;">
-        <p style="margin:0 0 10px 0;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#F4A261;letter-spacing:0.04em;">DETAILS</p>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:12px;color:#66736B;width:120px;vertical-align:top;">Customer</td>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:13px;color:#121816;font-weight:600;">Ali Hassan</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:12px;color:#66736B;width:120px;vertical-align:top;">Balance</td>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:13px;color:#121816;font-weight:600;">KES 760</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:12px;color:#66736B;width:120px;vertical-align:top;">Since</td>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:13px;color:#121816;font-weight:600;">14 Aug 2026</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:12px;color:#66736B;width:120px;vertical-align:top;">Last sale</td>
-          <td style="padding:6px 0;font-family:Arial,sans-serif;font-size:13px;color:#121816;font-weight:600;">Sugar 2kg + cooking oil</td>
-        </tr></table>
-      </td></tr>
-    </table>
-                  
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
-        <tr>
-          <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/credit" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open credit book</a>
-          </td>
-        </tr>
-      </table>
-                  
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;border-radius:10px;">
-        <tr><td style="padding:16px;">
-          <p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#F4A261;">CUSTOMER COPY</p>
-          <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:#66736B;">This reminder was also sent to the number on Ali&#39;s profile if one is saved.</p>
-        </td></tr>
-      </table>
-                </td></tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0EDE8;border-radius:12px;">
-                <tr><td style="padding:16px;text-align:center;">
-                  <p style="margin:0 0 6px 0;font-family:Arial,sans-serif;font-size:11px;color:#66736B;">
-                    <a href="{{ .SiteURL }}/contact" style="color:#66736B;text-decoration:none;">Support</a>
-                    ·
-                    <a href="{{ .SiteURL }}/contact" style="color:#66736B;text-decoration:none;">Privacy</a>
-                    ·
-                    <a href="{{ .SiteURL }}/contact" style="color:#66736B;text-decoration:none;">Terms</a>
-                  </p>
-                  <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#66736B;">© 2026 InuaBiz Kenya. All rights reserved.</p>
-                </td></tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>$html$, 'Duka debt nudge from the credit book.')
+</html>$html$, 'Net-7 invoice past due; keep the credit line open.')
 on conflict (id) do update set
   category = excluded.category,
   name = excluded.name,

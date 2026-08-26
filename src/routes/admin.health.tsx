@@ -93,7 +93,7 @@ function Health() {
   return (
     <AdminShell
       title="Platform health"
-      description="Infrastructure, webhooks and AI consumption"
+      description="AI spend is live. Uptime, DB pool, webhook log and service bars on this page are demo fixtures."
       actions={
         <div className="hidden gap-2 sm:flex">
           <Button size="sm" variant="outline" className="rounded-[10px]" asChild>

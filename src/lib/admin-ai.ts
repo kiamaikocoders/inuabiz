@@ -116,14 +116,14 @@ function heuristicBriefing(snap: PlatformSnapshot): AdminBriefing {
       severity: t.status === "Error" ? ("high" as const) : ("medium" as const),
       reason:
         t.status === "Error"
-          ? "Webhook / payment errors — impersonate and check IntaSend delivery."
+          ? "Webhook / payment errors — impersonate and check Daraja STK and C2B matching."
           : "Suspended — likely past-due. Call before they churn.",
     })),
     ...snap.trials.map((t) => ({
       id: t.id,
       business: t.business,
       severity: "medium" as const,
-      reason: `Trial in ${t.town}. Convert before day 14 or they go dark.`,
+      reason: `Trial in ${t.town}. Convert before day 3 or they go dark.`,
     })),
   ];
 
@@ -140,9 +140,9 @@ function heuristicBriefing(snap: PlatformSnapshot): AdminBriefing {
 
   return {
     headline: `${KES(snap.mrrKes)} MRR · ${snap.unclaimed.count} unclaimed · ${atRisk.length} vendors need a human`,
-    summary: `Platform is collecting ${KES(snap.mrrKes)}/mo across ${snap.tenantCounts.Active} paying dukas. ${snap.tenantCounts.Trial} trials are still open. ${KES(snap.unclaimed.valueKes)} sits in the unclaimed queue and IntaSend webhooks are degraded — that is the highest-leverage ops work today.`,
+    summary: `Platform is collecting ${KES(snap.mrrKes)}/mo across ${snap.tenantCounts.Active} paying dukas. ${snap.tenantCounts.Trial} trials are still open. ${KES(snap.unclaimed.valueKes)} sits in the unclaimed queue — match C2B/Paybill orphans before lunch.`,
     briefingPoints: [
-      `Convert ${snap.trials.map((t) => t.business).join(", ") || "no open trials"} before the 14-day clock runs out.`,
+      `Convert ${snap.trials.map((t) => t.business).join(", ") || "no open trials"} before the 3-day clock runs out.`,
       `Map ${snap.unclaimed.count} orphan payments (${KES(snap.unclaimed.valueKes)}) — auto-match is not 100%.`,
       snap.health.find((h) => h.status !== "Healthy")
         ? `${snap.health.find((h) => h.status !== "Healthy")!.name} is ${snap.health.find((h) => h.status !== "Healthy")!.status.toLowerCase()}.`
@@ -162,7 +162,7 @@ function heuristicBriefing(snap: PlatformSnapshot): AdminBriefing {
       },
       {
         title: "Inspect webhook health",
-        why: "Failed IntaSend deliveries create the unclaimed pile.",
+        why: "Unmatched C2B or Paybill hits create the unclaimed pile.",
         href: "/admin/health",
       },
     ],
@@ -227,7 +227,7 @@ export async function runAdminBriefing(): Promise<AdminBriefing> {
   const fallback = heuristicBriefing(snap);
   try {
     const { text, model } = await complete(
-      "You are the InuaBiz super-admin copilot for a Kenyan micro-POS SaaS (KES 3,000/mo, 14-day trial, M-Pesa). Reply with JSON only: {headline, summary, briefingPoints: string[], actions: [{title, why, href}], atRisk: [{id, business, severity, reason}], unclaimedMatches: [{paymentId, tenantId, business, confidence, reason}]}. href must be an existing admin path like /admin/unclaimed. Use KES. Be blunt and operational. Keep under 180 words in summary+points.",
+      "You are the InuaBiz super-admin copilot for a Kenyan micro-POS SaaS (KES 3,000 per shop / month Standard, 3-day trial, Daraja M-Pesa STK). Reply with JSON only: {headline, summary, briefingPoints: string[], actions: [{title, why, href}], atRisk: [{id, business, severity, reason}], unclaimedMatches: [{paymentId, tenantId, business, confidence, reason}]}. href must be an existing admin path like /admin/unclaimed. Use KES. Be blunt and operational. Keep under 180 words in summary+points.",
       JSON.stringify(snap),
       1100,
     );

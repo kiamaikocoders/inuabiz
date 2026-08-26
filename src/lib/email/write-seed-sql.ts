@@ -1,5 +1,5 @@
 /**
- * Write SQL to upsert the 17 Figma email templates.
+ * Write SQL to upsert the Figma email templates.
  * Run: bun run src/lib/email/write-seed-sql.ts
  */
 import { writeFileSync } from "node:fs";
@@ -12,8 +12,9 @@ function sqlLiteral(value: string): string {
 }
 
 const batches = [
-  templates.slice(0, 9),
-  templates.slice(9),
+  templates.slice(0, 8),
+  templates.slice(8, 16),
+  templates.slice(16),
 ];
 
 batches.forEach((batch, i) => {

@@ -5,10 +5,8 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ReceiptCard, shareReceiptText } from "@/components/app/ReceiptCard";
 import { Button } from "@/components/ui/button";
-import { products } from "@/lib/mock-data";
-import { fetchSale } from "@/lib/data";
-import { readLastSale, type LastSale } from "@/lib/last-sale";
-import { useIdentity } from "@/lib/identity";
+import { fetchSaleReceipt } from "@/lib/ops";
+import { readLastSale } from "@/lib/last-sale";
 
 export const Route = createFileRoute("/app/sales_/$saleId")({
   head: () => ({
@@ -19,14 +17,15 @@ export const Route = createFileRoute("/app/sales_/$saleId")({
 
 function SaleDetail() {
   const { saleId } = Route.useParams();
-  const identity = useIdentity("vendor");
   const last = readLastSale();
-  const { data: sale, isLoading } = useQuery({
-    queryKey: ["sale", saleId],
-    queryFn: () => fetchSale(saleId),
+  const { data: receipt, isLoading } = useQuery({
+    queryKey: ["sale-receipt", saleId],
+    queryFn: () => fetchSaleReceipt(saleId),
   });
 
-  if (isLoading) {
+  const live = receipt ?? (last?.id === saleId ? last : null);
+
+  if (isLoading && !live) {
     return (
       <AppShell title="Sale">
         <p className="text-muted-foreground text-sm">Loading…</p>
@@ -34,7 +33,7 @@ function SaleDetail() {
     );
   }
 
-  if (!sale && last?.id !== saleId) {
+  if (!live) {
     return (
       <AppShell title="Sale">
         <p className="text-muted-foreground text-sm">Sale not found.</p>
@@ -42,29 +41,8 @@ function SaleDetail() {
     );
   }
 
-  const receipt: LastSale =
-    last && (last.id === saleId || !sale)
-      ? last
-      : {
-          id: sale!.id,
-          ref: sale!.ref,
-          total: sale!.total,
-          items: sale!.items,
-          channel: sale!.channel,
-          customer: sale!.customer,
-          phone: sale!.customer,
-          shop: identity.shop,
-          location: "Kasarani, Nairobi",
-          when: `${sale!.time} EAT`,
-          lines: products.slice(0, Math.max(sale!.items, 1)).map((p, i) => ({
-            name: p.name,
-            qty: i === 0 ? Math.max(sale!.items - (products.length > 1 ? 1 : 0), 1) : 1,
-            price: p.price,
-          })),
-        };
-
   const onShare = () => {
-    void shareReceiptText(receipt)
+    void shareReceiptText(live)
       .then(() => {
         if (!navigator.share) toast.success("Receipt copied");
       })
@@ -72,14 +50,14 @@ function SaleDetail() {
   };
 
   return (
-    <AppShell title={receipt.ref} description={sale ? `${sale.time} · ${sale.channel}` : receipt.channel}>
+    <AppShell title={live.ref} description={`${live.when ?? ""} · ${live.channel}`}>
       <Button variant="ghost" size="sm" className="mb-4 -ml-2" asChild>
         <Link to="/app/sales">
           <ArrowLeft className="mr-1 size-4" /> All sales
         </Link>
       </Button>
 
-      <ReceiptCard sale={receipt} showShare onShare={onShare} />
+      <ReceiptCard sale={live} showShare onShare={onShare} />
       <div className="mx-auto mt-3 grid w-full max-w-[390px] gap-2">
         <Button variant="outline" onClick={() => window.print()}>
           <Printer className="mr-2 size-4" /> Print receipt

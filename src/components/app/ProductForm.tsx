@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Product } from "@/lib/mock-data";
+import { emptyProductAttrs, type ProductAttrs } from "@/lib/category";
+import { FeatureGate } from "@/components/category/FeatureGate";
+import { CategoryProductFields } from "@/modules/catalog/CategoryProductFields";
+import { useShopCategory } from "@/hooks/use-shop-category";
 
 export type ProductDraft = {
   name: string;
@@ -23,11 +27,17 @@ export type ProductDraft = {
   price: string;
   stock: string;
   reorderLevel: string;
+  taxClass: string;
+  classificationCode: string;
+  attrs: ProductAttrs;
 };
 
-const CATEGORIES = ["Staples", "Dairy", "Bakery", "Household", "Pharmacy", "Drinks", "Services"];
+const DEPARTMENTS = ["Staples", "Dairy", "Bakery", "Household", "Pharmacy", "Drinks", "Services", "Menu", "Parts", "Inputs"];
 
-export function productToDraft(p?: Product): ProductDraft {
+export function productToDraft(
+  p?: Product,
+  defaults?: { taxClass?: string },
+): ProductDraft {
   return {
     name: p?.name ?? "Unga Pembe 2kg",
     sku: p?.sku ?? "UNG-2K",
@@ -37,6 +47,9 @@ export function productToDraft(p?: Product): ProductDraft {
     price: p ? String(p.price) : "195",
     stock: p ? String(p.stock) : "42",
     reorderLevel: p ? String(p.reorderLevel) : "12",
+    taxClass: p?.taxClass ?? defaults?.taxClass ?? "STANDARD_16",
+    classificationCode: p?.classificationCode ?? "",
+    attrs: { ...emptyProductAttrs(), ...(p?.attrs ?? {}) },
   };
 }
 
@@ -51,14 +64,21 @@ export function ProductForm({
   onSubmit,
   formId = "product-form",
   hideSubmit = false,
+  defaultTaxClass,
+  requireClassification = false,
 }: {
   initial?: Product;
   submitLabel: string;
   onSubmit: (draft: ProductDraft) => void | Promise<void>;
   formId?: string;
   hideSubmit?: boolean;
+  defaultTaxClass?: string;
+  requireClassification?: boolean;
 }) {
-  const [draft, setDraft] = useState<ProductDraft>(() => productToDraft(initial));
+  const [draft, setDraft] = useState<ProductDraft>(() =>
+    productToDraft(initial, defaultTaxClass ? { taxClass: defaultTaxClass } : {}),
+  );
+  const { def } = useShopCategory();
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -85,6 +105,12 @@ export function ProductForm({
       className="grid items-start gap-4 lg:grid-cols-[1.7fr_1fr]"
       onSubmit={(e) => {
         e.preventDefault();
+        if (requireClassification && !draft.classificationCode.trim()) {
+          toast.error("Classification code required", {
+            description: "Chemist products need a classification code for audit receipts.",
+          });
+          return;
+        }
         setBusy(true);
         void Promise.resolve(onSubmit(draft)).finally(() => setBusy(false));
       }}
@@ -119,14 +145,14 @@ export function ProductForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="pcat" className="text-muted-foreground text-xs">
-                Category
+                Department
               </Label>
               <Select value={draft.category} onValueChange={(v) => set("category", v)}>
                 <SelectTrigger id="pcat">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => (
+                  {DEPARTMENTS.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
@@ -215,11 +241,58 @@ export function ProductForm({
                 onChange={(e) => set("reorderLevel", e.target.value)}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ptax" className="text-muted-foreground text-xs">
+                Tax class
+              </Label>
+              <Select value={draft.taxClass} onValueChange={(v) => set("taxClass", v)}>
+                <SelectTrigger id="ptax">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="STANDARD_16">Rate A — 16% VAT</SelectItem>
+                  <SelectItem value="ZERO_RATED">Rate B — 0% zero-rated</SelectItem>
+                  <SelectItem value="EXEMPT">Rate C — Exempt</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="pclass" className="text-muted-foreground text-xs">
+                Classification code {requireClassification ? "(required for chemists)" : "(optional)"}
+              </Label>
+              <Input
+                id="pclass"
+                required={requireClassification}
+                placeholder="e.g. KE1NTX00012 for chemists"
+                value={draft.classificationCode}
+                onChange={(e) => set("classificationCode", e.target.value)}
+              />
+              <FeatureGate module="tax_rate_bc">
+                <p className="text-muted-foreground text-xs">
+                  Rate B (zero-rated) and Rate C (exempt) print on the ETR for this chemist.
+                </p>
+              </FeatureGate>
+            </div>
           </div>
           <p className="text-muted-foreground text-xs">
             Notify when stock falls below this number. Sugar-style Friday rush.
           </p>
         </section>
+
+        {def.modules.length > 0 && (
+        <section className="surface-card space-y-4 p-6">
+          <h2 className="font-display text-base font-bold">{def.label} fields</h2>
+          <p className="text-muted-foreground text-xs">
+            Extra fields follow this shop&apos;s category. Other shops on the same account keep their own layout.
+          </p>
+          <CategoryProductFields
+            attrs={draft.attrs}
+            onChange={(patch) =>
+              setDraft((d) => ({ ...d, attrs: { ...d.attrs, ...patch } }))
+            }
+          />
+        </section>
+        )}
       </div>
 
       <section className="surface-card space-y-3 p-6 lg:sticky lg:top-20">

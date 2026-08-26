@@ -5,6 +5,10 @@ import { AppShell } from "@/components/app/AppShell";
 import { ProductForm, type ProductDraft } from "@/components/app/ProductForm";
 import { Button } from "@/components/ui/button";
 import { fetchProduct, saveProduct } from "@/lib/data";
+import { fetchShops } from "@/lib/ops";
+import { fetchProfile } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { categoryHasModule } from "@/lib/category";
 
 export const Route = createFileRoute("/app/inventory_/$productId")({
   head: () => ({
@@ -20,6 +24,17 @@ function EditProduct() {
     queryKey: ["product", productId],
     queryFn: () => fetchProduct(productId),
   });
+  const { data: shops = [] } = useQuery({
+    queryKey: ["shops"],
+    queryFn: fetchShops,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: profile } = useQuery({
+    queryKey: ["identity"],
+    queryFn: fetchProfile,
+  });
+  const shop = shops.find((s) => s.id === profile?.active_shop_id) ?? shops[0];
+  const chemist = categoryHasModule(shop?.category, "tax_rate_bc");
 
   const onSubmit = async (draft: ProductDraft) => {
     const res = await saveProduct({
@@ -30,6 +45,9 @@ function EditProduct() {
       price: Number(draft.price),
       stock: Number(draft.stock),
       reorderLevel: Number(draft.reorderLevel),
+      taxClass: draft.taxClass,
+      classificationCode: draft.classificationCode,
+      attrs: { ...draft.attrs, department: draft.category },
     });
     toast.success("Product updated", {
       description: res.demo ? "Demo mode — sign in to persist to Supabase." : "Inventory saved.",
@@ -66,6 +84,7 @@ function EditProduct() {
           hideSubmit
           initial={product}
           submitLabel="Save changes"
+          requireClassification={chemist}
           onSubmit={onSubmit}
         />
       )}

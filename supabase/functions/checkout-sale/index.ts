@@ -3,14 +3,16 @@ import {
   getUserClient,
   handleOptions,
   jsonResponse,
-  toKenyaMsisdn,
 } from "../_shared/cors.ts";
-import { darajaStkPush, functionsPublicBase } from "../_shared/daraja.ts";
 
 type CartItem = {
   product_id: string;
   qty: number;
 };
+
+function saleBillRef(saleId: string): string {
+  return saleId.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -30,8 +32,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const items = (body.items as CartItem[] | undefined) ?? [];
     const discount = Number(body.discount_amount ?? 0);
-    const channel = String(body.channel ?? "MPESA_STK");
-    const customerPhoneRaw = body.customer_phone as string | undefined;
+    let channel = String(body.channel ?? "CASH").toUpperCase();
+    if (channel === "MPESA_STK") channel = "MPESA";
     const customerId = (body.customer_id as string | undefined) ?? null;
 
     if (!items.length) return jsonResponse({ error: "Cart is empty" }, 400);
@@ -83,19 +85,16 @@ Deno.serve(async (req) => {
     const subtotal = saleItems.reduce((s, i) => s + i.line_total, 0);
     const total = Math.max(0, subtotal - Math.max(0, discount));
 
-    let phone: string | null = null;
-    if (customerPhoneRaw) phone = toKenyaMsisdn(customerPhoneRaw);
-
-    const wantsStk = channel === "MPESA_STK";
     if (channel === "CREDIT" && !customerId) {
       return jsonResponse({ error: "Select a customer for credit sales" }, 400);
     }
+
     const status =
       channel === "CASH"
         ? "PAID"
         : channel === "CREDIT"
           ? "CREDIT"
-          : wantsStk
+          : channel === "MPESA"
             ? "PENDING_PAYMENT"
             : "DRAFT";
 
@@ -108,14 +107,21 @@ Deno.serve(async (req) => {
         subtotal,
         discount_amount: Math.max(0, discount),
         total,
-        payment_channel: channel,
-        customer_phone: phone,
+        payment_channel: channel === "MPESA" ? "MPESA" : channel === "CASH" ? "CASH" : "CREDIT",
         created_by: user.id,
         paid_at: status === "PAID" ? new Date().toISOString() : null,
       })
       .select("id, total, status")
       .single();
     if (sErr || !sale) throw new Error(sErr?.message ?? "Failed to create sale");
+
+    const billRef = saleBillRef(sale.id as string);
+    if (channel === "MPESA") {
+      await service
+        .from("sales")
+        .update({ payment_bill_ref: billRef })
+        .eq("id", sale.id);
+    }
 
     const { error: iErr } = await service.from("sale_items").insert(
       saleItems.map((row) => ({ ...row, sale_id: sale.id })),
@@ -133,7 +139,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!wantsStk) {
+    if (channel !== "MPESA") {
       return jsonResponse({
         ok: true,
         sale,
@@ -141,47 +147,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!phone) {
-      await service.from("sales").update({ status: "DRAFT" }).eq("id", sale.id);
-      return jsonResponse({ error: "customer_phone required for STK" }, 400);
-    }
-
-    let stk;
-    try {
-      stk = await darajaStkPush({
-        amount: total,
-        phone,
-        accountReference: `sale_${sale.id.replace(/-/g, "").slice(0, 8)}`,
-        transactionDesc: "InuaBiz POS",
-        callBackURL: `${functionsPublicBase()}/daraja-stk-callback`,
-      });
-    } catch (stkErr) {
-      await service.from("sales").update({ status: "DRAFT" }).eq("id", sale.id);
-      throw stkErr;
-    }
-
-    const invoiceId = String(stk.CheckoutRequestID ?? `STK-${sale.id}`);
-    await service.from("payment_transactions").insert({
-      tenant_id: profile.tenant_id,
-      sale_id: sale.id,
-      purpose: "VENDOR_SALE",
-      invoice_id: invoiceId,
-      tracking_id: stk.CheckoutRequestID ?? null,
-      amount: total,
-      currency: "KES",
-      payment_channel: "MPESA_STK",
-      status: "PENDING",
-      account: phone,
-      api_ref: `sale_${sale.id}`,
-      raw_webhook_payload: stk,
-    });
+    const { data: destination } = await service
+      .from("tenant_payment_destinations")
+      .select("destination_type, account_number, account_name")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("is_primary", true)
+      .maybeSingle();
 
     return jsonResponse({
       ok: true,
-      sale,
-      checkout_request_id: stk.CheckoutRequestID,
-      mock: Boolean(stk.mock),
-      message: "STK push sent. Ask the customer to enter their M-Pesa PIN.",
+      sale: { ...sale, payment_bill_ref: billRef },
+      payment_destination: destination ?? null,
+      bill_ref: billRef,
+      message:
+        destination?.destination_type === "PERSONAL_MPESA"
+          ? "Customer pays your number. Enter the M-Pesa code to confirm."
+          : "Customer pays your till/paybill. Waiting for Daraja confirmation…",
     });
   } catch (err) {
     console.error(err);

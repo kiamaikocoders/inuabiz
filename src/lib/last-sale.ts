@@ -4,6 +4,8 @@ export type ReceiptLine = {
   name: string;
   qty: number;
   price: number;
+  taxClass?: "STANDARD_16" | "ZERO_RATED" | "EXEMPT";
+  note?: string;
 };
 
 export type LastSale = {
@@ -16,6 +18,15 @@ export type LastSale = {
   phone?: string;
   shop?: string;
   location?: string;
+  legalName?: string;
+  kraPin?: string;
+  email?: string;
+  merchantPhone?: string;
+  vat16?: number;
+  vat0?: number;
+  exempt?: number;
+  subtotalExVat?: number;
+  mpesaReceipt?: string;
   when?: string;
   footer?: string;
   lines?: ReceiptLine[];

@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { requireAuthSession } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin")({
-  beforeLoad: () => requireAuthSession(),
+  beforeLoad: () => requireSuperAdmin(),
   component: () => <Outlet />,
 });

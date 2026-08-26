@@ -1,12 +1,19 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Smartphone } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthSplit } from "@/components/auth/AuthSplit";
-import { sendPhoneOtp } from "@/lib/auth";
+import { AUTH_SCENES } from "@/lib/auth-scenes";
+import {
+  fetchProfile,
+  sendPasswordReset,
+  signInWithEmail,
+  updatePassword,
+} from "@/lib/auth";
+import { getSupabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -14,11 +21,10 @@ export const Route = createFileRoute("/login")({
       { title: "Sign in — InuaBiz vendor login" },
       {
         name: "description",
-        content:
-          "Sign in to InuaBiz with your Kenyan mobile number. We send a 4-digit SMS code. No passwords, no email.",
+        content: "Sign in to InuaBiz with the email and password you used at signup.",
       },
       { property: "og:title", content: "Sign in to InuaBiz" },
-      { property: "og:description", content: "Phone-first login for Kenyan vendors." },
+      { property: "og:description", content: "Email and password login for Kenyan vendors." },
     ],
   }),
   component: Login,
@@ -26,73 +32,214 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<"signin" | "forgot" | "reset">("signin");
+
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return;
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setStage("reset");
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
-    <AuthSplit>
-      <div className="mt-10 lg:mt-0">
-        <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Enter your Kenyan mobile number and we'll send you a 4-digit code.
-        </p>
-
-        <form
-          className="mt-8 space-y-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setBusy(true);
-            void sendPhoneOtp(phone)
-              .then((res) => {
-                if (typeof window !== "undefined") {
-                  sessionStorage.setItem("inuabiz:otpPhone", phone);
+    <AuthSplit scene={AUTH_SCENES.login}>
+      <div>
+        {stage === "forgot" ? (
+          <>
+            <h1 className="text-2xl font-bold">Reset password</h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              We send a one-time link to this email. It expires in 15 minutes.
+            </p>
+            <form
+              className="mt-8 space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setBusy(true);
+                void sendPasswordReset(email)
+                  .then((res) => {
+                    toast.success(res.demo ? "Demo: check your inbox" : "Reset link sent", {
+                      description: `If ${email} has an account, the email is on the way.`,
+                    });
+                    setStage("signin");
+                  })
+                  .catch((err: unknown) => {
+                    toast.error("Could not send reset", {
+                      description: err instanceof Error ? err.message : "Try again",
+                    });
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                  <Input
+                    id="email"
+                    type="email"
+                    className="pl-9"
+                    placeholder="you@shop.co.ke"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                {busy ? "Sending…" : "Send reset link"}
+              </Button>
+            </form>
+            <p className="text-muted-foreground mt-8 text-center text-sm">
+              <button
+                type="button"
+                className="text-primary font-medium hover:underline"
+                onClick={() => setStage("signin")}
+              >
+                Back to sign in
+              </button>
+            </p>
+          </>
+        ) : stage === "reset" ? (
+          <>
+            <h1 className="text-2xl font-bold">Choose a new password</h1>
+            <p className="text-muted-foreground mt-2 text-sm">Use at least 8 characters.</p>
+            <form
+              className="mt-8 space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (password.length < 8) {
+                  toast.error("Password too short", { description: "Use at least 8 characters." });
+                  return;
                 }
-                toast.info(res.demo ? "Demo code 1234" : "Code sent", {
-                  description: res.demo
-                    ? `OTP provider not required — use 1234 for ${phone}`
-                    : `SMS sent to ${phone}`,
-                });
-                void navigate({ to: "/verify", search: { phone } });
-              })
-              .catch((err: unknown) => {
-                toast.error("Could not send code", {
-                  description: err instanceof Error ? err.message : "Try again",
-                });
-                if (typeof window !== "undefined") {
-                  sessionStorage.setItem("inuabiz:otpPhone", phone);
-                }
-                void navigate({ to: "/verify", search: { phone } });
-              })
-              .finally(() => setBusy(false));
-          }}
-        >
-          <div className="space-y-2">
-            <Label htmlFor="phone">Mobile number</Label>
-            <div className="relative">
-              <Smartphone className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-              <Input
-                id="phone"
-                className="pl-9"
-                placeholder="0712 345 678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
-            </div>
-            <p className="text-muted-foreground text-xs">Works with 07xx and 01xx numbers.</p>
-          </div>
+                setBusy(true);
+                void updatePassword(password)
+                  .then(async () => {
+                    toast.success("Password updated");
+                    const profile = await fetchProfile();
+                    if (profile?.role === "SUPER_ADMIN") {
+                      await navigate({ to: "/admin" });
+                      return;
+                    }
+                    if (!profile?.tenant_id || !profile.onboarding_completed_at) {
+                      await navigate({ to: "/onboarding" });
+                      return;
+                    }
+                    await navigate({ to: "/app" });
+                  })
+                  .catch((err: unknown) => {
+                    toast.error("Could not update password", {
+                      description: err instanceof Error ? err.message : "Try the reset link again",
+                    });
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="password">New password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                {busy ? "Saving…" : "Save password"}
+              </Button>
+            </form>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold">Welcome back</h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Sign in with your email and password. If you never finished shop setup, we send you back
+              there first.
+            </p>
 
-          <Button type="submit" size="lg" className="w-full" disabled={busy}>
-            {busy ? "Sending…" : "Send code"}
-          </Button>
-        </form>
+            <form
+              className="mt-8 space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setBusy(true);
+                void signInWithEmail(email, password)
+                  .then(async () => {
+                    const profile = await fetchProfile();
+                    toast.success("Signed in");
+                    if (profile?.role === "SUPER_ADMIN") {
+                      await navigate({ to: "/admin" });
+                      return;
+                    }
+                    if (!profile?.tenant_id || !profile.onboarding_completed_at) {
+                      await navigate({ to: "/onboarding" });
+                      return;
+                    }
+                    await navigate({ to: "/app" });
+                  })
+                  .catch((err: unknown) => {
+                    toast.error("Could not sign in", {
+                      description: err instanceof Error ? err.message : "Check email and password",
+                    });
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                  <Input
+                    id="email"
+                    type="email"
+                    className="pl-9"
+                    placeholder="you@shop.co.ke"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="password">Password</Label>
+                  <button
+                    type="button"
+                    className="text-primary text-xs font-medium hover:underline"
+                    onClick={() => setStage("forgot")}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-        <p className="text-muted-foreground mt-8 text-center text-sm">
-          New to InuaBiz?{" "}
-          <Link to="/onboarding" className="text-primary font-medium hover:underline">
-            Create an account
-          </Link>
-        </p>
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                {busy ? "Signing in…" : "Sign in"}
+              </Button>
+            </form>
+
+            <p className="text-muted-foreground mt-8 text-center text-sm">
+              New to InuaBiz?{" "}
+              <Link to="/signup" className="text-primary font-medium hover:underline">
+                Create an account
+              </Link>
+            </p>
+          </>
+        )}
       </div>
     </AuthSplit>
   );

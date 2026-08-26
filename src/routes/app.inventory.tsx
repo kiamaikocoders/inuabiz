@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { KES, products as mockProducts } from "@/lib/mock-data";
 import { fetchProducts } from "@/lib/data";
+import { useShopCategory } from "@/hooks/use-shop-category";
 
 export const Route = createFileRoute("/app/inventory")({
   head: () => ({
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/app/inventory")({
 
 function Inventory() {
   const [q, setQ] = useState("");
+  const { def, hasModule } = useShopCategory();
   const { data: products = mockProducts } = useQuery({
     queryKey: ["products"],
     queryFn: fetchProducts,
@@ -55,7 +57,7 @@ function Inventory() {
   return (
     <AppShell
       title="Inventory"
-      description="Stock levels, reorder points and margins"
+      description={def.inventoryHint}
       actions={
         <Button size="sm" asChild>
           <Link to="/app/inventory/new">
@@ -119,7 +121,9 @@ function Inventory() {
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead>Category</TableHead>
+                  <TableHead>Department</TableHead>
+                  {hasModule("expiry_alerts") && <TableHead>Expiry</TableHead>}
+                  {hasModule("batch_tracking") && <TableHead>Batch</TableHead>}
                   <TableHead className="text-right">Cost</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead className="text-right">Margin</TableHead>
@@ -146,6 +150,16 @@ function Inventory() {
                       <TableCell>
                         <Badge variant="outline">{p.category}</Badge>
                       </TableCell>
+                      {hasModule("expiry_alerts") && (
+                        <TableCell className="text-muted-foreground text-xs">
+                          {p.attrs?.expiry_date ?? "—"}
+                        </TableCell>
+                      )}
+                      {hasModule("batch_tracking") && (
+                        <TableCell className="text-muted-foreground text-xs">
+                          {p.attrs?.batch_number ?? "—"}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right">{KES(p.cost)}</TableCell>
                       <TableCell className="text-right font-semibold">{KES(p.price)}</TableCell>
                       <TableCell className="text-right">{margin.toFixed(0)}%</TableCell>

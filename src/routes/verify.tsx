@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { AuthSplit } from "@/components/auth/AuthSplit";
+import { AUTH_SCENES } from "@/lib/auth-scenes";
 import { fetchProfile, verifyPhoneOtp } from "@/lib/auth";
 
 type VerifySearch = { phone?: string };
@@ -36,8 +37,8 @@ function Verify() {
   const [busy, setBusy] = useState(false);
 
   return (
-    <AuthSplit>
-      <div className="mt-10 lg:mt-0">
+    <AuthSplit scene={AUTH_SCENES.verify}>
+      <div>
         <Link
           to="/login"
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
@@ -66,7 +67,7 @@ function Verify() {
                   await navigate({ to: "/admin" });
                   return;
                 }
-                if (profile && !profile.tenant_id) {
+                if (!profile?.tenant_id || !profile.onboarding_completed_at) {
                   await navigate({ to: "/onboarding" });
                   return;
                 }

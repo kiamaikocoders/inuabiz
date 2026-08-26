@@ -72,7 +72,7 @@ function Billing() {
   const [busy, setBusy] = useState(false);
 
   const amount = snap?.amount ?? SUBSCRIPTION_PRICE;
-  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil ?? null);
+  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil);
   const used = Math.min(TRIAL_DAYS, TRIAL_DAYS - daysLeft);
   const statusLabel =
     snap?.status === "ACTIVE"
@@ -131,7 +131,7 @@ function Billing() {
     } else {
       setState("waiting");
       toast.info("Still waiting", {
-        description: "Enter PIN on the phone. This page will update when Daraja confirms.",
+        description: "Enter PIN on the phone. PayHero will confirm within a few seconds.",
       });
     }
   };
@@ -207,7 +207,7 @@ function Billing() {
                 className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
                 onClick={() =>
                   toast.info("Card payment", {
-                    description: "Card checkout is IntaSend. Daraja STK is the live rail.",
+                    description: "Card checkout is coming soon. M-Pesa via PayHero is the live rail.",
                   })
                 }
               >
@@ -257,7 +257,7 @@ function Billing() {
                 : "—"}
             </p>
             <p className="text-muted-foreground mt-1 text-sm">
-              STK / Ratiba will be sent to{" "}
+              STK via PayHero will be sent to{" "}
               {snap?.phone ? prettyKePhone(snap.phone) : "your registered line"}.
             </p>
           </div>
@@ -321,7 +321,7 @@ function Billing() {
               </span>
               <p className="mt-4 text-sm font-medium">Check your phone</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Pay {KES(amount)} to InuaBiz. Waiting for Daraja confirmation…
+                Pay {KES(amount)} to InuaBiz. Waiting for PayHero confirmation…
               </p>
             </div>
           )}

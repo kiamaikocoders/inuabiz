@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, MessageCircle, Plus, Search, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
@@ -25,7 +26,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, debts } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
+import { fetchCreditBook, recordCredit, remindCredit } from "@/lib/data";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/app/credit")({
   head: () => ({
@@ -34,12 +37,7 @@ export const Route = createFileRoute("/app/credit")({
       {
         name: "description",
         content:
-          "Digitise kukopesha: record customer credit in two taps, track balances and due dates, and send automated WhatsApp reminders.",
-      },
-      { property: "og:title", content: "InuaBiz duka debt ledger" },
-      {
-        property: "og:description",
-        content: "Track who owes what and send WhatsApp reminders automatically.",
+          "Digitise kukopesha: record customer credit in two taps, track balances and due dates, and send automated reminders.",
       },
     ],
   }),
@@ -47,12 +45,62 @@ export const Route = createFileRoute("/app/credit")({
 });
 
 function Credit() {
+  const queryClient = useQueryClient();
+  const { data: live = [] } = useQuery({
+    queryKey: ["credit-book"],
+    queryFn: fetchCreditBook,
+  });
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [nameOrPhone, setNameOrPhone] = useState("");
+  const [amount, setAmount] = useState("");
+  const [dueDays, setDueDays] = useState("7");
+  const [busy, setBusy] = useState(false);
 
-  const rows = debts.filter((d) => d.customer.toLowerCase().includes(q.toLowerCase()));
-  const total = debts.reduce((s, d) => s + d.amount, 0);
-  const overdue = debts.filter((d) => d.status === "Overdue");
+  const rows = useMemo(
+    () => live.filter((d) => d.customer.toLowerCase().includes(q.toLowerCase()) || d.phone.includes(q)),
+    [live, q],
+  );
+  const total = rows.reduce((s, d) => s + d.amount, 0);
+  const overdue = rows.filter((d) => d.status === "Overdue");
+
+  const save = async () => {
+    const kes = Number(amount);
+    if (!nameOrPhone.trim() || !(kes > 0)) {
+      toast.error("Customer and amount are required");
+      return;
+    }
+    setBusy(true);
+    try {
+      await recordCredit({
+        nameOrPhone: nameOrPhone.trim(),
+        amount: kes,
+        dueDays: Number(dueDays) || 7,
+      });
+      toast.success("Credit recorded");
+      setOpen(false);
+      setNameOrPhone("");
+      setAmount("");
+      await queryClient.invalidateQueries({ queryKey: ["credit-book"] });
+    } catch (err) {
+      toast.error("Could not record", {
+        description: err instanceof Error ? err.message : "Try again",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remind = async (row: (typeof rows)[0]) => {
+    try {
+      await remindCredit(row);
+      toast.success("Reminder sent", { description: `Email queued for ${row.customer}.` });
+    } catch (err) {
+      toast.error("Could not send reminder", {
+        description: err instanceof Error ? err.message : "Check email settings",
+      });
+    }
+  };
 
   return (
     <AppShell
@@ -75,27 +123,37 @@ function Credit() {
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cn">Customer phone or name</Label>
-                <Input id="cn" placeholder="0722 431 002" />
+                <Input
+                  id="cn"
+                  placeholder="0722 431 002"
+                  value={nameOrPhone}
+                  onChange={(e) => setNameOrPhone(e.target.value)}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="ca">Amount</Label>
-                  <Input id="ca" type="number" placeholder="1200" />
+                  <Input
+                    id="ca"
+                    type="number"
+                    placeholder="1200"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cd">Due in (days)</Label>
-                  <Input id="cd" type="number" defaultValue={7} />
+                  <Input
+                    id="cd"
+                    type="number"
+                    value={dueDays}
+                    onChange={(e) => setDueDays(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  setOpen(false);
-                  toast.success("Credit recorded", { description: "Front-end demo only for now." });
-                }}
-              >
+              <Button className="w-full" disabled={busy} onClick={() => void save()}>
                 Save to ledger
               </Button>
             </DialogFooter>
@@ -105,7 +163,7 @@ function Credit() {
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total outstanding" value={KES(total)} icon={BookOpen} tone="gold" />
-        <StatCard label="Customers on credit" value={String(debts.length)} />
+        <StatCard label="Customers on credit" value={String(rows.length)} />
         <StatCard
           label="Overdue"
           value={KES(overdue.reduce((s, d) => s + d.amount, 0))}
@@ -113,7 +171,7 @@ function Credit() {
           tone="danger"
           hint={`${overdue.length} customers`}
         />
-        <StatCard label="Recovered this month" value={KES(9400)} delta={22} />
+        <StatCard label="Reminders" value={isSupabaseConfigured() ? "Email" : "Demo"} />
       </div>
 
       <div className="surface-card mt-4 p-5">
@@ -130,11 +188,19 @@ function Credit() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              toast.success("Reminders queued", {
-                description: `WhatsApp reminders prepared for ${overdue.length} overdue customers.`,
-              })
-            }
+            onClick={() => {
+              void Promise.all(overdue.map((d) => remindCredit(d)))
+                .then(() =>
+                  toast.success("Reminders queued", {
+                    description: `Email reminders for ${overdue.length} overdue customers.`,
+                  }),
+                )
+                .catch((err: unknown) =>
+                  toast.error("Could not queue all reminders", {
+                    description: err instanceof Error ? err.message : "Try one at a time",
+                  }),
+                );
+            }}
           >
             <MessageCircle className="mr-2 size-4" /> Remind all overdue
           </Button>
@@ -177,15 +243,7 @@ function Credit() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{d.lastReminder}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        toast.success("Reminder sent", {
-                          description: `WhatsApp reminder queued for ${d.customer}.`,
-                        })
-                      }
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => void remind(d)}>
                       Remind
                     </Button>
                   </TableCell>

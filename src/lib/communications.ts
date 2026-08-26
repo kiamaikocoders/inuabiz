@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import {
   BUNDLED_COMMUNICATION_TEMPLATES,
   buildCommunicationTemplates,
@@ -233,46 +233,53 @@ export async function saveCommunicationTemplate(payload: {
 }
 
 /**
- * Queue a test send. Logs to email_send_log when the table exists.
+ * Send a branded template via dispatch-outbound (Resend).
  */
 export async function testCommunicationTemplate(opts: {
   templateId: string;
   to: string;
   subject: string;
 }): Promise<void> {
+  const to = opts.to.trim();
+  if (!to.includes("@")) throw new Error("Enter a valid email address");
+
+  const { data, error } = await invokeFunction<{ ok?: boolean; id?: string; error?: string }>(
+    "dispatch-outbound",
+    { template_id: opts.templateId, to },
+  );
+  if (!error && data?.ok) {
+    toast.success(`Sent ${opts.templateId} to ${to}`, {
+      description: data.id ? `Resend ${data.id}` : "Branded template via support@mail.inuabiz.co.ke",
+    });
+    return;
+  }
+
   const sb = getSupabase();
   const row = {
-    to_email: opts.to,
+    to_email: to,
     template_id: opts.templateId,
     subject: opts.subject,
-    status: "queued",
-    error: "No mail provider configured — logged only",
+    status: "error",
+    error: error ?? "dispatch-outbound failed",
     metadata: { source: "admin-test" },
   };
   if (sb) {
-    const { error } = await sb.from("email_send_log").insert(row);
-    if (error && !isMissingRelation(error)) throw error;
-    if (!error) {
-      toast.success(`Test queued for ${opts.to}`, {
-        description: "Add RESEND_API_KEY to send for real.",
-      });
-      return;
-    }
+    const { error: logErr } = await sb.from("email_send_log").insert(row);
+    if (logErr && !isMissingRelation(logErr)) throw logErr;
+  } else {
+    const logs = readJson<EmailSendLogRow[]>(LOG_KEY, []);
+    logs.unshift({
+      id: crypto.randomUUID(),
+      to_email: to,
+      template_id: opts.templateId,
+      subject: opts.subject,
+      status: "error",
+      error: error ?? "No mail provider",
+      created_at: new Date().toISOString(),
+    });
+    writeJson(LOG_KEY, logs.slice(0, 100));
   }
-  const logs = readJson<EmailSendLogRow[]>(LOG_KEY, []);
-  logs.unshift({
-    id: crypto.randomUUID(),
-    to_email: opts.to,
-    template_id: opts.templateId,
-    subject: opts.subject,
-    status: "queued",
-    error: "No mail provider",
-    created_at: new Date().toISOString(),
-  });
-  writeJson(LOG_KEY, logs.slice(0, 100));
-  toast.success(`Test queued for ${opts.to}`, {
-    description: "No mail provider yet — recorded in the delivery log.",
-  });
+  throw new Error(error ?? "Could not send via Resend");
 }
 
 /**
@@ -333,11 +340,14 @@ export async function saveBroadcast(input: {
     status: input.publish ? "published" : "draft",
     is_active: input.publish,
     published_at: input.publish ? new Date().toISOString() : null,
-    recipient_count: input.publish ? 34 : 0,
+    recipient_count: 0,
   };
   if (sb) {
-    const { error } = await sb.from("platform_broadcasts").insert(payload);
+    const { data, error } = await sb.from("platform_broadcasts").insert(payload).select("id").maybeSingle();
     if (!error) {
+      if (input.publish && (input.channel === "banner_email" || input.channel === "all") && data?.id) {
+        void invokeFunction("dispatch-lifecycle", { job: "broadcast", broadcast_id: data.id });
+      }
       toast.success(input.publish ? "Broadcast queued" : "Draft saved");
       return;
     }
@@ -372,7 +382,7 @@ export async function saveBroadcast(input: {
 }
 
 const DEFAULT_PROVIDER: EmailProviderSettings = {
-  fromEmail: "hello@inuabiz.co.ke",
+  fromEmail: "support@mail.inuabiz.co.ke",
   fromName: "InuaBiz",
   notificationsEnabled: true,
 };
@@ -438,7 +448,8 @@ export async function saveEmailProviderSetting(
 export function emailInfraStatus(): { supabase: boolean; resend: boolean } {
   return {
     supabase: isSupabaseConfigured(),
-    resend: Boolean(import.meta.env["VITE_RESEND_API_KEY"]),
+    // Resend lives on the Edge Function / Auth SMTP — never a Vite key.
+    resend: isSupabaseConfigured(),
   };
 }
 

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Banknote, CircleCheck, Percent, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
@@ -21,8 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, tenants, unclaimedPayments } from "@/lib/mock-data";
+import { KES, tenants as mockTenants, unclaimedPayments } from "@/lib/mock-data";
 import { suggestUnclaimedMatches } from "@/lib/admin-ai";
+import { assignUnclaimed, fetchUnclaimedPayments } from "@/lib/ops";
+import { fetchTenants } from "@/lib/data";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin/unclaimed")({
   head: () => ({
@@ -41,11 +45,22 @@ export const Route = createFileRoute("/admin/unclaimed")({
 });
 
 function Unclaimed() {
-  const [queue, setQueue] = useState(unclaimedPayments);
+  const queryClient = useQueryClient();
+  const live = isSupabaseConfigured();
+  const { data: queue = live ? [] : unclaimedPayments } = useQuery({
+    queryKey: ["unclaimed-payments"],
+    queryFn: fetchUnclaimedPayments,
+    enabled: live,
+  });
+  const { data: tenantList = live ? [] : mockTenants } = useQuery({
+    queryKey: ["admin-tenants"],
+    queryFn: fetchTenants,
+    enabled: live,
+  });
   const [assign, setAssign] = useState<Record<string, string>>({});
   const [matching, setMatching] = useState(false);
 
-  const total = queue.reduce((s, p) => s + p.amount, 0);
+  const total = useMemo(() => queue.reduce((s, p) => s + p.amount, 0), [queue]);
 
   return (
     <AdminShell
@@ -84,8 +99,7 @@ function Unclaimed() {
             variant="ink"
             className="rounded-[10px]"
             onClick={() => {
-              setQueue(unclaimedPayments);
-              setAssign({});
+              void queryClient.invalidateQueries({ queryKey: ["unclaimed-payments"] });
               toast.success("Queue refreshed");
             }}
           >
@@ -99,13 +113,12 @@ function Unclaimed() {
         <StatCard label="Value held" value={KES(total)} icon={Banknote} tone="gold" />
         <StatCard
           label="Resolved this month"
-          value="7"
-          delta={-30}
-          hint="fewer than last month"
+          value="—"
+          hint="from live queue"
           icon={CircleCheck}
           tone="success"
         />
-        <StatCard label="Auto-match rate" value="98.4%" delta={1} icon={Percent} tone="teal" />
+        <StatCard label="Open items" value={String(queue.length)} icon={Percent} tone="teal" />
       </div>
 
       <div className="mt-4 rounded-xl border border-border bg-muted p-4">
@@ -153,7 +166,7 @@ function Unclaimed() {
                         <SelectValue placeholder="Choose vendor" />
                       </SelectTrigger>
                       <SelectContent>
-                        {tenants.map((t) => (
+                        {tenantList.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             {t.business}
                           </SelectItem>
@@ -166,12 +179,20 @@ function Unclaimed() {
                       size="sm"
                       disabled={!assign[p.id]}
                       onClick={() => {
-                        setQueue((q) => q.filter((x) => x.id !== p.id));
-                        toast.success("Payment assigned", {
-                          description: `${p.invoiceId} mapped to ${
-                            tenants.find((t) => t.id === assign[p.id])?.business ?? "vendor"
-                          }.`,
-                        });
+                        void assignUnclaimed(p.id, assign[p.id]!)
+                          .then(() => {
+                            toast.success("Payment assigned", {
+                              description: `${p.invoiceId} mapped to ${
+                                tenantList.find((t) => t.id === assign[p.id])?.business ?? "vendor"
+                              }.`,
+                            });
+                            void queryClient.invalidateQueries({ queryKey: ["unclaimed-payments"] });
+                          })
+                          .catch((err: unknown) =>
+                            toast.error("Assign failed", {
+                              description: err instanceof Error ? err.message : "Try again",
+                            }),
+                          );
                       }}
                     >
                       Assign

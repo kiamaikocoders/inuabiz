@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
@@ -16,14 +18,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DEMO_VENDOR,
-  initials,
-  isVendorOwner,
-  persistIdentity,
-  roleLabel,
-  useIdentity,
-} from "@/lib/identity";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { initials, isVendorOwner, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
+import { prettyKePhone } from "@/lib/phone";
+import {
+  fetchShops,
+  fetchStaff,
+  fetchTenantHeader,
+  inviteStaff,
+  saveTenantHeader,
+  EMAIL_RECEIPT_KEY,
+  emailReceiptEnabled,
+} from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { CATEGORY_LIST, parseCategory, readDemoCategory, writeDemoCategory } from "@/lib/category";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -41,33 +55,75 @@ export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
 });
 
-const STAFF = [
-  { name: "Mama Njoroge", role: "Owner", phone: "0722 431 002" },
-  { name: "Kevin M.", role: "Attendant", phone: "0711 220 118" },
-  { name: "Faith A.", role: "Attendant", phone: "0745 991 002" },
-];
-
 function SettingsPage() {
   const identity = useIdentity("vendor");
   const owner = isVendorOwner(identity.role);
-  const save = () => toast.success("Settings saved", { description: "Front-end demo only for now." });
+  const queryClient = useQueryClient();
+  const { data: header } = useQuery({
+    queryKey: ["tenant-header"],
+    queryFn: fetchTenantHeader,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: staff = [] } = useQuery({
+    queryKey: ["staff"],
+    queryFn: fetchStaff,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: shops = [] } = useQuery({
+    queryKey: ["shops"],
+    queryFn: fetchShops,
+    enabled: isSupabaseConfigured(),
+  });
 
-  const previewAttendant = () => {
-    persistIdentity("vendor", {
-      role: "ATTENDANT",
-      fullName: "Kevin M.",
-      phone: "0711 220 118",
-    });
-    toast.message("Attendant view", { description: "Shop, till and staff are locked." });
-  };
+  const [name, setName] = useState("");
+  const [legal, setLegal] = useState("");
+  const [pin, setPin] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loc, setLoc] = useState("");
+  const [category, setCategory] = useState(() => readDemoCategory());
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteShop, setInviteShop] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [emailReceipt, setEmailReceipt] = useState(() => emailReceiptEnabled());
 
-  const restoreOwner = () => {
-    persistIdentity("vendor", {
-      role: DEMO_VENDOR.role,
-      fullName: DEMO_VENDOR.fullName,
-      phone: DEMO_VENDOR.phone,
-    });
-    toast.success("Owner view restored");
+  useEffect(() => {
+    if (!header) return;
+    setName(header.name);
+    setLegal(header.legal_name ?? header.name);
+    setPin(header.kra_pin ?? "");
+    setEmail(header.email ?? "");
+    setPhone(header.phone);
+    setLoc(header.address_text ?? "");
+    setCategory(parseCategory(header.category));
+  }, [header]);
+
+  const save = async () => {
+    try {
+      if (!isSupabaseConfigured()) {
+        writeDemoCategory(parseCategory(category));
+        toast.success("Category saved for this demo till");
+        window.location.reload();
+        return;
+      }
+      await saveTenantHeader({
+        name,
+        legal_name: legal,
+        kra_pin: pin.trim() ? pin.trim().toUpperCase() : null,
+        email: email || null,
+        phone,
+        address_text: loc || null,
+        category,
+      });
+      toast.success("Settings saved");
+      await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
+    } catch (err) {
+      toast.error("Could not save", {
+        description: err instanceof Error ? err.message : "Check KRA PIN format (A123456789Z).",
+      });
+    }
   };
 
   return (
@@ -77,15 +133,6 @@ function SettingsPage() {
       actions={
         <div className="hidden items-center gap-2 sm:flex">
           <RoleBadge>{roleLabel(identity.role)}</RoleBadge>
-          {owner ? (
-            <Button size="sm" variant="outline" onClick={previewAttendant}>
-              Preview attendant
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={restoreOwner}>
-              Back to owner
-            </Button>
-          )}
         </div>
       }
     >
@@ -110,42 +157,69 @@ function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="bn" className="text-muted-foreground text-xs">
-                Shop Name
+                Trading name
               </Label>
-              <Input id="bn" defaultValue="Njoroge Mini Mart" disabled={!owner} />
+              <Input id="bn" value={name} onChange={(e) => setName(e.target.value)} disabled={!owner} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ln" className="text-muted-foreground text-xs">
+                Legal name
+              </Label>
+              <Input id="ln" value={legal} onChange={(e) => setLegal(e.target.value)} disabled={!owner} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pin" className="text-muted-foreground text-xs">
+                KRA PIN
+              </Label>
+              <Input
+                id="pin"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.toUpperCase())}
+                placeholder="A123456789Z"
+                disabled={!owner}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="em" className="text-muted-foreground text-xs">
+                Email
+              </Label>
+              <Input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!owner} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="cat" className="text-muted-foreground text-xs">
                 Business Category
               </Label>
-              <Select defaultValue="duka" disabled={!owner}>
+              <Select value={parseCategory(category)} onValueChange={(v) => setCategory(parseCategory(v))} disabled={!owner && isSupabaseConfigured()}>
                 <SelectTrigger id="cat">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="duka">Duka</SelectItem>
-                  <SelectItem value="boutique">Boutique</SelectItem>
-                  <SelectItem value="chemist">Chemist</SelectItem>
-                  <SelectItem value="hardware">Hardware</SelectItem>
-                  <SelectItem value="eatery">Eatery</SelectItem>
+                  {CATEGORY_LIST.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.emoji} {c.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-muted-foreground text-xs">
+                Changes the till, extra screens and product fields for this shop.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="loc" className="text-muted-foreground text-xs">
                 Location
               </Label>
-              <Input id="loc" defaultValue="Kasarani, Nairobi" disabled={!owner} />
+              <Input id="loc" value={loc} onChange={(e) => setLoc(e.target.value)} disabled={!owner} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ph" className="text-muted-foreground text-xs">
                 Contact Phone
               </Label>
-              <Input id="ph" defaultValue="0722 431 002" disabled={!owner} />
+              <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!owner} />
             </div>
           </div>
           <div className="flex justify-end">
-            <Button onClick={save} disabled={!owner}>
+            <Button onClick={() => void save()} disabled={!owner}>
               {owner ? "Save changes" : "Owner only"}
             </Button>
           </div>
@@ -206,51 +280,41 @@ function SettingsPage() {
               size="sm"
               className="border-primary text-primary"
               disabled={!owner}
-              onClick={() => toast.info("Invite staff by phone number")}
+              onClick={() => setInviteOpen(true)}
             >
-              {owner ? "+ Invite an attendant" : "Owner only"}
+              {owner ? "+ Invite staff" : "Owner only"}
             </Button>
           }
         >
           <ul className="divide-y divide-border">
-            {STAFF.map((s) => (
-              <li key={s.name} className="flex items-center justify-between gap-4 py-2.5">
+            {(staff.length ? staff : []).map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-4 py-2.5">
                 <div className="flex items-center gap-3">
                   <span
                     className={cn(
                       "grid size-8 place-items-center rounded-full text-[11px] font-bold",
-                      s.role === "Owner"
+                      s.role === "VENDOR_ADMIN"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground",
                     )}
                   >
-                    {initials(s.name)}
+                    {initials(s.full_name || s.phone || "S")}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold">{s.name}</p>
-                    <p className="text-muted-foreground text-xs">{s.phone}</p>
+                    <p className="text-sm font-semibold">{s.full_name || "Staff"}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {s.phone ? prettyKePhone(s.phone) : "—"}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {s.role === "Owner" ? (
-                    <Badge>{s.role}</Badge>
-                  ) : (
-                    <Badge variant="outline">{s.role}</Badge>
-                  )}
-                  {owner ? (
-                    <button
-                      type="button"
-                      className="text-primary text-xs font-medium"
-                      onClick={() => toast.info(`Edit ${s.name}`)}
-                    >
-                      Edit
-                    </button>
-                  ) : (
-                    <span className="text-muted-foreground text-xs">—</span>
-                  )}
-                </div>
+                <Badge variant={s.role === "VENDOR_ADMIN" ? "default" : "outline"}>
+                  {roleLabel(s.role)}
+                </Badge>
               </li>
             ))}
+            {!staff.length && (
+              <li className="text-muted-foreground py-3 text-sm">No staff loaded yet.</li>
+            )}
           </ul>
         </SettingsCard>
 
@@ -292,7 +356,6 @@ function SettingsPage() {
             </div>
             {[
               ["Send SMS receipt", "Costs are covered by your subscription", true],
-              ["Send email receipt", "When the customer has an email on file", false],
               ["Show margins on receipt", "Never share this with customers", false],
             ].map(([l, h, on]) => (
               <div key={l as string} className="flex items-start justify-between gap-4">
@@ -303,12 +366,118 @@ function SettingsPage() {
                 <Switch defaultChecked={on as boolean} />
               </div>
             ))}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold">Send email receipt</p>
+                <p className="text-muted-foreground text-xs">
+                  Off by default. Turn on to email a shop copy after cash, credit, or paid M-Pesa sales.
+                </p>
+              </div>
+              <Switch
+                checked={emailReceipt}
+                onCheckedChange={(on) => {
+                  setEmailReceipt(on);
+                  window.localStorage.setItem(EMAIL_RECEIPT_KEY, on ? "true" : "false");
+                }}
+              />
+            </div>
             <div className="flex justify-end">
-              <Button onClick={save}>Save receipt settings</Button>
+              <Button onClick={() => void save()}>Save receipt settings</Button>
             </div>
           </SettingsCard>
         )}
       </div>
+
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite staff</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="inv-name">Full name</Label>
+              <Input
+                id="inv-name"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Faith Wanjiku"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="inv-phone">Phone</Label>
+              <Input
+                id="inv-phone"
+                value={invitePhone}
+                onChange={(e) => setInvitePhone(e.target.value)}
+                placeholder="0712 000 000"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="inv-email">Email (optional)</Label>
+              <Input
+                id="inv-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="faith@shop.co.ke"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="inv-shop">Shop</Label>
+              <Select
+                value={inviteShop || shops[0]?.id || ""}
+                onValueChange={setInviteShop}
+                disabled={!shops.length}
+              >
+                <SelectTrigger id="inv-shop">
+                  <SelectValue placeholder="Choose shop" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shops.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const shopId = inviteShop || shops[0]?.id;
+                if (!shopId || !invitePhone.trim()) {
+                  toast.error("Shop and phone are required");
+                  return;
+                }
+                void inviteStaff(shopId, invitePhone.trim(), inviteName.trim(), inviteEmail.trim() || undefined)
+                  .then(() => {
+                    toast.success("Invite sent", {
+                      description: inviteEmail.trim()
+                        ? "Phone invite plus branded email."
+                        : "They join with OTP on that phone.",
+                    });
+                    setInviteOpen(false);
+                    setInviteName("");
+                    setInvitePhone("");
+                    setInviteEmail("");
+                    void queryClient.invalidateQueries({ queryKey: ["staff"] });
+                  })
+                  .catch((err: unknown) =>
+                    toast.error("Invite failed", {
+                      description: err instanceof Error ? err.message : "Try again",
+                    }),
+                  );
+              }}
+            >
+              Send invite
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

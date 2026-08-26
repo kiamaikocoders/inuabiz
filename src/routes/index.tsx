@@ -4,7 +4,7 @@ import {
   BadgeCheck,
   BookOpen,
   CreditCard,
-  Map,
+  FileText,
   Package,
   Smartphone,
   Sparkles,
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,13 +24,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Mobile-first POS, M-Pesa auto-reconciliation, digital credit ledger and AI cash-flow insights for Kenyan dukas, chemists and boutiques. KES 3,000/month.",
+          "Mobile-first POS, M-Pesa reconciliation, digital credit ledger, extra shops and AI restock advice for Kenyan dukas, chemists and boutiques. KES 3,000 per shop / month.",
       },
       { property: "og:title", content: "InuaBiz — Lift Your Business" },
       {
         property: "og:description",
         content:
-          "Sell, track credit and reconcile M-Pesa from your phone. 14-day free trial, no paperwork.",
+          "Sell, track credit and reconcile M-Pesa from your phone. 3-day free trial, no paperwork.",
       },
     ],
   }),
@@ -41,39 +41,39 @@ const features = [
   {
     icon: Store,
     title: "Mobile POS & checkout",
-    body: "Fast grid search, camera barcode scanning, instant cart totals and discount toggles — built for one thumb.",
+    body: "Fast grid search, camera barcode scanning, instant cart totals — cash, credit or M-Pesa STK from one thumb.",
   },
   {
     icon: Smartphone,
-    title: "M-Pesa multi-channel sync",
-    body: "Paybill, Till, Pochi la Biashara or a personal number — payments reconcile themselves against every sale.",
+    title: "M-Pesa that matches the sale",
+    body: "STK from the cart. Till and Paybill land on the same sale. Stuck PINs are re-checked automatically.",
   },
   {
     icon: BookOpen,
     title: "Duka debt ledger",
-    body: "Digitise kukopesha. Track who owes what and send automated WhatsApp reminders without the awkward talk.",
+    body: "Digitise kukopesha. Track who owes what, when it is due, and email yourself a reminder.",
   },
   {
     icon: Package,
     title: "Inventory & stock alerts",
-    body: "Live stock levels, low-stock push alerts and true margin tracking on cost versus selling price.",
+    body: "Live stock, low-stock alerts in the app and by email, and true margin on cost versus selling price.",
+  },
+  {
+    icon: FileText,
+    title: "Receipts & wholesale invoices",
+    body: "Fiscal sale documents, optional shop-copy email, and bills that push into the buyer's M-Pesa menu.",
   },
   {
     icon: Sparkles,
-    title: "AI financial intelligence",
-    body: "Cash-flow forecasts, best-seller predictions and reorder recommendations written in plain language.",
-  },
-  {
-    icon: Map,
-    title: "Loyalty, quietly",
-    body: "Frequent buyers are recognised by phone number alone — no cards, no app downloads for your customers.",
+    title: "AI restock advice",
+    body: "Cash-flow notes, bestsellers and reorder recommendations written in plain language.",
   },
 ];
 
 const steps = [
-  { time: "30s", title: "Phone-first login", body: "Enter your 07xx number, tap the SMS code. No email, no password." },
-  { time: "45s", title: "Business & GPS pin", body: "Name, category and one-tap location detection for your store." },
-  { time: "30s", title: "Payment destination", body: "Add your M-Pesa number, Till or Paybill. Trial starts instantly." },
+  { time: "30s", title: "Create your account", body: "Name, shop name, email and password — then confirm the email OTP." },
+  { time: "45s", title: "Business & GPS pin", body: "Finish shop setup: category and one-tap location detection." },
+  { time: "30s", title: "Payment destination", body: "Add your M-Pesa number, Till or Paybill. The 3-day trial starts when you finish." },
   { time: "15s", title: "First test sale", body: "Land on the POS with a sample product and check out immediately." },
 ];
 
@@ -102,7 +102,7 @@ function Landing() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button size="lg" variant="secondary" asChild>
-                  <Link to="/onboarding">
+                  <Link to="/signup">
                     Start free trial <ArrowRight className="ml-1 size-4" />
                   </Link>
                 </Button>
@@ -112,7 +112,7 @@ function Landing() {
                   className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
                   asChild
                 >
-                  <Link to="/app">See the vendor app</Link>
+                  <Link to="/how-it-works">How it works</Link>
                 </Button>
               </div>
               <div className="text-primary-foreground/70 mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -171,10 +171,10 @@ function Landing() {
         <section className="bg-card border-y border-border">
           <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-4">
             {[
-              { k: "< 2 min", v: "Full onboarding" },
-              { k: "4 channels", v: "M-Pesa coverage" },
-              { k: "KES 3,000", v: "Flat monthly price" },
-              { k: "14 days", v: "Free, full access" },
+              { k: "< 2 min", v: "Sign-up to first sale" },
+              { k: "STK · Till · Paybill", v: "M-Pesa on the till" },
+              { k: "KES 3,000", v: "Per shop / month" },
+              { k: "3 days", v: "Free on the first shop" },
             ].map((s) => (
               <div key={s.k}>
                 <p className="font-display text-2xl font-bold">{s.k}</p>
@@ -246,20 +246,20 @@ function Landing() {
               {
                 who: "Mama Njoroge",
                 what: "Retail duka owner",
-                pain: "Manual ledger books, lost credit records, unverified M-Pesa texts.",
-                fix: "2-tap credit recording and instant M-Pesa reconciliation.",
+                pain: "Manual ledger books, lost credit records, unmatched M-Pesa texts.",
+                fix: "2-tap credit recording and STK that posts itself to the sale.",
               },
               {
                 who: "Boutique & chemist",
                 what: "Specialty retail",
                 pain: "Stock leakage, unknown margins, unpredictable reorder cycles.",
-                fix: "Stock alerts, demand forecasting and reorder triggers.",
+                fix: "Stock alerts, restock notes and a fiscal invoice on every paid sale.",
               },
               {
-                who: "Platform operator",
-                what: "Super admin",
-                pain: "Managing vendors manually with no operational visibility.",
-                fix: "GIS store map, unclaimed payment queue and one-click impersonation.",
+                who: "Two counters, one owner",
+                what: "Hardware + duka",
+                pain: "Two tills, two books, one head — and a second shop that should not mix stock.",
+                fix: "Each location is its own shop at KES 3,000. Pay on M-Pesa, then switch counters.",
               },
             ].map((p) => (
               <div key={p.who} className="surface-card p-6">
@@ -279,15 +279,15 @@ function Landing() {
             <div className="relative">
               <Wallet className="text-gold mx-auto size-8" />
               <h2 className="text-primary-foreground mt-4 text-3xl font-bold sm:text-4xl">
-                One flat price. Everything included.
+                From {KES(SUBSCRIPTION_PRICE)} per shop. More when you need it.
               </h2>
-              <p className="text-primary-foreground/80 mt-3">
-                {KES(SUBSCRIPTION_PRICE)} per month after your {TRIAL_DAYS}-day trial. Paid by
-                M-Pesa STK push — no card required.
+              <p className="text-primary-foreground/80 mx-auto mt-3 max-w-xl">
+                Standard after a {TRIAL_DAYS}-day trial. Compliance (ETR) at {KES(COMPLIANCE_PRICE)}{" "}
+                when you need the tax pack. Custom licenses for dedicated infrastructure.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <Button size="lg" variant="secondary" asChild>
-                  <Link to="/onboarding">Start free trial</Link>
+                  <Link to="/signup">Start free trial</Link>
                 </Button>
                 <Button
                   size="lg"
@@ -296,7 +296,7 @@ function Landing() {
                   asChild
                 >
                   <Link to="/pricing">
-                    <CreditCard className="mr-1 size-4" /> See what's included
+                    <CreditCard className="mr-1 size-4" /> Standard, Compliance, Enterprise
                   </Link>
                 </Button>
               </div>

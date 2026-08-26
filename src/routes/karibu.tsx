@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/karibu")({
   head: () => ({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/karibu")({
       {
         name: "description",
         content:
-          "Karibu. InuaBiz is the Kenyan micro-POS for dukas, chemists and boutiques. Phone OTP, M-Pesa reconciliation, credit ledger and AI restock advice. 14-day free trial.",
+          "Karibu. InuaBiz is the Kenyan micro-POS for dukas, chemists and boutiques. Email signup, M-Pesa reconciliation, credit ledger and AI restock advice. 3-day free trial.",
       },
       { property: "og:title", content: "Karibu — InuaBiz" },
     ],
@@ -40,7 +40,7 @@ function Karibu() {
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button size="lg" variant="secondary" asChild>
-                <Link to="/onboarding">
+                <Link to="/signup">
                   Anza trial <ArrowRight className="ml-1 size-4" />
                 </Link>
               </Button>
@@ -60,8 +60,8 @@ function Karibu() {
           {[
             {
               icon: Smartphone,
-              title: "Phone ndiyo password",
-              body: "07xx number, SMS code, you are in. No email, no PIN to forget at the counter.",
+              title: "Account, then the shop",
+              body: "Sign up with email, verify the OTP, then finish shop setup before you can sell.",
             },
             {
               icon: Wallet,
@@ -71,7 +71,7 @@ function Karibu() {
             {
               icon: HeartHandshake,
               title: "Kukopesha, digitally",
-              body: "Who owes what, when it is due, and a WhatsApp nudge before the friendship sours.",
+              body: "Who owes what, when it is due, and an email nudge before the friendship sours.",
             },
           ].map((c) => (
             <div key={c.title} className="surface-card p-6">
@@ -90,16 +90,24 @@ function Karibu() {
               <p className="inline-flex items-center gap-2 text-sm font-medium">
                 <Store className="text-primary size-4" /> Built in Nairobi, for the counter
               </p>
-              <h2 className="mt-2 text-3xl font-bold">{KES(SUBSCRIPTION_PRICE)} / month after trial</h2>
+              <h2 className="mt-2 text-3xl font-bold">
+                From {KES(SUBSCRIPTION_PRICE)} / shop after trial
+              </h2>
               <p className="text-muted-foreground mt-2 max-w-lg text-sm">
-                Everything included — POS, credit, stock, invoices, AI insights. Paid by M-Pesa STK.
+                Standard POS on M-Pesa PIN. Compliance (ETR) at {KES(COMPLIANCE_PRICE)}. Custom
+                builds for dedicated infrastructure.
               </p>
             </div>
-            <Button size="lg" asChild>
-              <Link to="/onboarding">
-                <BadgeCheck className="mr-2 size-4" /> Start free trial
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button size="lg" asChild>
+                <Link to="/signup">
+                  <BadgeCheck className="mr-2 size-4" /> Start free trial
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/pricing">See all plans</Link>
+              </Button>
+            </div>
           </div>
         </section>
       </main>

@@ -101,7 +101,7 @@ export function CommunicationsPanel() {
   const [testTo, setTestTo] = useState(identity.email);
   const [testTemplateId, setTestTemplateId] = useState<string | null>(null);
 
-  const [fromEmail, setFromEmail] = useState("hello@inuabiz.co.ke");
+  const [fromEmail, setFromEmail] = useState("support@mail.inuabiz.co.ke");
   const [fromName, setFromName] = useState("InuaBiz");
   const [testProviderTo, setTestProviderTo] = useState(identity.email);
 
@@ -567,7 +567,9 @@ export function CommunicationsPanel() {
               <StatusPill status={infra.supabase ? "Connected" : "Not configured"} />
               <span className="text-muted-foreground text-xs self-center">
                 Supabase {infra.supabase ? "wired" : "missing"} · Resend{" "}
-                {infra.resend ? "key present" : "not set (VITE_RESEND_API_KEY)"}
+                {infra.resend
+                  ? "Resend SMTP · support@mail.inuabiz.co.ke"
+                  : "Supabase not wired"}
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
@@ -644,7 +646,7 @@ export function CommunicationsPanel() {
                   type="email"
                   value={testProviderTo}
                   onChange={(e) => setTestProviderTo(e.target.value)}
-                  placeholder="zack@inuabiz.co.ke"
+                  placeholder="komuzack@gmail.com"
                 />
                 <Button
                   onClick={() => {
@@ -662,7 +664,7 @@ export function CommunicationsPanel() {
                 </Button>
               </div>
               <p className="text-muted-foreground text-xs">
-                Uses the Welcome template. Without Resend the send is logged only.
+                Sends the Welcome template from support@mail.inuabiz.co.ke via dispatch-outbound.
               </p>
             </div>
           </div>

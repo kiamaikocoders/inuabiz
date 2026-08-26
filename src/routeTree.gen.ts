@@ -24,6 +24,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
@@ -41,14 +42,19 @@ import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppBillingRouteImport } from './routes/app.billing'
 import { Route as AppCreditRouteImport } from './routes/app.credit'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
+import { Route as AppExpiryRouteImport } from './routes/app.expiry'
+import { Route as AppFloorRouteImport } from './routes/app.floor'
 import { Route as AppInsightsRouteImport } from './routes/app.insights'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
+import { Route as AppKitchenRouteImport } from './routes/app.kitchen'
 import { Route as AppNotificationsRouteImport } from './routes/app.notifications'
 import { Route as AppPosRouteImport } from './routes/app.pos'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppSalesRouteImport } from './routes/app.sales'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppShopsRouteImport } from './routes/app.shops'
+import { Route as AppTicketsRouteImport } from './routes/app.tickets'
 import { Route as AdminTenantsTenantIdRouteImport } from './routes/admin.tenants_.$tenantId'
 import { Route as AppCustomersCustomerIdRouteImport } from './routes/app.customers_.$customerId'
 import { Route as AppInventoryProductIdRouteImport } from './routes/app.inventory_.$productId'
@@ -129,6 +135,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyRoute = VerifyRouteImport.update({
@@ -216,6 +227,16 @@ const AppCustomersRoute = AppCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AppRoute,
 } as any)
+const AppExpiryRoute = AppExpiryRouteImport.update({
+  id: '/expiry',
+  path: '/expiry',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFloorRoute = AppFloorRouteImport.update({
+  id: '/floor',
+  path: '/floor',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInsightsRoute = AppInsightsRouteImport.update({
   id: '/insights',
   path: '/insights',
@@ -229,6 +250,11 @@ const AppInventoryRoute = AppInventoryRouteImport.update({
 const AppInvoicesRoute = AppInvoicesRouteImport.update({
   id: '/invoices',
   path: '/invoices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppKitchenRoute = AppKitchenRouteImport.update({
+  id: '/kitchen',
+  path: '/kitchen',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
@@ -254,6 +280,16 @@ const AppSalesRoute = AppSalesRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppShopsRoute = AppShopsRouteImport.update({
+  id: '/shops',
+  path: '/shops',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTicketsRoute = AppTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
   getParentRoute: () => AppRoute,
 } as any)
 const AdminTenantsTenantIdRoute = AdminTenantsTenantIdRouteImport.update({
@@ -303,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/signup': typeof SignupRoute
   '/verify': typeof VerifyRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
@@ -318,14 +355,19 @@ export interface FileRoutesByFullPath {
   '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
+  '/app/expiry': typeof AppExpiryRoute
+  '/app/floor': typeof AppFloorRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/kitchen': typeof AppKitchenRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/profile': typeof AppProfileRoute
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/shops': typeof AppShopsRoute
+  '/app/tickets': typeof AppTicketsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
@@ -349,6 +391,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/signup': typeof SignupRoute
   '/verify': typeof VerifyRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
@@ -364,14 +407,19 @@ export interface FileRoutesByTo {
   '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
+  '/app/expiry': typeof AppExpiryRoute
+  '/app/floor': typeof AppFloorRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/kitchen': typeof AppKitchenRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/profile': typeof AppProfileRoute
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/shops': typeof AppShopsRoute
+  '/app/tickets': typeof AppTicketsRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
   '/admin/tenants/$tenantId': typeof AdminTenantsTenantIdRoute
@@ -398,6 +446,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/signup': typeof SignupRoute
   '/verify': typeof VerifyRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
@@ -413,14 +462,19 @@ export interface FileRoutesById {
   '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
+  '/app/expiry': typeof AppExpiryRoute
+  '/app/floor': typeof AppFloorRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
+  '/app/kitchen': typeof AppKitchenRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/pos': typeof AppPosRoute
   '/app/profile': typeof AppProfileRoute
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/shops': typeof AppShopsRoute
+  '/app/tickets': typeof AppTicketsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/admin/tenants_/$tenantId': typeof AdminTenantsTenantIdRoute
@@ -448,6 +502,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/signup'
     | '/verify'
     | '/admin/ai'
     | '/admin/broadcasts'
@@ -463,14 +518,19 @@ export interface FileRouteTypes {
     | '/app/billing'
     | '/app/credit'
     | '/app/customers'
+    | '/app/expiry'
+    | '/app/floor'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/kitchen'
     | '/app/notifications'
     | '/app/pos'
     | '/app/profile'
     | '/app/sales'
     | '/app/settings'
+    | '/app/shops'
+    | '/app/tickets'
     | '/admin/'
     | '/app/'
     | '/admin/tenants/$tenantId'
@@ -494,6 +554,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/signup'
     | '/verify'
     | '/admin/ai'
     | '/admin/broadcasts'
@@ -509,14 +570,19 @@ export interface FileRouteTypes {
     | '/app/billing'
     | '/app/credit'
     | '/app/customers'
+    | '/app/expiry'
+    | '/app/floor'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/kitchen'
     | '/app/notifications'
     | '/app/pos'
     | '/app/profile'
     | '/app/sales'
     | '/app/settings'
+    | '/app/shops'
+    | '/app/tickets'
     | '/admin'
     | '/app'
     | '/admin/tenants/$tenantId'
@@ -542,6 +608,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/signup'
     | '/verify'
     | '/admin/ai'
     | '/admin/broadcasts'
@@ -557,14 +624,19 @@ export interface FileRouteTypes {
     | '/app/billing'
     | '/app/credit'
     | '/app/customers'
+    | '/app/expiry'
+    | '/app/floor'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
+    | '/app/kitchen'
     | '/app/notifications'
     | '/app/pos'
     | '/app/profile'
     | '/app/sales'
     | '/app/settings'
+    | '/app/shops'
+    | '/app/tickets'
     | '/admin/'
     | '/app/'
     | '/admin/tenants_/$tenantId'
@@ -591,6 +663,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   OnboardingRoute: typeof OnboardingRoute
   PricingRoute: typeof PricingRoute
+  SignupRoute: typeof SignupRoute
   VerifyRoute: typeof VerifyRoute
 }
 
@@ -699,6 +772,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify': {
@@ -820,6 +900,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCustomersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/expiry': {
+      id: '/app/expiry'
+      path: '/expiry'
+      fullPath: '/app/expiry'
+      preLoaderRoute: typeof AppExpiryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/floor': {
+      id: '/app/floor'
+      path: '/floor'
+      fullPath: '/app/floor'
+      preLoaderRoute: typeof AppFloorRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/insights': {
       id: '/app/insights'
       path: '/insights'
@@ -839,6 +933,13 @@ declare module '@tanstack/react-router' {
       path: '/invoices'
       fullPath: '/app/invoices'
       preLoaderRoute: typeof AppInvoicesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/kitchen': {
+      id: '/app/kitchen'
+      path: '/kitchen'
+      fullPath: '/app/kitchen'
+      preLoaderRoute: typeof AppKitchenRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/notifications': {
@@ -874,6 +975,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/shops': {
+      id: '/app/shops'
+      path: '/shops'
+      fullPath: '/app/shops'
+      preLoaderRoute: typeof AppShopsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/tickets': {
+      id: '/app/tickets'
+      path: '/tickets'
+      fullPath: '/app/tickets'
+      preLoaderRoute: typeof AppTicketsRouteImport
       parentRoute: typeof AppRoute
     }
     '/admin/tenants_/$tenantId': {
@@ -959,14 +1074,19 @@ interface AppRouteChildren {
   AppBillingRoute: typeof AppBillingRoute
   AppCreditRoute: typeof AppCreditRoute
   AppCustomersRoute: typeof AppCustomersRoute
+  AppExpiryRoute: typeof AppExpiryRoute
+  AppFloorRoute: typeof AppFloorRoute
   AppInsightsRoute: typeof AppInsightsRoute
   AppInventoryRoute: typeof AppInventoryRoute
   AppInvoicesRoute: typeof AppInvoicesRoute
+  AppKitchenRoute: typeof AppKitchenRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPosRoute: typeof AppPosRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSalesRoute: typeof AppSalesRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppShopsRoute: typeof AppShopsRoute
+  AppTicketsRoute: typeof AppTicketsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCustomersCustomerIdRoute: typeof AppCustomersCustomerIdRoute
   AppInventoryProductIdRoute: typeof AppInventoryProductIdRoute
@@ -979,14 +1099,19 @@ const AppRouteChildren: AppRouteChildren = {
   AppBillingRoute: AppBillingRoute,
   AppCreditRoute: AppCreditRoute,
   AppCustomersRoute: AppCustomersRoute,
+  AppExpiryRoute: AppExpiryRoute,
+  AppFloorRoute: AppFloorRoute,
   AppInsightsRoute: AppInsightsRoute,
   AppInventoryRoute: AppInventoryRoute,
   AppInvoicesRoute: AppInvoicesRoute,
+  AppKitchenRoute: AppKitchenRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppPosRoute: AppPosRoute,
   AppProfileRoute: AppProfileRoute,
   AppSalesRoute: AppSalesRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppShopsRoute: AppShopsRoute,
+  AppTicketsRoute: AppTicketsRoute,
   AppIndexRoute: AppIndexRoute,
   AppCustomersCustomerIdRoute: AppCustomersCustomerIdRoute,
   AppInventoryProductIdRoute: AppInventoryProductIdRoute,
@@ -1013,6 +1138,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   OnboardingRoute: OnboardingRoute,
   PricingRoute: PricingRoute,
+  SignupRoute: SignupRoute,
   VerifyRoute: VerifyRoute,
 }
 export const routeTree = rootRouteImport

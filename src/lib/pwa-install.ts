@@ -4,6 +4,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
+let capturing = false;
 
 /** Optional hosted Android APK (set VITE_APK_URL in production when built). */
 export function apkDownloadUrl(): string | null {
@@ -12,7 +13,8 @@ export function apkDownloadUrl(): string | null {
 }
 
 export function captureInstallPrompt(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || capturing) return;
+  capturing = true;
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredPrompt = event as BeforeInstallPromptEvent;
@@ -21,6 +23,22 @@ export function captureInstallPrompt(): void {
   window.addEventListener("appinstalled", () => {
     deferredPrompt = null;
     window.dispatchEvent(new Event("inuabiz-pwa-installed"));
+  });
+}
+
+/** Chrome may fire `beforeinstallprompt` a beat after first paint. */
+export function waitForNativeInstall(timeoutMs = 4000): Promise<boolean> {
+  if (deferredPrompt) return Promise.resolve(true);
+  if (typeof window === "undefined") return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const finish = (ok: boolean) => {
+      window.clearTimeout(timer);
+      window.removeEventListener("inuabiz-pwa-installable", onReady);
+      resolve(ok);
+    };
+    const onReady = () => finish(true);
+    const timer = window.setTimeout(() => finish(Boolean(deferredPrompt)), timeoutMs);
+    window.addEventListener("inuabiz-pwa-installable", onReady);
   });
 }
 

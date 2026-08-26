@@ -17,8 +17,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 import { KES, sales as mockSales } from "@/lib/mock-data";
 import { fetchSales } from "@/lib/data";
+import { downloadCsv, fetchAuditInvoices } from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/app/sales")({
   head: () => ({
@@ -39,10 +42,49 @@ export const Route = createFileRoute("/app/sales")({
 function Sales() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("all");
-  const { data: sales = mockSales } = useQuery({
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const { data: sales = isSupabaseConfigured() ? [] : mockSales } = useQuery({
     queryKey: ["sales"],
     queryFn: fetchSales,
   });
+
+  const exportLedger = async () => {
+    const from = fromDate ? new Date(`${fromDate}T00:00:00`).toISOString() : undefined;
+    const to = toDate ? new Date(`${toDate}T23:59:59`).toISOString() : undefined;
+    const rows = await fetchAuditInvoices(from, to);
+    if (!rows.length) {
+      toast.info("Nothing to export", { description: "No invoices in this date range." });
+      return;
+    }
+    downloadCsv("inuabiz-audit-ledger.csv", [
+      [
+        "Invoice number",
+        "Date",
+        "Customer",
+        "KRA PIN",
+        "Rate A VAT 16%",
+        "Rate B zero-rated",
+        "Rate C exempt",
+        "Total",
+        "Payment",
+        "M-Pesa code",
+      ],
+      ...rows.map((r) => [
+        r.invoice_number,
+        new Date(r.created_at).toLocaleString("en-KE"),
+        r.customer_name ?? "",
+        r.kra_pin ?? "",
+        String(r.vat_16_amount),
+        String(r.vat_0_amount),
+        String(r.exempt_amount),
+        String(r.total_amount),
+        r.payment_method,
+        r.mpesa_receipt_code ?? "",
+      ]),
+    ]);
+    toast.success("CSV downloaded");
+  };
 
   const rows = sales.filter(
     (s) =>
@@ -59,7 +101,12 @@ function Sales() {
       title="Sales"
       description="Every transaction and its reconciliation status"
       actions={
-        <Button variant="outline" size="sm" className="hidden sm:inline-flex">
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:inline-flex"
+          onClick={() => void exportLedger()}
+        >
           <Download className="mr-2 size-4" /> Export
         </Button>
       }
@@ -90,14 +137,33 @@ function Sales() {
               <TabsTrigger value="failed">Failed</TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="relative sm:w-64">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
-              className="pl-9"
-              placeholder="Search ref or customer…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              type="date"
+              className="sm:w-40"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              aria-label="From date"
             />
+            <Input
+              type="date"
+              className="sm:w-40"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              aria-label="To date"
+            />
+            <div className="relative sm:w-64">
+              <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input
+                className="pl-9"
+                placeholder="Search ref or customer…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" size="sm" className="sm:hidden" onClick={() => void exportLedger()}>
+              <Download className="mr-2 size-4" /> Export
+            </Button>
           </div>
         </div>
 

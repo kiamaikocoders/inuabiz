@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -24,7 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, mrrTrend, platformHealth, tenants, unclaimedPayments } from "@/lib/mock-data";
+import { KES, mrrTrend, platformHealth, tenants as mockTenants } from "@/lib/mock-data";
+import { fetchTenants } from "@/lib/data";
+import { fetchMrrSnapshot, fetchUnclaimedPayments } from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -49,14 +53,18 @@ function MrrTooltip({
   active,
   payload,
   label,
+  activeTenants,
+  trials,
+  unclaimed,
 }: {
   active?: boolean;
   payload?: { value: number }[];
   label?: string;
+  activeTenants: number;
+  trials: number;
+  unclaimed: number;
 }) {
   if (!active || !payload?.length) return null;
-  const activeTenants = tenants.filter((t) => t.status === "Active").length;
-  const trials = tenants.filter((t) => t.status === "Trial").length;
   return (
     <div className="min-w-[160px] space-y-1.5 rounded-xl border border-border bg-card p-3 text-xs shadow-soft">
       <p className="font-semibold">
@@ -65,7 +73,7 @@ function MrrTooltip({
       {[
         ["Active tenants", String(activeTenants)],
         ["Trials", String(trials)],
-        ["Unclaimed", String(unclaimedPayments.length)],
+        ["Unclaimed", String(unclaimed)],
       ].map(([k, v]) => (
         <div key={k} className="flex justify-between gap-6">
           <span className="text-muted-foreground">{k}</span>
@@ -77,10 +85,28 @@ function MrrTooltip({
 }
 
 function AdminOverview() {
+  const live = isSupabaseConfigured();
+  const { data: tenants = live ? [] : mockTenants } = useQuery({
+    queryKey: ["admin-tenants"],
+    queryFn: fetchTenants,
+    enabled: live,
+  });
+  const { data: snap } = useQuery({
+    queryKey: ["admin-mrr"],
+    queryFn: fetchMrrSnapshot,
+    enabled: live,
+  });
+  const { data: unclaimed = [] } = useQuery({
+    queryKey: ["unclaimed-payments"],
+    queryFn: fetchUnclaimedPayments,
+    enabled: live,
+  });
   const active = tenants.filter((t) => t.status === "Active");
   const trials = tenants.filter((t) => t.status === "Trial");
-  const mrr = active.reduce((s, t) => s + t.mrr, 0);
-  const latest = mrrTrend[mrrTrend.length - 1];
+  const mrr = snap?.mrr_kes ?? active.reduce((s, t) => s + t.mrr, 0);
+  const unclaimedCount = live ? unclaimed.length : 0;
+  const latest = { month: "Now", mrr };
+  const chart = mrrTrend.map((row, i) => (i === mrrTrend.length - 1 ? { ...row, mrr } : row));
   const [selected, setSelected] = useState<string[]>([]);
 
   const toggle = (id: string, checked: boolean) => {
@@ -109,10 +135,10 @@ function AdminOverview() {
         </Button>
       </div>
 
-      {unclaimedPayments.length > 0 && (
+      {unclaimedCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3.5">
           <p className="text-destructive text-sm font-semibold">
-            {unclaimedPayments.length} payments could not be matched to a tenant
+            {unclaimedCount} payments could not be matched to a tenant
           </p>
           <Button size="sm" variant="destructive" asChild className="rounded-lg">
             <Link to="/admin/unclaimed">Resolve queue</Link>
@@ -137,21 +163,21 @@ function AdminOverview() {
         />
         <StatCard
           label="Trials running"
-          value={String(trials.length)}
+          value={String(snap?.trial_tenants ?? trials.length)}
           deltaLabel="68% conv."
           tone="gold"
           icon={Hourglass}
         />
         <StatCard
           label="Unclaimed payments"
-          value={String(unclaimedPayments.length)}
+          value={String(unclaimedCount)}
           icon={ShieldAlert}
           tone="danger"
           deltaLabel="needs mapping"
         />
         <StatCard
-          label="Churn this month"
-          value="3.1%"
+          label="Past due"
+          value={String(snap?.past_due_tenants ?? tenants.filter((t) => t.status === "Error").length)}
           delta={-1}
           icon={TrendingDown}
           tone="muted"
@@ -173,7 +199,7 @@ function AdminOverview() {
           </div>
           <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mrrTrend} margin={{ left: -12, right: 8, top: 8 }}>
+              <AreaChart data={chart} margin={{ left: -12, right: 8, top: 8 }}>
                 <defs>
                   <linearGradient id="gMrr" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.28} />
@@ -187,7 +213,15 @@ function AdminOverview() {
                 />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
                 <YAxis tickLine={false} axisLine={false} fontSize={12} hide />
-                <Tooltip content={<MrrTooltip />} />
+                <Tooltip
+                  content={
+                    <MrrTooltip
+                      activeTenants={snap?.active_tenants ?? active.length}
+                      trials={snap?.trial_tenants ?? trials.length}
+                      unclaimed={unclaimedCount}
+                    />
+                  }
+                />
                 <Area
                   type="monotone"
                   dataKey="mrr"

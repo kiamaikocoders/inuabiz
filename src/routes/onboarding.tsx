@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -8,9 +8,6 @@ import {
   MapPin,
   PartyPopper,
   RotateCcw,
-  Smartphone,
-  Store,
-  Wallet,
   WifiOff,
 } from "lucide-react";
 import { z } from "zod";
@@ -19,14 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Logo } from "@/components/brand/Logo";
 import { OnboardingHelpDialog } from "@/components/app/OnboardingHelpDialog";
+import { OnboardingSplit } from "@/components/auth/OnboardingSplit";
+import { CategoryPicker } from "@/components/category/CategoryPicker";
+import { categoryLabel, parseCategory } from "@/lib/category";
 import { cn } from "@/lib/utils";
 import { TRIAL_DAYS } from "@/lib/mock-data";
-import { completeOnboarding, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
+import { completeOnboarding, fetchProfile, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { to254 } from "@/lib/phone";
 import { useNetworkOnline } from "@/lib/network";
 import { trackExposure } from "@/lib/experiments";
@@ -51,19 +50,18 @@ export const Route = createFileRoute("/onboarding")({
       {
         name: "description",
         content:
-          "Create your InuaBiz account in under two minutes: phone verification, business details with GPS pin, and your M-Pesa payment destination.",
+          "Create your InuaBiz account, verify email, then finish shop setup. 3-day trial on your first shop.",
       },
       { property: "og:title", content: "Start your InuaBiz free trial" },
       {
         property: "og:description",
-        content: "Phone number, business name, payment destination. 14 days free, no paperwork.",
+        content: "Shop category, location and M-Pesa destination. 3-day trial on the first shop.",
       },
     ],
   }),
   component: Onboarding,
 });
 
-const categories = ["Duka", "Boutique", "Chemist", "Hardware", "Eatery"];
 const payTypes = [
   { id: "personal", label: "Personal M-Pesa number", hint: "Fastest to start — no registration" },
   { id: "till", label: "Buy Goods Till number", hint: "Best for busy counters" },
@@ -79,10 +77,10 @@ const stepTips = [
 ];
 
 const stepMeta = [
-  { title: "Verify your phone", icon: Smartphone, time: "30 seconds" },
-  { title: "Business details", icon: Store, time: "45 seconds" },
-  { title: "Payment destination", icon: Wallet, time: "30 seconds" },
-  { title: "You're ready", icon: PartyPopper, time: "15 seconds" },
+  { title: "M-Pesa number", time: "30 seconds" },
+  { title: "Business details", time: "45 seconds" },
+  { title: "Payment destination", time: "30 seconds" },
+  { title: "You're ready", time: "15 seconds" },
 ];
 
 const phoneSchema = z
@@ -124,7 +122,7 @@ function Onboarding() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [business, setBusiness] = useState("");
-  const [category, setCategory] = useState("Duka");
+  const [category, setCategory] = useState("DUKA");
   const [located, setLocated] = useState(false);
   const [payType, setPayType] = useState("personal");
   const [payValue, setPayValue] = useState("");
@@ -140,6 +138,8 @@ function Onboarding() {
   const [emailCopy, setEmailCopy] = useState(false);
   const [summaryEmail, setSummaryEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [accountReady, setAccountReady] = useState(!isSupabaseConfigured());
+  const [ownerName, setOwnerName] = useState("");
   const { online, retry } = useNetworkOnline();
 
 
@@ -157,7 +157,36 @@ function Onboarding() {
   const destType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" =
     payType === "till" ? "TILL" : payType === "paybill" ? "PAYBILL" : "PERSONAL_MPESA";
 
-  /* -------- resume a saved draft on first paint -------- */
+  /* -------- must have a verified account; unfinished onboarding stays here -------- */
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      const pending =
+        typeof window !== "undefined" ? sessionStorage.getItem("inuabiz:pendingShop") : null;
+      if (pending) setBusiness(pending);
+      return;
+    }
+    const sb = getSupabase();
+    if (!sb) {
+      void navigate({ to: "/signup" });
+      return;
+    }
+    void sb.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        void navigate({ to: "/signup" });
+        return;
+      }
+      void fetchProfile().then((profile) => {
+        if (profile?.tenant_id && profile.onboarding_completed_at) {
+          void navigate({ to: "/app" });
+          return;
+        }
+        setAccountReady(true);
+        if (profile?.pending_shop_name) setBusiness(profile.pending_shop_name);
+        if (profile?.full_name) setOwnerName(profile.full_name);
+        if (profile?.phone) setPhone(profile.phone);
+      });
+    });
+  }, [navigate]);
   useEffect(() => {
     const draft = loadDraft();
     if (draft && hasMeaningfulProgress(draft)) {
@@ -165,7 +194,7 @@ function Onboarding() {
       setPhone(draft.phone);
       setOtpSent(draft.otpSent);
       setBusiness(draft.business);
-      setCategory(draft.category);
+      setCategory(parseCategory(draft.category));
       setPayType(draft.payType);
       setPayValue(draft.payValue);
       setCoords(draft.coords);
@@ -263,8 +292,10 @@ function Onboarding() {
     if (target === 0) {
       const p = phoneSchema.safeParse(phone);
       if (!p.success) found["phone"] = p.error.issues[0]!.message;
-      const o = otpSchema.safeParse(otp);
-      if (!o.success) found["otp"] = o.error.issues[0]!.message;
+      if (!accountReady) {
+        const o = otpSchema.safeParse(otp);
+        if (!o.success) found["otp"] = o.error.issues[0]!.message;
+      }
     }
     if (target === 1) {
       const b = businessSchema.safeParse(business);
@@ -357,6 +388,10 @@ function Onboarding() {
       next();
       return;
     }
+    if (accountReady) {
+      next();
+      return;
+    }
     setBusy(true);
     void (async () => {
       try {
@@ -396,7 +431,6 @@ function Onboarding() {
     }
     setErrors({});
     setBusy(true);
-    setProvisionIndex(0);
     trackStepCompleted(3, Date.now() - stepEnteredAtRef.current);
     trackOnboardingCompleted(Date.now() - startedAtRef.current, {
       category,
@@ -414,14 +448,24 @@ function Onboarding() {
     setAnnouncement("Setting up your shop. This takes a few seconds.");
     void completeOnboarding({
       businessName: business,
-      category,
+      category: parseCategory(category),
       phone,
       destinationType: destType,
       accountNumber: payValue,
       ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
-    }).catch(() => {
-      /* demo mode — provisioning animation still completes */
-    });
+      ...(ownerName ? { fullName: ownerName } : {}),
+    })
+      .then(() => {
+        setProvisionIndex(0);
+      })
+      .catch((err: unknown) => {
+        finishedRef.current = false;
+        setBusy(false);
+        setProvisionIndex(-1);
+        toast.error("Could not finish setup", {
+          description: err instanceof Error ? err.message : "Stay on this page and retry.",
+        });
+      });
   }, [
     business,
     category,
@@ -429,6 +473,7 @@ function Onboarding() {
     destType,
     emailCopy,
     located,
+    ownerName,
     payValue,
     phone,
     summaryEmail,
@@ -437,85 +482,31 @@ function Onboarding() {
   const errorList = Object.entries(errors);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-16 w-full max-w-3xl items-center justify-between px-4 sm:px-6">
-          <Link to="/">
-            <Logo />
-          </Link>
-          <Link to="/login" className="text-muted-foreground text-sm hover:text-foreground">
-            Already have an account?
-          </Link>
+    <OnboardingSplit step={step}>
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
+      {resumed && !provisioning && (
+        <div className="border-primary/40 bg-primary-soft mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+          <p className="text-primary text-sm font-medium">
+            We saved your progress — you're back on step {step + 1} of 4.
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={restart}>
+            <RotateCcw className="mr-1.5 size-3.5" /> Start over
+          </Button>
         </div>
-      </header>
+      )}
 
-      <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
-        <p aria-live="polite" className="sr-only">
-          {announcement}
-        </p>
+      <div className="mb-6 hidden items-center justify-between text-xs font-medium lg:flex">
+        <span className="text-muted-foreground">{stepMeta[step]!.time}</span>
+        <span className="text-primary">{TRIAL_DAYS}-day free trial</span>
+      </div>
 
-        {resumed && !provisioning && (
-          <div className="border-primary/40 bg-primary-soft mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
-            <p className="text-primary text-sm font-medium">
-              We saved your progress — you're back on step {step + 1} of 4.
-            </p>
-            <Button type="button" size="sm" variant="outline" onClick={restart}>
-              <RotateCcw className="mr-1.5 size-3.5" /> Start over
-            </Button>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between text-xs font-medium">
-          <span className="text-muted-foreground">
-            Step {step + 1} of 4 · {stepMeta[step]!.time}
-          </span>
-          <span className="text-primary">{TRIAL_DAYS}-day free trial</span>
-        </div>
-        <Progress
-          value={((step + 1) / 4) * 100}
-          className="mt-3 h-1.5"
-          aria-label={`Onboarding progress: step ${step + 1} of 4`}
-        />
-
-        <ol className="mt-8 hidden gap-2 sm:grid sm:grid-cols-4">
-          {stepMeta.map((s, i) => (
-            <li
-              key={s.title}
-              aria-current={i === step ? "step" : undefined}
-              className={cn(
-                "rounded-xl border px-3 py-2.5",
-                i === step
-                  ? "border-primary bg-primary-soft"
-                  : i < step
-                    ? "border-success/40 bg-success/10"
-                    : "border-border bg-card",
-              )}
-            >
-              <div className="flex items-center gap-2">
-                {i < step ? (
-                  <Check className="text-success size-4" />
-                ) : (
-                  <s.icon
-                    className={cn("size-4", i === step ? "text-primary" : "text-muted-foreground")}
-                  />
-                )}
-                <span
-                  className={cn(
-                    "text-xs font-semibold",
-                    i === step ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {s.title}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ol>
-
-        {!online && (
+      {!online && (
           <div
             role="status"
-            className="border-warning/40 bg-warning/10 mt-6 flex flex-wrap items-center gap-3 rounded-xl border p-4"
+            className="border-warning/40 bg-warning/10 mb-6 flex flex-wrap items-center gap-3 rounded-xl border p-4"
           >
             <WifiOff className="text-warning size-4 shrink-0" />
             <p className="min-w-0 flex-1 text-xs leading-relaxed">
@@ -538,7 +529,7 @@ function Onboarding() {
           </div>
         )}
 
-        <div className="surface-card mt-6 p-6 sm:p-8">
+        <div>
           {variant === "guided" && !provisioning && (
             <p className="border-primary/30 bg-primary-soft text-primary mb-6 rounded-xl border px-4 py-3 text-xs leading-relaxed">
               <span className="font-semibold">Tip:</span> {stepTips[step]}
@@ -571,11 +562,13 @@ function Onboarding() {
           {step === 0 && (
             <div>
               <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
-                Let's start with your number
+                {accountReady ? "M-Pesa number for this shop" : "Let's start with your number"}
               </h1>
 
               <p className="text-muted-foreground mt-2 text-sm">
-                This is how you'll sign in and where subscription prompts will arrive.
+                {accountReady
+                  ? "Subscription and customer STK prompts go to this Kenyan mobile number."
+                  : "This is how you'll sign in and where subscription prompts will arrive."}
               </p>
               <div className="mt-7 space-y-5">
                 <div className="space-y-2">
@@ -595,6 +588,7 @@ function Onboarding() {
                   />
                   <FieldError id="ph-error" message={errors["phone"]} />
                 </div>
+                {!accountReady && (
                 <div className="space-y-2">
                   <Label htmlFor="otp-input">SMS code</Label>
                   <InputOTP
@@ -622,6 +616,7 @@ function Onboarding() {
                       : "Tap Send code and we'll SMS a four-digit code."}
                   </p>
                 </div>
+                )}
               </div>
             </div>
           )}
@@ -656,24 +651,11 @@ function Onboarding() {
                   <span id="cat-label" className="text-sm font-medium">
                     Category
                   </span>
-                  <div className="flex flex-wrap gap-2" role="group" aria-labelledby="cat-label">
-                    {categories.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        aria-pressed={category === c}
-                        onClick={() => setCategory(c)}
-                        className={cn(
-                          "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                          category === c
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-card text-muted-foreground hover:bg-muted",
-                        )}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    This shapes the till, inventory fields and extra screens for this shop. You can
+                    change it later in Settings.
+                  </p>
+                  <CategoryPicker compact value={parseCategory(category)} onChange={setCategory} />
                 </div>
                 <div className="space-y-2">
                   <Label>Store location</Label>
@@ -781,10 +763,10 @@ function Onboarding() {
           )}
 
           {step === 3 && (
-            <div className="text-center">
+            <div>
               <span
                 className={cn(
-                  "mx-auto grid size-14 place-items-center rounded-2xl",
+                  "grid size-14 place-items-center rounded-2xl",
                   provisioning ? "bg-primary-soft text-primary" : "bg-success/15 text-success",
                 )}
               >
@@ -795,16 +777,16 @@ function Onboarding() {
                 )}
               </span>
               <h1 ref={headingRef} tabIndex={-1} className="mt-5 text-2xl font-bold outline-none">
-                {provisioning ? "Setting up your shop…" : `${business} is ready to go live`}
+                {provisioning ? "Setting up your shop…" : `${business || "Your shop"} is ready`}
               </h1>
-              <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-relaxed">
+              <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
                 {provisioning
                   ? "This takes a few seconds. Keep this page open."
                   : `Confirm the details below and we'll start your ${TRIAL_DAYS}-day full-access trial with a sample product loaded.`}
               </p>
 
               {provisioning ? (
-                <ul className="mx-auto mt-6 grid max-w-md gap-2 text-left text-sm">
+                <ul className="mt-6 grid gap-2 text-sm">
                   {provisioningSteps.map((label, i) => {
                     const done = i < provisionIndex;
                     const active = i === provisionIndex;
@@ -834,10 +816,10 @@ function Onboarding() {
                 </ul>
               ) : (
                 <>
-                  <div className="bg-muted mx-auto mt-6 grid max-w-md gap-2 rounded-xl p-4 text-left text-sm">
+                  <div className="bg-muted mt-6 grid gap-2 rounded-xl p-4 text-sm">
                     {[
                       ["Business", business],
-                      ["Category", category],
+                      ["Category", categoryLabel(category)],
                       ["Phone", phone],
                       ["Payments to", `${payType} · ${payValue}`],
                     ].map(([k, v]) => (
@@ -848,7 +830,7 @@ function Onboarding() {
                     ))}
                   </div>
 
-                  <div className="border-border mx-auto mt-4 max-w-md rounded-xl border p-4 text-left">
+                  <div className="border-border mt-4 rounded-xl border p-4">
                     <div className="flex items-start gap-3">
                       <Checkbox
                         id="email-copy"
@@ -911,7 +893,7 @@ function Onboarding() {
               </Button>
               <OnboardingHelpDialog step={step} />
             </div>
-            {step === 0 && !otpSent ? (
+            {step === 0 && !otpSent && !accountReady ? (
               <Button onClick={sendCode} size="lg" disabled={busy || !online}>
                 {busy ? "Sending…" : !online ? "Waiting for signal…" : "Send code"}
               </Button>
@@ -928,14 +910,13 @@ function Onboarding() {
                 ) : !online ? (
                   "Waiting for signal…"
                 ) : (
-                  "Go to my dashboard"
+                  "Open my till"
                 )}
               </Button>
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </OnboardingSplit>
   );
 }
 

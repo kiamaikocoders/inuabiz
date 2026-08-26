@@ -1,4 +1,8 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  FunctionsHttpError,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 let client: SupabaseClient | null | undefined;
 
@@ -27,26 +31,16 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
-export async function getAccessToken(): Promise<string | null> {
-  const sb = getSupabase();
-  if (!sb) return null;
+/** Ensure a valid user session exists; refresh once if the JWT is stale. */
+async function ensureFreshSession(sb: SupabaseClient): Promise<boolean> {
+  let { data: userData, error: userError } = await sb.auth.getUser();
+  if (!userError && userData.user) return true;
 
-  const { data: sessionData } = await sb.auth.getSession();
-  let session = sessionData.session;
-  if (!session) return null;
+  const { data: refreshed, error: refreshError } = await sb.auth.refreshSession();
+  if (refreshError || !refreshed.session) return false;
 
-  const expiresAt = session.expires_at ?? 0;
-  const expiresSoon = expiresAt * 1000 < Date.now() + 60_000;
-  if (expiresSoon) {
-    const { data: refreshed, error } = await sb.auth.refreshSession();
-    if (error) {
-      console.warn("session refresh failed", error.message);
-      return null;
-    }
-    session = refreshed.session ?? session;
-  }
-
-  return session.access_token ?? null;
+  ({ data: userData, error: userError } = await sb.auth.getUser());
+  return !userError && Boolean(userData.user);
 }
 
 export async function invokeFunction<T>(
@@ -56,19 +50,37 @@ export async function invokeFunction<T>(
   const sb = getSupabase();
   if (!sb) return { data: null, error: "Supabase is not configured" };
 
-  const token = await getAccessToken();
-  if (!token) {
-    return { data: null, error: "Sign in required — open Subscription after logging in with your phone." };
+  const signedIn = await ensureFreshSession(sb);
+  if (!signedIn) {
+    return {
+      data: null,
+      error: "Sign in required — sign out and sign in again, then retry.",
+    };
   }
 
-  const { data, error } = await sb.functions.invoke(name, {
-    body,
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Let functionsFetch attach the live session JWT — do not override Authorization
+  // with a possibly stale token from getSession().
+  const { data, error } = await sb.functions.invoke(name, { body });
+
   if (error) {
-    const msg = error.message.includes("401")
+    const is401 =
+      error instanceof FunctionsHttpError && error.context.status === 401;
+
+    let detail: string | null = null;
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const payload = await error.context.json();
+        if (payload && typeof payload === "object" && "error" in payload) {
+          detail = String((payload as { error: unknown }).error);
+        }
+      } catch {
+        /* ignore body parse failures */
+      }
+    }
+
+    const msg = is401
       ? "Session expired — sign out and sign in again, then retry."
-      : error.message;
+      : detail ?? error.message;
     return { data: null, error: msg };
   }
   if (data && typeof data === "object" && "error" in data && data.error) {

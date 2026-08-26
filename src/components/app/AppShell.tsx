@@ -3,18 +3,22 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
+  CalendarClock,
   ChartLine,
   CreditCard,
   FileText,
   LayoutDashboard,
+  LayoutGrid,
   Menu,
   Package,
   Receipt,
   Settings,
   Sparkles,
   Store,
+  Ticket,
   UserRound,
   Users,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -25,6 +29,17 @@ import { vendorNotifications } from "@/lib/mock-data";
 import { stopGhost, useGhost } from "@/lib/ghost";
 import { useIdentity } from "@/lib/identity";
 import { UserMenu } from "@/components/app/UserMenu";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchNotifications,
+  fetchShops,
+  fetchTenantAccess,
+  setActiveShop,
+} from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { fetchProfile } from "@/lib/auth";
+import { useShopCategory } from "@/hooks/use-shop-category";
+import type { FeatureModule } from "@/lib/category";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; exact?: boolean };
 
@@ -37,18 +52,40 @@ const nav: NavItem[] = [
   { to: "/app/customers", label: "Customers", icon: Users },
   { to: "/app/insights", label: "AI insights", icon: Sparkles },
   { to: "/app/invoices", label: "Invoices", icon: FileText },
+  { to: "/app/shops", label: "Shops", icon: Store },
   { to: "/app/billing", label: "Subscription", icon: ChartLine },
   { to: "/app/notifications", label: "Notifications", icon: Bell },
   { to: "/app/settings", label: "Settings", icon: Settings },
   { to: "/app/profile", label: "Profile", icon: UserRound },
 ];
 
+const MODULE_ICON: Partial<Record<FeatureModule, LucideIcon>> = {
+  table_management: LayoutGrid,
+  order_queue: UtensilsCrossed,
+  ticket_print: Ticket,
+  expiry_alerts: CalendarClock,
+};
+
 function NavList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { def, category } = useShopCategory();
+  const items: NavItem[] = [
+    ...nav.slice(0, 2),
+    ...def.nav.map((item) => ({
+      to: item.to,
+      label: item.label,
+      icon: MODULE_ICON[item.module] ?? Store,
+    })),
+    ...nav.slice(2).map((item) =>
+      item.to === "/app/credit"
+        ? { ...item, label: category === "DUKA" ? "Duka debt" : "Credit book" }
+        : item,
+    ),
+  ];
 
   return (
     <nav className="flex flex-col gap-0.5 px-3">
-      {nav.map((item) => {
+      {items.map((item) => {
         const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
         const Icon = item.icon;
         return (
@@ -73,21 +110,57 @@ function NavList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
 }
 
 function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
+  const { data: access = true } = useQuery({
+    queryKey: ["tenant-access"],
+    queryFn: fetchTenantAccess,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: shops = [] } = useQuery({
+    queryKey: ["shops"],
+    queryFn: fetchShops,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: profile } = useQuery({
+    queryKey: ["identity"],
+    queryFn: fetchProfile,
+  });
+
   return (
     <div className="flex h-full flex-col bg-sidebar py-5">
       <div className="px-5 pb-5">
         <Logo tone="inverted" />
       </div>
+      {shops.length > 1 && (
+        <div className="px-3 pb-3">
+          <select
+            className="bg-sidebar-accent text-sidebar-foreground w-full rounded-lg px-3 py-2 text-xs"
+            value={profile?.active_shop_id ?? ""}
+            onChange={(e) => {
+              void setActiveShop(e.target.value).then(() => window.location.reload());
+            }}
+          >
+            {shops.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <NavList onNavigate={onNavigate} />
       <div className="mt-auto px-4 pt-6">
         <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-4">
-          <p className="text-xs font-semibold text-sidebar-primary">Trial · 3 days left</p>
+          <p className="text-xs font-semibold text-sidebar-primary">
+            {access ? "Subscription" : "Access locked"}
+          </p>
           <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/70">
-            Subscribe for KES 3,000/month to keep POS, AI insights and reconciliation.
+            {access
+              ? "KES 3,000 per shop / month. Two shops are KES 6,000."
+              : "Renew to keep POS, AI insights and reconciliation."}
           </p>
           <Button size="sm" className="mt-3 w-full" variant="secondary" asChild>
             <Link to="/app/billing" onClick={onNavigate}>
-              Subscribe now
+              {access ? "Manage billing" : "Subscribe now"}
             </Link>
           </Button>
         </div>
@@ -107,7 +180,17 @@ export function AppShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const unread = vendorNotifications.filter((n) => !n.read).length;
+  const { data: liveNotes } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: fetchNotifications,
+    enabled: isSupabaseConfigured(),
+  });
+  const unread = (liveNotes ?? vendorNotifications).filter((n) => !n.read).length;
+  const { data: access = true } = useQuery({
+    queryKey: ["tenant-access"],
+    queryFn: fetchTenantAccess,
+    enabled: isSupabaseConfigured(),
+  });
   const ghost = useGhost();
   const identity = useIdentity("vendor");
 
@@ -175,7 +258,18 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">
+          {!access && (
+            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
+              Subscription expired.{" "}
+              <Link to="/app/billing" className="text-primary font-medium underline">
+                Renew to continue selling
+              </Link>
+              .
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

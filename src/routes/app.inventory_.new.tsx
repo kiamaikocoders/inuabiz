@@ -1,9 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ProductForm, type ProductDraft } from "@/components/app/ProductForm";
 import { Button } from "@/components/ui/button";
 import { saveProduct } from "@/lib/data";
+import { fetchShops } from "@/lib/ops";
+import { fetchProfile } from "@/lib/auth";
+import { defaultTaxClassForCategory } from "@/lib/tax";
+import { categoryHasModule } from "@/lib/category";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/app/inventory_/new")({
   head: () => ({
@@ -14,6 +20,18 @@ export const Route = createFileRoute("/app/inventory_/new")({
 
 function NewProduct() {
   const navigate = useNavigate();
+  const { data: shops = [] } = useQuery({
+    queryKey: ["shops"],
+    queryFn: fetchShops,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: profile } = useQuery({
+    queryKey: ["identity"],
+    queryFn: fetchProfile,
+  });
+  const shop = shops.find((s) => s.id === profile?.active_shop_id) ?? shops[0];
+  const defaultTaxClass = defaultTaxClassForCategory(shop?.category);
+  const chemist = categoryHasModule(shop?.category, "tax_rate_bc");
 
   const onSubmit = async (draft: ProductDraft) => {
     const res = await saveProduct({
@@ -23,6 +41,9 @@ function NewProduct() {
       price: Number(draft.price),
       stock: Number(draft.stock),
       reorderLevel: Number(draft.reorderLevel),
+      taxClass: draft.taxClass,
+      classificationCode: draft.classificationCode,
+      attrs: { ...draft.attrs, department: draft.category },
     });
     toast.success("Product saved", {
       description: res.demo ? "Demo mode — sign in to persist to Supabase." : "Added to inventory.",
@@ -49,9 +70,12 @@ function NewProduct() {
         <Link to="/app/inventory">← Back to Inventory</Link>
       </Button>
       <ProductForm
+        key={`${shop?.id ?? "demo"}-${defaultTaxClass}`}
         formId="product-form"
         hideSubmit
         submitLabel="Save Product"
+        defaultTaxClass={defaultTaxClass}
+        requireClassification={chemist}
         onSubmit={onSubmit}
       />
     </AppShell>

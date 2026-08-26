@@ -36,7 +36,7 @@ export function loadDraft(): OnboardingDraft | null {
       phone: draft.phone ?? "",
       otpSent: draft.otpSent ?? false,
       business: draft.business ?? "",
-      category: draft.category ?? "Duka",
+      category: draft.category ?? "DUKA",
       payType: draft.payType ?? "personal",
       payValue: draft.payValue ?? "",
       coords: draft.coords ?? null,

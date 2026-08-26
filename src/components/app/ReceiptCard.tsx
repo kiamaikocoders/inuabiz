@@ -1,57 +1,61 @@
 import { LogoMark } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
-import { KES } from "@/lib/mock-data";
+import { KES, KES2 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import type { LastSale, ReceiptLine } from "@/lib/last-sale";
+import { taxClassLabel, type TaxClass } from "@/lib/tax";
 
 const DEMO_LINES: ReceiptLine[] = [
-  { name: "Unga Pembe 2kg", qty: 1, price: 195 },
-  { name: "Cooking Oil 1L", qty: 1, price: 340 },
-  { name: "Sukari Kabras 1kg", qty: 4, price: 175 },
+  { name: "Unga Pembe 2kg", qty: 1, price: 195, taxClass: "STANDARD_16" },
+  { name: "Cooking Oil 1L", qty: 1, price: 340, taxClass: "STANDARD_16" },
+  { name: "Sukari Kabras 1kg", qty: 4, price: 175, taxClass: "STANDARD_16" },
 ];
 
-/**
- * VAT-inclusive split matching the customer receipt (16%).
- */
-export function vatSplit(total: number, lineSum?: number): { subtotal: number; vat: number } {
-  if (lineSum != null && lineSum > 0 && lineSum < total) {
-    return { subtotal: lineSum, vat: total - lineSum };
-  }
-  const vat = Math.round((total * 16) / 116);
-  return { subtotal: total - vat, vat };
-}
+const AUDIT_FOOTER =
+  "Provisional Tax Document — Audit-Ready Record Generated via InuaBiz System.";
 
-export function receiptFromSale(sale: LastSale | null): {
+export function receiptFromSale(sale: LastSale | null): LastSale & {
   shop: string;
   location: string;
-  total: number;
-  ref: string;
   when: string;
-  channel: string;
-  phone: string;
   footer: string;
-  status: string;
   lines: ReceiptLine[];
 } {
   const lines = sale?.lines?.length ? sale.lines : DEMO_LINES;
   const total = sale?.total ?? 1500;
-  return {
-    shop: sale?.shop ?? "Njoroge Mini Mart",
-    location: sale?.location ?? "Kasarani, Nairobi",
+  const out: LastSale & {
+    shop: string;
+    location: string;
+    when: string;
+    footer: string;
+    lines: ReceiptLine[];
+  } = {
+    id: sale?.id ?? "demo",
+    ref: sale?.ref ?? "INB-2026-0001",
     total,
-    ref: sale?.ref ?? "SL-10239",
-    when: sale?.when ?? "Today · 14:35 EAT",
+    items: lines.length,
     channel: sale?.channel ?? "M-Pesa STK",
-    phone: sale?.phone ?? sale?.customer ?? "0722 431 002",
-    footer: sale?.footer ?? "Asante sana! Karibu tena.",
-    status: "PAID",
+    customer: sale?.customer ?? "Walk-in Customer",
+    shop: sale?.legalName || sale?.shop || "Njoroge Mini Mart",
+    location: sale?.location ?? "Kasarani, Nairobi",
+    when: sale?.when ?? "Today",
+    footer: sale?.footer ?? AUDIT_FOOTER,
     lines,
   };
+  const phone = sale?.phone ?? sale?.customer;
+  if (phone) out.phone = phone;
+  if (sale?.legalName) out.legalName = sale.legalName;
+  if (sale?.kraPin) out.kraPin = sale.kraPin;
+  if (sale?.email) out.email = sale.email;
+  if (sale?.merchantPhone) out.merchantPhone = sale.merchantPhone;
+  if (sale?.vat16 != null) out.vat16 = sale.vat16;
+  if (sale?.vat0 != null) out.vat0 = sale.vat0;
+  if (sale?.exempt != null) out.exempt = sale.exempt;
+  if (sale?.subtotalExVat != null) out.subtotalExVat = sale.subtotalExVat;
+  if (sale?.mpesaReceipt) out.mpesaReceipt = sale.mpesaReceipt;
+  return out;
 }
 
-/**
- * Customer-facing receipt card from the addons Figma (A4).
- */
 export function ReceiptCard({
   sale,
   className,
@@ -64,17 +68,27 @@ export function ReceiptCard({
   onShare?: () => void;
 }) {
   const r = receiptFromSale(sale ?? null);
-  const lineSum = r.lines.reduce((s, l) => s + l.price * l.qty, 0);
-  const { subtotal, vat } = vatSplit(r.total, lineSum);
+  const vat16 = r.vat16 ?? 0;
+  const vat0 = r.vat0 ?? 0;
+  const exempt = r.exempt ?? 0;
+  const subtotal = r.subtotalExVat ?? r.total - vat16;
 
   return (
     <div className={cn("mx-auto w-full max-w-[390px]", className)}>
       <article className="surface-card flex flex-col items-center px-5 py-6 text-center">
         <LogoMark className="size-12" title="InuaBiz" />
         <h2 className="font-display mt-3 text-lg font-bold">{r.shop}</h2>
-        <p className="text-muted-foreground mt-1 text-[13px]">{r.location}</p>
+        {r.location && <p className="text-muted-foreground mt-1 text-[13px]">{r.location}</p>}
+        {r.kraPin && (
+          <p className="text-muted-foreground mt-1 text-[12px] font-medium">KRA PIN {r.kraPin}</p>
+        )}
+        {(r.merchantPhone || r.email) && (
+          <p className="text-muted-foreground text-[11px]">
+            {[r.merchantPhone, r.email].filter(Boolean).join(" · ")}
+          </p>
+        )}
         <span className="border-primary text-primary mt-3 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide">
-          {r.status}
+          AUDIT RECEIPT
         </span>
         <p className="font-display mt-3 text-4xl font-bold tracking-tight">{KES(r.total)}</p>
         <p className="text-muted-foreground mt-1 text-[11px]">
@@ -91,6 +105,8 @@ export function ReceiptCard({
                 <p className="text-[13px] font-semibold">{line.name}</p>
                 <p className="text-muted-foreground text-[11px]">
                   {line.qty} × {KES(line.price)}
+                  {line.taxClass ? ` · ${taxClassLabel(line.taxClass as TaxClass)}` : ""}
+                  {line.note ? ` · ${line.note}` : ""}
                 </p>
               </div>
               <p className="text-[13px] font-semibold">{KES(line.price * line.qty)}</p>
@@ -101,13 +117,25 @@ export function ReceiptCard({
         <div className="bg-border mt-4 h-px w-full" />
         <dl className="mt-3 w-full space-y-1.5 text-[13px]">
           <div className="text-muted-foreground flex justify-between">
-            <dt>Subtotal</dt>
-            <dd>{KES(subtotal)}</dd>
+            <dt>Taxable (ex-VAT)</dt>
+            <dd>{KES2(subtotal)}</dd>
           </div>
           <div className="text-muted-foreground flex justify-between">
-            <dt>VAT (16%)</dt>
-            <dd>{KES(vat)}</dd>
+            <dt>Rate A VAT 16%</dt>
+            <dd>{KES2(vat16)}</dd>
           </div>
+          {vat0 > 0 && (
+            <div className="text-muted-foreground flex justify-between">
+              <dt>Rate B zero-rated</dt>
+              <dd>{KES2(vat0)}</dd>
+            </div>
+          )}
+          {exempt > 0 && (
+            <div className="text-muted-foreground flex justify-between">
+              <dt>Rate C exempt</dt>
+              <dd>{KES2(exempt)}</dd>
+            </div>
+          )}
           <div className="flex justify-between font-semibold">
             <dt>Total</dt>
             <dd>{KES(r.total)}</dd>
@@ -115,9 +143,11 @@ export function ReceiptCard({
         </dl>
 
         <p className="text-muted-foreground mt-4 text-xs">
-          Paid via {r.channel} · {r.phone}
+          Paid via {r.channel}
+          {r.phone ? ` · ${r.phone}` : ""}
+          {r.mpesaReceipt ? ` · ${r.mpesaReceipt}` : ""}
         </p>
-        <p className="text-muted-foreground mt-1 text-xs">{r.footer}</p>
+        <p className="text-muted-foreground mt-2 text-[11px] leading-relaxed">{r.footer}</p>
       </article>
 
       {showShare && (
@@ -129,20 +159,20 @@ export function ReceiptCard({
   );
 }
 
-/**
- * Shares the receipt via the Web Share API, falling back to the clipboard.
- */
 export async function shareReceiptText(sale?: LastSale | null): Promise<void> {
   const r = receiptFromSale(sale ?? null);
   const text = [
     r.shop,
+    r.kraPin ? `KRA PIN ${r.kraPin}` : "",
     r.location,
-    `${r.status} · ${KES(r.total)}`,
-    r.ref,
+    `${r.ref} · ${KES(r.total)}`,
     ...r.lines.map((l) => `${l.name} × ${l.qty} — ${KES(l.price * l.qty)}`),
+    `Rate A VAT 16% ${KES2(r.vat16 ?? 0)}`,
     `Paid via ${r.channel}`,
     r.footer,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   try {
     if (navigator.share) {
@@ -150,7 +180,6 @@ export async function shareReceiptText(sale?: LastSale | null): Promise<void> {
       return;
     }
   } catch {
-    /* user cancelled */
     return;
   }
   await navigator.clipboard.writeText(text);

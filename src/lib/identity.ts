@@ -41,6 +41,7 @@ export function initials(name: string): string {
 export function roleLabel(role: string): string {
   if (role === "SUPER_ADMIN") return "Super admin";
   if (role === "VENDOR_ADMIN") return "Owner";
+  if (role === "VENDOR_STAFF") return "Staff";
   if (role === "ATTENDANT") return "Attendant";
   return role.replaceAll("_", " ");
 }

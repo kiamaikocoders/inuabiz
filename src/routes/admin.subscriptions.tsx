@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Download, Percent, Repeat, TrendingUp, UserMinus, Wallet } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, mrrTrend, tenants } from "@/lib/mock-data";
+import { KES, mrrTrend, tenants as mockTenants } from "@/lib/mock-data";
+import { fetchTenants } from "@/lib/data";
+import { fetchMrrSnapshot } from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin/subscriptions")({
   head: () => ({
@@ -34,8 +38,25 @@ export const Route = createFileRoute("/admin/subscriptions")({
 });
 
 function Subscriptions() {
+  const live = isSupabaseConfigured();
+  const { data: tenants = live ? [] : mockTenants } = useQuery({
+    queryKey: ["admin-tenants"],
+    queryFn: fetchTenants,
+    enabled: live,
+  });
+  const { data: snap } = useQuery({
+    queryKey: ["admin-mrr"],
+    queryFn: fetchMrrSnapshot,
+    enabled: live,
+  });
   const active = tenants.filter((t) => t.status === "Active");
-  const mrr = active.reduce((s, t) => s + t.mrr, 0);
+  const mrr = snap?.mrr_kes ?? active.reduce((s, t) => s + t.mrr, 0);
+  const trials = snap?.trial_tenants ?? tenants.filter((t) => t.status === "Trial").length;
+  const pastDue = snap?.past_due_tenants ?? tenants.filter((t) => t.status === "Error").length;
+  const conversions = snap?.conversions_this_month ?? 0;
+  const chart = mrrTrend.map((row, i) =>
+    i === mrrTrend.length - 1 ? { ...row, mrr } : row,
+  );
 
   return (
     <AdminShell
@@ -74,12 +95,11 @@ function Subscriptions() {
           icon={TrendingUp}
           tone="success"
         />
-        <StatCard label="Trial conversion" value="68%" delta={5} icon={Percent} tone="gold" />
+        <StatCard label="Trial conversion" value={conversions ? String(conversions) : "—"} delta={5} icon={Percent} tone="gold" />
         <StatCard
-          label="Churn"
-          value="3.1%"
-          delta={-1}
-          hint="monthly"
+          label="Past due"
+          value={String(pastDue)}
+          hint={`${trials} trials`}
           icon={UserMinus}
           tone="danger"
         />
@@ -90,7 +110,7 @@ function Subscriptions() {
           <h2 className="font-semibold">Recurring revenue by month</h2>
           <div className="mt-5 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mrrTrend} margin={{ left: -12, right: 4, top: 4 }}>
+              <BarChart data={chart} margin={{ left: -12, right: 4, top: 4 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="var(--color-border)"
@@ -119,26 +139,31 @@ function Subscriptions() {
             <Repeat className="text-primary size-4" /> Billing pipeline
           </h2>
           <div className="mt-5 space-y-4">
-            {[
-              ["Renewing in 7 days", 12, 80],
-              ["Trials ending this week", 4, 45],
-              ["Retry in progress", 2, 25],
-              ["Failed 3x — locked", 1, 12],
-            ].map(([label, count, pct]) => (
+            {(() => {
+              const total = Math.max(tenants.length, 1);
+              return [
+                ["Active (paying)", active.length],
+                ["Open trials", trials],
+                ["Past due", pastDue],
+              ].map(([label, count]) => (
               <div key={label as string}>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{label as string}</span>
                   <span className="font-semibold">{count as number}</span>
                 </div>
-                <Progress value={pct as number} className="mt-1.5 h-1.5" />
+                <Progress
+                  value={Math.round(((count as number) / total) * 100)}
+                  className="mt-1.5 h-1.5"
+                />
               </div>
-            ))}
+              ));
+            })()}
           </div>
           <div className="bg-muted mt-6 rounded-xl p-3.5">
-            <p className="text-xs font-semibold">M-Pesa Ratiba · Phase 2</p>
+            <p className="text-xs font-semibold">M-Pesa Ratiba</p>
             <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-              Standing orders will auto-debit KES 3,000 monthly with up to 3 retries over 72 hours
-              before write access is locked.
+              Optional standing orders auto-debit KES 3,000 per shop, with up to 3 retries over 72
+              hours before write access is locked. Vendors opt in from Subscription in the till.
             </p>
           </div>
         </div>
@@ -159,7 +184,7 @@ function Subscriptions() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenants.map((t, i) => (
+              {tenants.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">{t.business}</TableCell>
                   <TableCell className="text-muted-foreground">{t.owner}</TableCell>
@@ -170,10 +195,10 @@ function Subscriptions() {
                     {t.mrr ? KES(t.mrr) : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {t.status === "Active" ? `${(i % 28) + 1} Sep 2026` : "—"}
+                    {t.status === "Active" ? "This period" : "—"}
                   </TableCell>
                   <TableCell>
-                    <StatusPill status={i % 3 === 0 ? "Ratiba on" : "Manual STK"} />
+                    <StatusPill status={t.status === "Active" ? "Daraja STK" : "—"} />
                   </TableCell>
                 </TableRow>
               ))}

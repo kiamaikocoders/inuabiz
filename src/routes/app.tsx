@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { requireAuthSession } from "@/lib/auth";
+import { requireVendorWorkspace } from "@/lib/auth";
 
 export const Route = createFileRoute("/app")({
-  beforeLoad: () => requireAuthSession(),
+  beforeLoad: () => requireVendorWorkspace(),
   component: () => <Outlet />,
 });

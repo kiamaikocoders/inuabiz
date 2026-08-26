@@ -17,6 +17,8 @@ import { useNetworkOnline } from "@/lib/network";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { captureInstallPrompt } from "@/lib/pwa-install";
 
+captureInstallPrompt();
+
 function NotFoundComponent() {
   return <NotFoundStatus />;
 }
@@ -57,7 +59,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Sell, track credit and reconcile M-Pesa from your phone. KES 3,000/month, 14-day free trial.",
+          "Sell, track credit and reconcile M-Pesa from your phone. From KES 3,000 per shop / month. Compliance and enterprise options.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -88,11 +90,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>

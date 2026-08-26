@@ -74,12 +74,7 @@ function TenantDetail() {
               ["Joined", tenant.joined],
               ["MRR", tenant.mrr ? KES(tenant.mrr) : "Trial"],
               ["Coordinates", `${tenant.lat.toFixed(4)}, ${tenant.lng.toFixed(4)}`],
-              [
-                "Auto-debit",
-                (Number.parseInt(tenant.id.replace(/\D/g, ""), 10) - 1) % 3 === 0
-                  ? "Ratiba on"
-                  : "Manual STK",
-              ],
+              ["Billing", tenant.status === "Active" ? "Daraja STK / shop" : "Trial or locked"],
             ].map(([k, v]) => (
               <div key={k} className="bg-muted/60 rounded-lg p-3">
                 <p className="text-muted-foreground text-[11px]">{k}</p>
