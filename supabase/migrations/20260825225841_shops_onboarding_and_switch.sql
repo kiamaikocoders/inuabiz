@@ -1,0 +1,1 @@
+-- Applied on remote (20260825225841_shops_onboarding_and_switch.sql); local stub for migration history parity.

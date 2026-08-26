@@ -1,0 +1,1 @@
+-- Applied on remote (20260816221420_upsert_app_secret_rpc.sql); local stub for migration history parity.

@@ -1,0 +1,1 @@
+-- Applied on remote (20260825225829_shops_invites_and_billing.sql); local stub for migration history parity.

@@ -1,0 +1,1 @@
+-- Applied on remote (20260816213409_fix_get_app_secret_service_role.sql); local stub for migration history parity.

@@ -1,0 +1,1 @@
+-- Applied on remote (20260825225517_issue_sale_invoice_rpc.sql); local stub for migration history parity.
