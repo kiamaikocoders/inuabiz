@@ -88,3 +88,36 @@ export async function invokeFunction<T>(
   }
   return { data: data as T, error: null };
 }
+
+/**
+ * Invoke an Edge Function without requiring a signed-in session (contact form, etc.).
+ * Target functions must have verify_jwt = false.
+ */
+export async function invokePublicFunction<T>(
+  name: string,
+  body: Record<string, unknown> = {},
+): Promise<{ data: T | null; error: string | null }> {
+  const sb = getSupabase();
+  if (!sb) return { data: null, error: "Supabase is not configured" };
+
+  const { data, error } = await sb.functions.invoke(name, { body });
+
+  if (error) {
+    let detail: string | null = null;
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const payload = await error.context.json();
+        if (payload && typeof payload === "object" && "error" in payload) {
+          detail = String((payload as { error: unknown }).error);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return { data: null, error: detail ?? error.message };
+  }
+  if (data && typeof data === "object" && "error" in data && data.error) {
+    return { data: null, error: String((data as { error: unknown }).error) };
+  }
+  return { data: data as T, error: null };
+}

@@ -1,15 +1,18 @@
 import {
   customers as mockCustomers,
+  debts as mockDebts,
   products as mockProducts,
   sales as mockSales,
   tenants as mockTenants,
+  KES,
   type Customer,
+  type DebtEntry,
   type Product,
   type Sale,
   type Tenant,
 } from "@/lib/mock-data";
-import { getSupabase } from "@/lib/supabase";
-import { prettyKePhone } from "@/lib/phone";
+import { getSupabase, invokeFunction } from "@/lib/supabase";
+import { prettyKePhone, to254 } from "@/lib/phone";
 import { startGhost, type GhostSession } from "@/lib/ghost";
 
 const STATUS_MAP: Record<string, Tenant["status"]> = {
@@ -84,11 +87,14 @@ export async function saveProduct(
     price: number;
     stock: number;
     reorderLevel: number;
+    taxClass?: string;
+    classificationCode?: string;
+    attrs?: Record<string, unknown>;
   },
 ): Promise<{ demo: boolean; id: string }> {
   const sb = getSupabase();
   if (!sb) return { demo: true, id: input.id ?? `p-${Date.now()}` };
-  const payload = {
+  const payload: Record<string, unknown> = {
     name: input.name,
     sku: input.sku || null,
     cost_price: input.cost,
@@ -96,6 +102,11 @@ export async function saveProduct(
     stock_qty: input.stock,
     low_stock_threshold: input.reorderLevel,
   };
+  if (input.taxClass) payload.tax_class = input.taxClass;
+  if (input.classificationCode !== undefined) {
+    payload.classification_code = input.classificationCode || null;
+  }
+  if (input.attrs) payload.attrs = input.attrs;
   if (input.id && !input.id.startsWith("p")) {
     const { error } = await sb.from("products").update(payload).eq("id", input.id);
     if (error) throw new Error(error.message);
@@ -263,4 +274,163 @@ export async function fetchPrimaryPaymentDestination(): Promise<PaymentDestinati
     accountNumber: String(data.account_number),
     accountName: (data.account_name as string | null) ?? null,
   };
+}
+
+function fmtShortDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-KE", { day: "numeric", month: "short" });
+}
+
+function creditStatus(dueAt: string | null): DebtEntry["status"] {
+  if (!dueAt) return "Current";
+  const due = new Date(dueAt).getTime();
+  const now = Date.now();
+  const day = 86_400_000;
+  if (due < now) return "Overdue";
+  if (due - now <= 3 * day) return "Due soon";
+  return "Current";
+}
+
+export async function fetchCreditBook(): Promise<DebtEntry[]> {
+  const sb = getSupabase();
+  if (!sb) return mockDebts;
+
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  if (!profile?.tenant_id) return [];
+
+  const { data: customers, error } = await sb
+    .from("customers")
+    .select("id, name, phone, email")
+    .eq("tenant_id", profile.tenant_id);
+  if (error || !customers?.length) return [];
+
+  const rows: DebtEntry[] = [];
+  for (const customer of customers) {
+    const { data: balance } = await sb.rpc("customer_credit_balance", {
+      p_customer_id: customer.id,
+    });
+    const amount = Number(balance ?? 0);
+    if (!(amount > 0)) continue;
+
+    const { data: lastCharge } = await sb
+      .from("credit_entries")
+      .select("created_at, due_at")
+      .eq("customer_id", customer.id)
+      .eq("entry_type", "CHARGE")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    rows.push({
+      id: customer.id as string,
+      customer: (customer.name as string | null) ?? "Customer",
+      phone: prettyKePhone((customer.phone as string | null) ?? ""),
+      amount,
+      taken: fmtShortDate(lastCharge?.created_at as string | undefined),
+      due: fmtShortDate(lastCharge?.due_at as string | undefined),
+      status: creditStatus((lastCharge?.due_at as string | null) ?? null),
+      lastReminder: "—",
+    });
+  }
+
+  return rows.sort((a, b) => b.amount - a.amount);
+}
+
+export async function recordCredit(input: {
+  nameOrPhone: string;
+  amount: number;
+  dueDays: number;
+}): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Sign in to record credit");
+
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("id, tenant_id")
+    .maybeSingle();
+  if (!profile?.tenant_id) throw new Error("Complete onboarding first");
+
+  const raw = input.nameOrPhone.trim();
+  const phoneLike = /^[\d+\s-]{9,}$/.test(raw);
+  let phone: string | null = null;
+  let name = raw;
+  if (phoneLike) {
+    try {
+      phone = to254(raw);
+      name = prettyKePhone(phone);
+    } catch {
+      phone = raw.replace(/\D/g, "") || null;
+    }
+  }
+
+  let customerId: string | null = null;
+  if (phone) {
+    const { data: existing } = await sb
+      .from("customers")
+      .select("id, name")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("phone", phone)
+      .maybeSingle();
+    if (existing) {
+      customerId = existing.id as string;
+      name = (existing.name as string | null) ?? name;
+    }
+  }
+
+  if (!customerId) {
+    const { data: created, error } = await sb
+      .from("customers")
+      .insert({
+        tenant_id: profile.tenant_id,
+        name,
+        phone,
+      })
+      .select("id")
+      .single();
+    if (error || !created) throw new Error(error?.message ?? "Could not create customer");
+    customerId = created.id as string;
+  }
+
+  const due = new Date();
+  due.setDate(due.getDate() + Math.max(1, input.dueDays));
+
+  const { error: cErr } = await sb.from("credit_entries").insert({
+    tenant_id: profile.tenant_id,
+    customer_id: customerId,
+    entry_type: "CHARGE",
+    amount: input.amount,
+    due_at: due.toISOString(),
+    created_by: profile.id,
+    note: "Manual credit entry",
+  });
+  if (cErr) throw new Error(cErr.message);
+}
+
+export async function remindCredit(row: DebtEntry): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Sign in to send reminders");
+
+  const { data: customer } = await sb
+    .from("customers")
+    .select("id, name, email, phone")
+    .eq("id", row.id)
+    .maybeSingle();
+
+  const email = (customer?.email as string | null)?.trim() ?? "";
+  if (!email.includes("@")) {
+    throw new Error(
+      `${row.customer} has no email on file. Add an email on the Customers page to send reminders.`,
+    );
+  }
+
+  const { error } = await invokeFunction("dispatch-outbound", {
+    template_id: "credit-reminder",
+    to: email,
+    vars: {
+      customer_name: row.customer,
+      amount: KES(row.amount),
+    },
+    idempotency_key: `credit-reminder/${row.id}/${new Date().toISOString().slice(0, 10)}`,
+  });
+  if (error) throw new Error(error);
 }

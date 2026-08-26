@@ -49,7 +49,7 @@ export const Route = createFileRoute("/app/billing")({
   component: Billing,
 });
 
-function daysBetween(fromIso: string | null, toIso: string | null): number {
+function daysBetween(fromIso: string | null, toIso: string | null | undefined): number {
   if (!fromIso || !toIso) return TRIAL_DAYS;
   const ms = new Date(toIso).getTime() - Date.now();
   return Math.max(0, Math.ceil(ms / 86_400_000));
