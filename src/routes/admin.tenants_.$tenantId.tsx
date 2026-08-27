@@ -1,14 +1,22 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Eye, MapPin, Phone, Sparkles, Store } from "lucide-react";
+import { CalendarClock, Eye, MapPin, Phone, Sparkles, Store, Ticket, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { KES } from "@/lib/mock-data";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { fetchTenant, startImpersonation } from "@/lib/data";
 import { briefTenant } from "@/lib/admin-ai";
+import {
+  fetchAdminCategoryDesk,
+  shopCategoriesLabel,
+  shopsForTenant,
+  tenantModules,
+} from "@/lib/admin-category";
+import { categoryDef, moduleLabel } from "@/lib/category";
 
 export const Route = createFileRoute("/admin/tenants_/$tenantId")({
   head: () => ({
@@ -24,6 +32,10 @@ function TenantDetail() {
     queryKey: ["tenant", tenantId],
     queryFn: () => fetchTenant(tenantId),
   });
+  const { data: desk } = useQuery({
+    queryKey: ["admin-category-desk"],
+    queryFn: fetchAdminCategoryDesk,
+  });
 
   const [brief, setBrief] = useState<{ summary: string; nextSteps: string[] } | null>(null);
   const [briefing, setBriefing] = useState(false);
@@ -36,6 +48,13 @@ function TenantDetail() {
     );
   }
 
+  const shops = shopsForTenant(desk?.shops ?? [], tenantId);
+  const modules = tenantModules(shops);
+  const expiry = (desk?.expiry ?? []).filter((r) => r.tenantId === tenantId);
+  const tickets = (desk?.tickets ?? []).filter((r) => r.tenantId === tenantId);
+  const floor = (desk?.floor ?? []).filter((r) => r.tenantId === tenantId);
+  const dueSoon = expiry.filter((r) => r.days <= 30);
+
   return (
     <AdminShell
       title={tenant.business}
@@ -44,7 +63,7 @@ function TenantDetail() {
         <Button
           size="sm"
           variant="ink"
-          className="hidden rounded-[10px] sm:inline-flex"
+          className="rounded-[10px]"
           onClick={() => {
             void startImpersonation(tenant).then(() => {
               toast.success("Ghost session started", { description: tenant.business });
@@ -57,17 +76,17 @@ function TenantDetail() {
       }
     >
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <div className="surface-card p-6">
+        <div className="surface-card p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">{tenant.business}</h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                {tenant.owner} · {tenant.category}
+                {tenant.owner} · {shopCategoriesLabel(shops) || tenant.category}
               </p>
             </div>
             <StatusPill status={tenant.status} />
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+          <div className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
             {[
               ["Phone", tenant.phone],
               ["Town", tenant.town],
@@ -86,7 +105,7 @@ function TenantDetail() {
             <MapPin className="size-3.5" /> Plotted on the GIS store map
           </p>
         </div>
-        <div className="surface-card space-y-3 p-6">
+        <div className="surface-card space-y-3 p-4 sm:p-6">
           <h3 className="font-semibold">Support actions</h3>
           <p className="text-muted-foreground text-sm">
             Impersonation opens the vendor app with a ghost bar. An audit row is written when you
@@ -143,6 +162,87 @@ function TenantDetail() {
           </Button>
         </div>
       </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="surface-card flex items-center gap-3 p-4">
+          <CalendarClock className="text-destructive size-5 shrink-0" />
+          <div>
+            <p className="text-muted-foreground text-[11px]">Expiring in 30 days</p>
+            <p className="font-semibold">{dueSoon.length}</p>
+          </div>
+        </div>
+        <div className="surface-card flex items-center gap-3 p-4">
+          <Ticket className="text-gold size-5 shrink-0" />
+          <div>
+            <p className="text-muted-foreground text-[11px]">Open tickets</p>
+            <p className="font-semibold">{tickets.length}</p>
+          </div>
+        </div>
+        <div className="surface-card flex items-center gap-3 p-4">
+          <UtensilsCrossed className="size-5 shrink-0 text-violet-500" />
+          <div>
+            <p className="text-muted-foreground text-[11px]">Tables seated / billing</p>
+            <p className="font-semibold">{floor.length}</p>
+          </div>
+        </div>
+      </div>
+
+      <section className="surface-card mt-4 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-semibold">Shops & till modules</h3>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/admin/categories">All categories</Link>
+          </Button>
+        </div>
+        {shops.length === 0 ? (
+          <p className="text-muted-foreground mt-3 text-sm">
+            No shops on file. Org category label: {tenant.category}.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {shops.map((shop) => {
+              const def = categoryDef(shop.category);
+              return (
+                <li
+                  key={shop.id}
+                  className="flex flex-col gap-2 rounded-xl border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {def.emoji} {shop.name}
+                      {shop.isDefault ? (
+                        <span className="text-muted-foreground ml-2 text-[11px]">default</span>
+                      ) : null}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {def.label}
+                      {shop.address ? ` · ${shop.address}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {def.modules.length ? (
+                      def.modules.map((m) => (
+                        <Badge key={m} variant="outline" className="text-[10px] font-normal">
+                          {moduleLabel(m)}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        core till
+                      </Badge>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {modules.length > 0 && (
+          <p className="text-muted-foreground mt-3 text-xs">
+            This org can run: {modules.map(moduleLabel).join(", ")}.
+          </p>
+        )}
+      </section>
     </AdminShell>
   );
 }

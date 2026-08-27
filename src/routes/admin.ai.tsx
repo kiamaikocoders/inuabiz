@@ -98,7 +98,7 @@ function AdminAi() {
         <Button
           size="sm"
           variant="ink"
-          className="hidden rounded-[10px] sm:inline-flex"
+          className="rounded-[10px]"
           onClick={generate}
           disabled={busy}
         >
@@ -158,9 +158,6 @@ function AdminAi() {
             </ul>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button size="sm" onClick={generate} disabled={busy} className="sm:hidden">
-              {busy ? "Thinking…" : "Run briefing"}
-            </Button>
             {(briefing?.actions ?? []).map((a) => (
               <Button key={a.href} size="sm" variant="outline" asChild>
                 <Link to={a.href as never}>

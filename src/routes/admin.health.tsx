@@ -95,7 +95,7 @@ function Health() {
       title="Platform health"
       description="AI spend is live. Uptime, DB pool, webhook log and service bars on this page are demo fixtures."
       actions={
-        <div className="hidden gap-2 sm:flex">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" className="rounded-[10px]" asChild>
             <Link to="/admin/ai">
               <Sparkles className="size-3.5" /> Admin AI
@@ -147,7 +147,7 @@ function Health() {
 
         <div className="surface-card p-5" id="webhook-log">
           <h2 className="font-semibold">Recent webhook deliveries</h2>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -173,6 +173,19 @@ function Health() {
               </TableBody>
             </Table>
           </div>
+          <ul className="mt-4 space-y-2 md:hidden">
+            {webhookLog.map((w) => (
+              <li key={w.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold">{w.event}</p>
+                  <StatusPill status={w.status} />
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {w.tenant} · {w.time} · {w.attempts} tries
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </AdminShell>

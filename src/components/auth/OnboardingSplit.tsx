@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ScenePane } from "@/components/auth/ScenePane";
+import { AuthLegalLinks } from "@/components/auth/AuthLegal";
 import { ONBOARDING_STEPS } from "@/lib/auth-scenes";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,7 @@ export function OnboardingSplit({
 
         <div className="flex flex-1 flex-col px-5 py-8 sm:px-12 lg:justify-center">
           <div className="mx-auto w-full max-w-md">{children}</div>
+          <AuthLegalLinks className="mx-auto mt-8 w-full max-w-md" />
         </div>
       </div>
     </div>

@@ -6,6 +6,8 @@ import {
   Bell,
   CircleHelp,
   Gauge,
+  Inbox,
+  LayoutGrid,
   Mail,
   Map,
   Menu,
@@ -30,6 +32,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTenants } from "@/lib/data";
 import { fetchUnclaimedPayments } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { countNewContactMessages } from "@/lib/inbox";
 
 type NavItem = {
   to: string;
@@ -59,6 +62,12 @@ const navGroups: NavGroup[] = [
         icon: Store,
         badge: tenants.length,
         well: "bg-sky-500 text-white shadow-sky-500/40",
+      },
+      {
+        to: "/admin/categories",
+        label: "Categories",
+        icon: LayoutGrid,
+        well: "bg-emerald-500 text-white shadow-emerald-500/40",
       },
       {
         to: "/admin/map",
@@ -100,6 +109,12 @@ const navGroups: NavGroup[] = [
         label: "Platform health",
         icon: Activity,
         well: "bg-teal-500 text-white shadow-teal-500/40",
+      },
+      {
+        to: "/admin/inbox",
+        label: "Contact inbox",
+        icon: Inbox,
+        well: "bg-rose-500 text-white shadow-rose-500/40",
       },
       {
         to: "/admin/communications",
@@ -150,6 +165,7 @@ function SidebarInner({
   onDarkChange,
   vendorCount,
   unclaimedCount,
+  inboxCount,
 }: {
   onNavigate?: (() => void) | undefined;
   query: string;
@@ -158,6 +174,7 @@ function SidebarInner({
   onDarkChange: (value: boolean) => void;
   vendorCount: number;
   unclaimedCount: number;
+  inboxCount: number;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
@@ -237,7 +254,9 @@ function SidebarInner({
                           ? vendorCount
                           : item.to === "/admin/unclaimed"
                             ? unclaimedCount
-                            : item.badge;
+                            : item.to === "/admin/inbox"
+                              ? inboxCount
+                              : item.badge;
                       return badge ? (
                       <span className="bg-gold/20 text-gold-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
                         {badge}
@@ -297,8 +316,14 @@ export function AdminShell({
     queryFn: fetchUnclaimedPayments,
     enabled: live,
   });
+  const { data: inboxNew = 0 } = useQuery({
+    queryKey: ["admin-contact-new-count"],
+    queryFn: countNewContactMessages,
+    enabled: live,
+  });
   const vendorCount = live ? vendors.length : tenants.length;
   const unclaimedCount = live ? unclaimed.length : unclaimedPayments.length;
+  const inboxCount = live ? inboxNew : 0;
   const [query, setQuery] = useState("");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -327,12 +352,13 @@ export function AdminShell({
           onDarkChange={onDarkChange}
           vendorCount={vendorCount}
           unclaimedCount={unclaimedCount}
+          inboxCount={inboxCount}
         />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-card">
-          <div className="flex h-[72px] items-center gap-3 px-4 sm:px-8">
+          <div className="flex min-h-[72px] items-center gap-3 px-4 py-3 sm:px-8">
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
@@ -348,6 +374,7 @@ export function AdminShell({
                   onDarkChange={onDarkChange}
                   vendorCount={vendorCount}
                   unclaimedCount={unclaimedCount}
+                  inboxCount={inboxCount}
                 />
               </SheetContent>
             </Sheet>
@@ -357,13 +384,13 @@ export function AdminShell({
                 {title}
               </h1>
               {description && (
-                <p className="text-muted-foreground hidden truncate text-xs sm:block">
+                <p className="text-muted-foreground line-clamp-2 text-xs sm:truncate sm:line-clamp-none">
                   {description}
                 </p>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               {actions}
               <Button variant="secondary" size="icon" className="size-9 rounded-full" asChild>
                 <Link to="/contact" aria-label="Help">

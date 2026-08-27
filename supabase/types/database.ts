@@ -348,7 +348,9 @@ export type Database = {
           message: string
           name: string
           phone: string | null
+          status: string
           topic: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -357,7 +359,9 @@ export type Database = {
           message: string
           name: string
           phone?: string | null
+          status?: string
           topic?: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -366,7 +370,9 @@ export type Database = {
           message?: string
           name?: string
           phone?: string | null
+          status?: string
           topic?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -799,6 +805,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      newsletter_subscribers: {
+        Row: {
+          confirmed: boolean
+          created_at: string
+          email: string
+          id: string
+          source: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          confirmed?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          source?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          confirmed?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: []
       }
       notifications: {
         Row: {

@@ -88,7 +88,7 @@ const loopSlides: JourneySlide[] = [
     body: "Give credit in two taps against a customer's phone. Balances and due dates live on the ledger. Email yourself when someone is overdue.",
     image: "/images/how-it-works/card-kukopesha.jpg",
     imageAlt: "Open kukopesha debt ledger with names, dates and shilling amounts",
-    href: "/for-dukas",
+    href: "/features",
   },
   {
     n: "07",

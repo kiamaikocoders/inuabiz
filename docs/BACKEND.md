@@ -13,7 +13,7 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 | Tenancy | `tenants`, `profiles`, `tenant_payment_destinations`, `subscriptions` (+ Ratiba columns) |
 | POS | `products`, `sales`, `sale_items`, `customers`, `credit_entries` |
 | Payments | `payment_transactions`, `unclaimed_payments`, `bill_invoices`, `ratiba_debit_attempts` |
-| Ops | `notifications`, `notification_preferences`, `platform_broadcasts`, `ai_insights`, `admin_impersonation_audit`, `admin_ai_runs` |
+| Ops | `notifications`, `notification_preferences`, `platform_broadcasts`, `ai_insights`, `admin_impersonation_audit`, `admin_ai_runs`, `contact_messages`, `newsletter_subscribers` |
 
 ### RPCs
 
@@ -48,6 +48,9 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 | `bill-manager-callback` | **no** | Mark `bill_invoices` PAID on Safaricom payment callback |
 | `cancel-bill-invoice` | yes | Cancel a SENT Bill Manager invoice |
 | `bill-manager-optin` | **no** | One-time Bill Manager shortcode opt-in (`x-cron-secret`) |
+| `submit-contact` | **no** | Website `/contact` → `contact_messages` + Resend to ops/SUPER_ADMIN (`contact-inbound`, Reply-To = visitor) + visitor `contact-ack` |
+| `subscribe-newsletter` | **no** | Footer subscribe → `newsletter_subscribers` upsert + `newsletter-welcome` |
+| `dispatch-outbound` | yes | Branded Resend send (service_role from other functions) |
 
 ### Admin AI (operator copilot)
 
@@ -71,6 +74,14 @@ Vendor AI stays on `ai_insights` + `generate-ai-insights`. Super-admin AI is sep
 - `customer_loyalty_stats` — quiet loyalty by phone
 
 Realtime publication includes `notifications`.
+
+## Contact & newsletter
+
+Same pattern as WYA (`app_feedback` inbox + `subscribe-newsletter`): public Edge Functions write with `service_role`; super-admins read in the dashboard.
+
+- **Contact** (`/contact` → `submit-contact`): stores `contact_messages` (status `new|read|archived`). Emails `contact-inbound` to `platform_settings.email.ops_inbox` (default `hello@inuabiz.co.ke`) **and** every `SUPER_ADMIN` Auth email, with Reply-To set to the visitor. Visitor gets `contact-ack`. In-app notification links to `/admin/inbox`.
+- **Newsletter** (footer → `subscribe-newsletter`): upserts `newsletter_subscribers` and sends `newsletter-welcome`. List + unsubscribe live under Communications → Subscribers.
+- Change the ops address in Communications → Provider → Ops inbox.
 
 ## Payment architecture
 

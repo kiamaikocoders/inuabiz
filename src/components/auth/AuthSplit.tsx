@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Logo } from "@/components/brand/Logo";
 import { ScenePane } from "@/components/auth/ScenePane";
+import { AuthLegalLinks } from "@/components/auth/AuthLegal";
 import type { AuthScene } from "@/lib/auth-scenes";
 
 export function AuthSplit({
@@ -39,6 +40,7 @@ export function AuthSplit({
         </ScenePane>
         <div className="flex flex-1 flex-col justify-center px-5 py-10 sm:px-12">
           <div className="mx-auto w-full max-w-sm">{children}</div>
+          <AuthLegalLinks className="mx-auto mt-8 w-full max-w-sm" />
         </div>
       </div>
     </div>

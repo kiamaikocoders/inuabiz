@@ -40,7 +40,7 @@ function AdminSettings() {
       title="Platform settings"
       description="Command centre, plan, billing rails and operators"
       actions={
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="flex flex-wrap items-center gap-2">
           <RoleBadge>{roleLabel(identity.role)}</RoleBadge>
           <Button size="sm" variant="ink" className="rounded-[10px]" onClick={() => save("Settings")}>
             Save changes

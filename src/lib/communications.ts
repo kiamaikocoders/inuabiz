@@ -42,6 +42,7 @@ export type EmailProviderSettings = {
   fromEmail: string;
   fromName: string;
   notificationsEnabled: boolean;
+  opsInbox: string;
 };
 
 const TPL_OVERRIDE_KEY = "inuabiz-email-template-overrides";
@@ -385,6 +386,7 @@ const DEFAULT_PROVIDER: EmailProviderSettings = {
   fromEmail: "support@mail.inuabiz.co.ke",
   fromName: "InuaBiz",
   notificationsEnabled: true,
+  opsInbox: "hello@inuabiz.co.ke",
 };
 
 /**
@@ -404,6 +406,7 @@ export async function getEmailProviderSettings(): Promise<EmailProviderSettings>
           map["email.notifications_enabled"] === "false"
             ? false
             : Boolean(map["email.notifications_enabled"] ?? DEFAULT_PROVIDER.notificationsEnabled),
+        opsInbox: String(map["email.ops_inbox"] ?? "hello@inuabiz.co.ke").replace(/^"|"$/g, ""),
       };
     }
   }
@@ -422,7 +425,9 @@ export async function saveEmailProviderSetting(
       ? "email.from_email"
       : key === "fromName"
         ? "email.from_name"
-        : "email.notifications_enabled";
+        : key === "opsInbox"
+          ? "email.ops_inbox"
+          : "email.notifications_enabled";
   const sb = getSupabase();
   if (sb) {
     const { error } = await sb.from("platform_settings").upsert(

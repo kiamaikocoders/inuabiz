@@ -66,7 +66,7 @@ function Subscriptions() {
         <Button
           size="sm"
           variant="ink"
-          className="hidden rounded-[10px] sm:inline-flex"
+          className="rounded-[10px]"
           onClick={() => {
             const rows = [
               "Business,Owner,Status,MRR",
@@ -171,7 +171,7 @@ function Subscriptions() {
 
       <div className="surface-card mt-4 p-5">
         <h2 className="font-semibold">Tenant subscriptions</h2>
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -205,6 +205,18 @@ function Subscriptions() {
             </TableBody>
           </Table>
         </div>
+        <ul className="mt-4 space-y-2 md:hidden">
+          {tenants.map((t) => (
+            <li key={t.id} className="rounded-xl border border-border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold">{t.business}</p>
+                <StatusPill status={t.status} />
+              </div>
+              <p className="text-muted-foreground mt-1 text-xs">{t.owner}</p>
+              <p className="mt-2 text-sm font-semibold">{t.mrr ? KES(t.mrr) : "Trial"}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </AdminShell>
   );

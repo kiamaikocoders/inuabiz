@@ -24,13 +24,17 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as AdminBroadcastsRouteImport } from './routes/admin.broadcasts'
+import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
 import { Route as AdminHealthRouteImport } from './routes/admin.health'
+import { Route as AdminInboxRouteImport } from './routes/admin.inbox'
 import { Route as AdminMapRouteImport } from './routes/admin.map'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminProfileRouteImport } from './routes/admin.profile'
@@ -137,9 +141,19 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyRoute = VerifyRouteImport.update({
@@ -162,6 +176,11 @@ const AdminBroadcastsRoute = AdminBroadcastsRouteImport.update({
   path: '/broadcasts',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCommunicationsRoute = AdminCommunicationsRouteImport.update({
   id: '/communications',
   path: '/communications',
@@ -170,6 +189,11 @@ const AdminCommunicationsRoute = AdminCommunicationsRouteImport.update({
 const AdminHealthRoute = AdminHealthRouteImport.update({
   id: '/health',
   path: '/health',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInboxRoute = AdminInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminMapRoute = AdminMapRouteImport.update({
@@ -339,12 +363,16 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/verify': typeof VerifyRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/categories': typeof AdminCategoriesRoute
   '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
+  '/admin/inbox': typeof AdminInboxRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/profile': typeof AdminProfileRoute
@@ -391,12 +419,16 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/verify': typeof VerifyRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/categories': typeof AdminCategoriesRoute
   '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
+  '/admin/inbox': typeof AdminInboxRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/profile': typeof AdminProfileRoute
@@ -446,12 +478,16 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/verify': typeof VerifyRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
+  '/admin/categories': typeof AdminCategoriesRoute
   '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
+  '/admin/inbox': typeof AdminInboxRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/profile': typeof AdminProfileRoute
@@ -502,12 +538,16 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/verify'
     | '/admin/ai'
     | '/admin/broadcasts'
+    | '/admin/categories'
     | '/admin/communications'
     | '/admin/health'
+    | '/admin/inbox'
     | '/admin/map'
     | '/admin/notifications'
     | '/admin/profile'
@@ -554,12 +594,16 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/verify'
     | '/admin/ai'
     | '/admin/broadcasts'
+    | '/admin/categories'
     | '/admin/communications'
     | '/admin/health'
+    | '/admin/inbox'
     | '/admin/map'
     | '/admin/notifications'
     | '/admin/profile'
@@ -608,12 +652,16 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/pricing'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/verify'
     | '/admin/ai'
     | '/admin/broadcasts'
+    | '/admin/categories'
     | '/admin/communications'
     | '/admin/health'
+    | '/admin/inbox'
     | '/admin/map'
     | '/admin/notifications'
     | '/admin/profile'
@@ -663,7 +711,9 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   OnboardingRoute: typeof OnboardingRoute
   PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
+  TermsRoute: typeof TermsRoute
   VerifyRoute: typeof VerifyRoute
 }
 
@@ -774,11 +824,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify': {
@@ -809,6 +873,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBroadcastsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/categories': {
+      id: '/admin/categories'
+      path: '/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AdminCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/communications': {
       id: '/admin/communications'
       path: '/communications'
@@ -821,6 +892,13 @@ declare module '@tanstack/react-router' {
       path: '/health'
       fullPath: '/admin/health'
       preLoaderRoute: typeof AdminHealthRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/inbox': {
+      id: '/admin/inbox'
+      path: '/inbox'
+      fullPath: '/admin/inbox'
+      preLoaderRoute: typeof AdminInboxRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/map': {
@@ -1039,8 +1117,10 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminAiRoute: typeof AdminAiRoute
   AdminBroadcastsRoute: typeof AdminBroadcastsRoute
+  AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCommunicationsRoute: typeof AdminCommunicationsRoute
   AdminHealthRoute: typeof AdminHealthRoute
+  AdminInboxRoute: typeof AdminInboxRoute
   AdminMapRoute: typeof AdminMapRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminProfileRoute: typeof AdminProfileRoute
@@ -1055,8 +1135,10 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAiRoute: AdminAiRoute,
   AdminBroadcastsRoute: AdminBroadcastsRoute,
+  AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCommunicationsRoute: AdminCommunicationsRoute,
   AdminHealthRoute: AdminHealthRoute,
+  AdminInboxRoute: AdminInboxRoute,
   AdminMapRoute: AdminMapRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminProfileRoute: AdminProfileRoute,
@@ -1138,7 +1220,9 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   OnboardingRoute: OnboardingRoute,
   PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
+  TermsRoute: TermsRoute,
   VerifyRoute: VerifyRoute,
 }
 export const routeTree = rootRouteImport

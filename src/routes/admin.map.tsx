@@ -11,6 +11,7 @@ import { KES, tenants as mockTenants, type Tenant } from "@/lib/mock-data";
 import { VendorMap } from "@/components/admin/VendorMap";
 import { fetchTenants, startImpersonation } from "@/lib/data";
 import { MAPBOX_TOKEN } from "@/lib/mapbox";
+import { fetchAdminShops, shopCategoriesLabel, shopsForTenant } from "@/lib/admin-category";
 
 export const Route = createFileRoute("/admin/map")({
   head: () => ({
@@ -31,8 +32,12 @@ export const Route = createFileRoute("/admin/map")({
 function StoreMap() {
   const navigate = useNavigate();
   const { data: tenantList = mockTenants } = useQuery({
-    queryKey: ["tenants"],
+    queryKey: ["admin-tenants"],
     queryFn: fetchTenants,
+  });
+  const { data: shops = [] } = useQuery({
+    queryKey: ["admin-shops"],
+    queryFn: fetchAdminShops,
   });
   const [selected, setSelected] = useState<Tenant | null>(tenantList[0] ?? null);
   const current = selected ?? tenantList[0] ?? null;
@@ -42,7 +47,7 @@ function StoreMap() {
       title="GIS store map"
       description="Vendor locations with live status markers"
       actions={
-        <Badge variant="outline" className="hidden rounded-full sm:inline-flex">
+        <Badge variant="outline" className="rounded-full">
           {MAPBOX_TOKEN ? "Mapbox streets-v12" : "Token missing"}
         </Badge>
       }
@@ -67,7 +72,7 @@ function StoreMap() {
 
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                 {[
-                  ["Category", current.category],
+                  ["Category", shopCategoriesLabel(shopsForTenant(shops, current.id)) || current.category],
                   ["Town", current.town],
                   ["Joined", current.joined],
                   ["MRR", current.mrr ? KES(current.mrr) : "—"],

@@ -2,7 +2,44 @@ import {
   createClient,
   FunctionsHttpError,
   type SupabaseClient,
+  type SupportedStorage,
 } from "@supabase/supabase-js";
+
+export const REMEMBER_ME_KEY = "inuabiz:remember-me";
+export const REMEMBER_EMAIL_KEY = "inuabiz:remember-email";
+
+export function getRememberMe(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(REMEMBER_ME_KEY) !== "0";
+}
+
+export function setRememberMe(on: boolean) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(REMEMBER_ME_KEY, on ? "1" : "0");
+}
+
+function authStorage(): SupportedStorage | undefined {
+  if (typeof window === "undefined") return undefined;
+  return {
+    getItem: (key) => {
+      if (getRememberMe()) return window.localStorage.getItem(key);
+      return window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
+    },
+    setItem: (key, value) => {
+      if (getRememberMe()) {
+        window.localStorage.setItem(key, value);
+        window.sessionStorage.removeItem(key);
+      } else {
+        window.sessionStorage.setItem(key, value);
+        window.localStorage.removeItem(key);
+      }
+    },
+    removeItem: (key) => {
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
+    },
+  };
+}
 
 let client: SupabaseClient | null | undefined;
 
@@ -26,6 +63,7 @@ export function getSupabase(): SupabaseClient | null {
       persistSession: browser,
       autoRefreshToken: browser,
       detectSessionInUrl: browser,
+      storage: authStorage(),
     },
   });
   return client;

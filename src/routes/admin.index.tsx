@@ -10,7 +10,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Hourglass, Plus, ShieldAlert, Sparkles, Store, TrendingDown, Wallet } from "lucide-react";
+import {
+  Hourglass,
+  LayoutGrid,
+  Plus,
+  ShieldAlert,
+  Sparkles,
+  Store,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
 import { AdminShell } from "@/components/app/AdminShell";
 import { StatCard } from "@/components/app/StatCard";
 import { StatusPill } from "@/components/admin/StatusPill";
@@ -29,6 +38,8 @@ import { KES, mrrTrend, platformHealth, tenants as mockTenants } from "@/lib/moc
 import { fetchTenants } from "@/lib/data";
 import { fetchMrrSnapshot, fetchUnclaimedPayments } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { categoryMix, fetchAdminShops, shopCategoriesLabel, shopsForTenant } from "@/lib/admin-category";
+import { CATEGORY_CATALOG } from "@/lib/category";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -101,6 +112,11 @@ function AdminOverview() {
     queryFn: fetchUnclaimedPayments,
     enabled: live,
   });
+  const { data: shops = [] } = useQuery({
+    queryKey: ["admin-shops"],
+    queryFn: fetchAdminShops,
+  });
+  const mix = categoryMix(shops);
   const active = tenants.filter((t) => t.status === "Active");
   const trials = tenants.filter((t) => t.status === "Trial");
   const mrr = snap?.mrr_kes ?? active.reduce((s, t) => s + t.mrr, 0);
@@ -118,7 +134,7 @@ function AdminOverview() {
       title="Dashboard"
       description="Everything happening across the InuaBiz platform"
       actions={
-        <Button size="sm" variant="ink" asChild className="hidden rounded-[10px] sm:inline-flex">
+        <Button size="sm" variant="ink" asChild className="rounded-[10px]">
           <Link to="/admin/vendors">
             <Plus className="size-3.5" /> Manage vendors
           </Link>
@@ -182,6 +198,30 @@ function AdminOverview() {
           icon={TrendingDown}
           tone="muted"
         />
+      </div>
+
+      <div className="surface-card mt-4 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">
+            <LayoutGrid className="mr-1.5 inline size-4" />
+            Shop category mix
+          </h2>
+          <Button variant="ghost" size="sm" className="text-primary" asChild>
+            <Link to="/admin/categories">Expiry, tickets & floor</Link>
+          </Button>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5 xl:grid-cols-9">
+          {mix.map((row) => {
+            const def = CATEGORY_CATALOG[row.id];
+            return (
+              <div key={row.id} className="rounded-xl border border-border px-2 py-2.5 text-center">
+                <p className="text-lg leading-none">{def.emoji}</p>
+                <p className="mt-1 truncate text-[11px] font-semibold">{def.label}</p>
+                <p className="text-muted-foreground text-[10px]">{row.shops} shops</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -260,7 +300,7 @@ function AdminOverview() {
             <Link to="/admin/vendors">View all</Link>
           </Button>
         </div>
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -294,7 +334,9 @@ function AdminOverview() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{t.owner}</TableCell>
-                  <TableCell>{t.category}</TableCell>
+                  <TableCell>
+                    {shopCategoriesLabel(shopsForTenant(shops, t.id)) || t.category}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{t.town}</TableCell>
                   <TableCell>
                     <StatusPill status={t.status} />
@@ -306,6 +348,27 @@ function AdminOverview() {
             </TableBody>
           </Table>
         </div>
+        <ul className="mt-3 space-y-2 md:hidden">
+          {tenants.slice(0, 6).map((t) => (
+            <li key={t.id} className="rounded-xl border border-border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <Link
+                  to="/admin/tenants/$tenantId"
+                  params={{ tenantId: t.id }}
+                  className="font-semibold hover:underline"
+                >
+                  {t.business}
+                </Link>
+                <StatusPill status={t.status} />
+              </div>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {t.owner} · {t.town} ·{" "}
+                {shopCategoriesLabel(shopsForTenant(shops, t.id)) || t.category}
+              </p>
+              <p className="mt-1 text-sm font-semibold">{t.mrr ? KES(t.mrr) : "Trial"}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </AdminShell>
   );

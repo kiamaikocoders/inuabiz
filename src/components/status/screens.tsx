@@ -13,7 +13,7 @@ export function NotFoundStatus() {
       title="Oops! We couldn't find that page"
       description="That link may have moved, or the duka page no longer exists. Head home or browse how InuaBiz helps Kenyan shops."
       primary={{ label: "Back to Home", to: "/" }}
-      secondary={{ label: "For dukas", to: "/for-dukas" }}
+      secondary={{ label: "Features", to: "/features" }}
       meta="Error code · 404"
       documentTitle="Page not found — InuaBiz"
     />

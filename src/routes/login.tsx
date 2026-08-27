@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AuthSplit } from "@/components/auth/AuthSplit";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { AUTH_SCENES } from "@/lib/auth-scenes";
 import {
   fetchProfile,
@@ -13,7 +15,7 @@ import {
   signInWithEmail,
   updatePassword,
 } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, getRememberMe, setRememberMe, REMEMBER_EMAIL_KEY } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -35,7 +37,14 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rememberMe, setRememberMeState] = useState(true);
   const [stage, setStage] = useState<"signin" | "forgot" | "reset">("signin");
+
+  useEffect(() => {
+    setRememberMeState(getRememberMe());
+    const saved = window.localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (saved) setEmail(saved);
+  }, []);
 
   useEffect(() => {
     const sb = getSupabase();
@@ -143,9 +152,9 @@ function Login() {
             >
               <div className="space-y-2">
                 <Label htmlFor="password">New password</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -169,6 +178,9 @@ function Login() {
               className="mt-8 space-y-5"
               onSubmit={(e) => {
                 e.preventDefault();
+                setRememberMe(rememberMe);
+                if (rememberMe) window.localStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
+                else window.localStorage.removeItem(REMEMBER_EMAIL_KEY);
                 setBusy(true);
                 void signInWithEmail(email, password)
                   .then(async () => {
@@ -218,13 +230,23 @@ function Login() {
                     Forgot password?
                   </button>
                 </div>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="remember-me"
+                  checked={rememberMe}
+                  onCheckedChange={(value) => setRememberMeState(value === true)}
+                />
+                <Label htmlFor="remember-me" className="text-sm font-normal">
+                  Remember me
+                </Label>
               </div>
 
               <Button type="submit" size="lg" className="w-full" disabled={busy}>

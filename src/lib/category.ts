@@ -228,6 +228,10 @@ export function categoryHasModule(raw: string | null | undefined, module: Featur
   return categoryDef(raw).modules.includes(module);
 }
 
+export function moduleLabel(module: FeatureModule): string {
+  return module.replace(/_/g, " ");
+}
+
 export type ProductAttrs = {
   department?: string;
   serial_number?: string;

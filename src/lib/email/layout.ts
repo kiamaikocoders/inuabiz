@@ -195,9 +195,9 @@ export function renderInuaBizEmail(opts: InuaBizEmailOpts): string {
                   <p style="margin:0 0 6px 0;font-family:Arial,sans-serif;font-size:11px;color:${MUTED};">
                     <a href="${asset(site, "/contact")}" style="color:${MUTED};text-decoration:none;">Support</a>
                     ·
-                    <a href="${asset(site, "/contact")}" style="color:${MUTED};text-decoration:none;">Privacy</a>
+                    <a href="${asset(site, "/privacy")}" style="color:${MUTED};text-decoration:none;">Privacy</a>
                     ·
-                    <a href="${asset(site, "/contact")}" style="color:${MUTED};text-decoration:none;">Terms</a>
+                    <a href="${asset(site, "/terms")}" style="color:${MUTED};text-decoration:none;">Terms</a>
                   </p>
                   <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:${MUTED};">© 2026 InuaBiz Kenya. All rights reserved.</p>
                 </td></tr>

@@ -11,6 +11,7 @@ type Body = {
   tenant_id?: string;
   template_id?: string;
   to?: string;
+  reply_to?: string;
   vars?: Record<string, string>;
   idempotency_key?: string;
   email_receipt?: boolean;
@@ -79,6 +80,8 @@ Deno.serve(async (req) => {
       "unclaimed-payment",
       "broadcast-maintenance",
       "contact-ack",
+      "contact-inbound",
+      "newsletter-welcome",
     ]);
     const buyerTemplates = new Set(["wholesale-invoice", "invoice-overdue", "invite-staff"]);
     if (
@@ -263,6 +266,7 @@ Deno.serve(async (req) => {
               : `outbound/${templateId}/${toEmail}/${crypto.randomUUID()}`
         ).slice(0, 256);
 
+        const replyTo = normalizeEmail(body.reply_to);
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -273,6 +277,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from,
             to: [toEmail],
+            ...(replyTo ? { reply_to: replyTo } : {}),
             subject,
             html,
             text: htmlToText(html),
@@ -393,6 +398,10 @@ function subjectFor(
   }
   if (templateId === "broadcast-maintenance" && vars.headline) return vars.headline;
   if (templateId === "contact-ack") return "We got your note — InuaBiz";
+  if (templateId === "contact-inbound") {
+    return vars.customer_name ? `New contact: ${vars.customer_name}` : "New website contact";
+  }
+  if (templateId === "newsletter-welcome") return "You're on the InuaBiz list";
   return fallback;
 }
 
@@ -426,6 +435,8 @@ function personalizeHtml(templateId: string, html: string, vars: Record<string, 
   if (vars.mpesa) swaps.push(["KES 9,800", vars.mpesa]);
   if (vars.topic) swaps.push(["Wholesale invoices", vars.topic]);
   if (vars.ref) swaps.push(["TKT-1184", vars.ref]);
+  if (vars.visitor_email) swaps.push(["njoroge@example.com", vars.visitor_email]);
+  if (vars.visitor_phone) swaps.push(["0712 345 678", vars.visitor_phone]);
   if (vars.count) swaps.push(["34 sales", `${vars.count} sales`]);
   if (vars.day) swaps.push(["Saturday", vars.day]);
   if (templateId === "broadcast-maintenance" && vars.body) {

@@ -2,13 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   BadgeCheck,
-  BookOpen,
   CreditCard,
-  FileText,
-  Package,
-  Smartphone,
   Sparkles,
-  Store,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,39 +31,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Landing,
 });
-
-const features = [
-  {
-    icon: Store,
-    title: "Mobile POS & checkout",
-    body: "Fast grid search, camera barcode scanning, instant cart totals — cash, credit or M-Pesa STK from one thumb.",
-  },
-  {
-    icon: Smartphone,
-    title: "M-Pesa that matches the sale",
-    body: "STK from the cart. Till and Paybill land on the same sale. Stuck PINs are re-checked automatically.",
-  },
-  {
-    icon: BookOpen,
-    title: "Duka debt ledger",
-    body: "Digitise kukopesha. Track who owes what, when it is due, and email yourself a reminder.",
-  },
-  {
-    icon: Package,
-    title: "Inventory & stock alerts",
-    body: "Live stock, low-stock alerts in the app and by email, and true margin on cost versus selling price.",
-  },
-  {
-    icon: FileText,
-    title: "Receipts & wholesale invoices",
-    body: "Fiscal sale documents, optional shop-copy email, and bills that push into the buyer's M-Pesa menu.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI restock advice",
-    body: "Cash-flow notes, bestsellers and reorder recommendations written in plain language.",
-  },
-];
 
 const steps = [
   { time: "30s", title: "Create your account", body: "Name, shop name, email and password — then confirm the email OTP." },
@@ -179,34 +141,6 @@ function Landing() {
               <div key={s.k}>
                 <p className="font-display text-2xl font-bold">{s.k}</p>
                 <p className="text-muted-foreground mt-1 text-sm">{s.v}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Features */}
-        <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
-          <div className="max-w-2xl">
-            <p className="text-primary text-sm font-semibold tracking-widest uppercase">
-              Everything in one app
-            </p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
-              Built around how a Kenyan shop actually runs
-            </h2>
-            <p className="text-muted-foreground mt-4 leading-relaxed">
-              Not a shrunken enterprise POS. Every screen was designed for a busy counter, a small
-              phone and an intermittent network.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((f) => (
-              <div key={f.title} className="surface-card p-6 transition-shadow hover:shadow-lift">
-                <span className="bg-primary-soft text-primary grid size-11 place-items-center rounded-xl">
-                  <f.icon className="size-5" />
-                </span>
-                <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
-                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{f.body}</p>
               </div>
             ))}
           </div>

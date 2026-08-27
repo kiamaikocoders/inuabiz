@@ -67,7 +67,7 @@ function Unclaimed() {
       title="Unclaimed payments"
       description="Webhooks whose api_ref failed to match a tenant"
       actions={
-        <div className="hidden gap-2 sm:flex">
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -132,7 +132,7 @@ function Unclaimed() {
 
       <div className="surface-card mt-4 p-5">
         <h2 className="font-semibold">Queue</h2>
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -210,6 +210,63 @@ function Unclaimed() {
             </TableBody>
           </Table>
         </div>
+        <ul className="mt-4 space-y-3 md:hidden">
+          {queue.map((p) => (
+            <li key={p.id} className="space-y-3 rounded-xl border border-border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold">{p.invoiceId}</p>
+                <span className="font-semibold">{KES(p.amount)}</span>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {p.account} · {p.received}
+              </p>
+              <Badge variant="destructive">{p.reason}</Badge>
+              <Select
+                value={assign[p.id] ?? ""}
+                onValueChange={(v) => setAssign((a) => ({ ...a, [p.id]: v }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantList.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.business}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                className="w-full"
+                size="sm"
+                disabled={!assign[p.id]}
+                onClick={() => {
+                  void assignUnclaimed(p.id, assign[p.id]!)
+                    .then(() => {
+                      toast.success("Payment assigned", {
+                        description: `${p.invoiceId} mapped to ${
+                          tenantList.find((t) => t.id === assign[p.id])?.business ?? "vendor"
+                        }.`,
+                      });
+                      void queryClient.invalidateQueries({ queryKey: ["unclaimed-payments"] });
+                    })
+                    .catch((err: unknown) =>
+                      toast.error("Assign failed", {
+                        description: err instanceof Error ? err.message : "Try again",
+                      }),
+                    );
+                }}
+              >
+                Assign
+              </Button>
+            </li>
+          ))}
+          {queue.length === 0 && (
+            <li className="text-muted-foreground py-6 text-center text-sm">
+              Queue is clear — every payment matched a tenant.
+            </li>
+          )}
+        </ul>
       </div>
     </AdminShell>
   );

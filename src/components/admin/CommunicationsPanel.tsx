@@ -65,8 +65,13 @@ import {
   type CommunicationTemplate,
   type EmailCategory,
 } from "@/lib/communications";
+import {
+  listNewsletterSubscribers,
+  setNewsletterUnsubscribed,
+  type NewsletterSubscriber,
+} from "@/lib/inbox";
 
-type Tab = "broadcast" | "templates" | "delivery" | "provider";
+type Tab = "broadcast" | "templates" | "delivery" | "provider" | "subscribers";
 
 function formatWhen(iso?: string | null) {
   if (!iso) return "—";
@@ -103,6 +108,7 @@ export function CommunicationsPanel() {
 
   const [fromEmail, setFromEmail] = useState("support@mail.inuabiz.co.ke");
   const [fromName, setFromName] = useState("InuaBiz");
+  const [opsInbox, setOpsInbox] = useState("hello@inuabiz.co.ke");
   const [testProviderTo, setTestProviderTo] = useState(identity.email);
 
   const broadcastsQuery = useQuery({
@@ -124,6 +130,11 @@ export function CommunicationsPanel() {
     queryFn: getEmailProviderSettings,
     enabled: tab === "provider",
   });
+  const subscribersQuery = useQuery({
+    queryKey: ["admin-newsletter-subscribers"],
+    queryFn: listNewsletterSubscribers,
+    enabled: tab === "subscribers",
+  });
 
   const items = broadcastsQuery.data ?? [];
   const templates = templatesQuery.data?.templates ?? [];
@@ -135,6 +146,7 @@ export function CommunicationsPanel() {
     if (!providerQuery.data) return;
     setFromEmail(providerQuery.data.fromEmail);
     setFromName(providerQuery.data.fromName);
+    setOpsInbox(providerQuery.data.opsInbox);
   }, [providerQuery.data]);
 
   const filteredTemplates = useMemo(() => {
@@ -226,6 +238,7 @@ export function CommunicationsPanel() {
         <TabsList>
           <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
           <TabsTrigger value="templates">Email templates</TabsTrigger>
+          <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
           <TabsTrigger value="delivery">Delivery log</TabsTrigger>
           <TabsTrigger value="provider">Provider</TabsTrigger>
         </TabsList>
@@ -560,6 +573,70 @@ export function CommunicationsPanel() {
           </div>
         </TabsContent>
 
+        <TabsContent value="subscribers" className="mt-0">
+          <div className="surface-card overflow-hidden">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="font-semibold">Newsletter subscribers</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Addresses from the site footer. Confirmation mail is sent on subscribe.
+              </p>
+            </div>
+            {subscribersQuery.isLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="text-muted-foreground size-6 animate-spin" />
+              </div>
+            ) : (subscribersQuery.data ?? []).length === 0 ? (
+              <p className="text-muted-foreground px-6 py-12 text-center text-sm">
+                No subscribers yet.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Joined</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(subscribersQuery.data ?? []).map((row: NewsletterSubscriber) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="font-medium">{row.email}</TableCell>
+                      <TableCell>{row.source}</TableCell>
+                      <TableCell>
+                        <StatusPill status={row.unsubscribed_at ? "Unsubscribed" : "Active"} />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden text-xs sm:table-cell">
+                        {formatWhen(row.created_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void setNewsletterUnsubscribed(row.id, !row.unsubscribed_at)
+                              .then(() => {
+                                toast.success(row.unsubscribed_at ? "Restored" : "Unsubscribed");
+                                void queryClient.invalidateQueries({
+                                  queryKey: ["admin-newsletter-subscribers"],
+                                });
+                              })
+                              .catch((err: Error) => toast.error(err.message))
+                          }
+                        >
+                          {row.unsubscribed_at ? "Restore" : "Unsubscribe"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
+
         <TabsContent value="provider" className="mt-0">
           <div className="surface-card max-w-3xl space-y-5 p-6">
             <h2 className="font-semibold">Email configuration</h2>
@@ -636,6 +713,29 @@ export function CommunicationsPanel() {
                 >
                   Save address
                 </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ops-inbox">Ops inbox</Label>
+                <Input
+                  id="ops-inbox"
+                  type="email"
+                  value={opsInbox}
+                  onChange={(e) => setOpsInbox(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void saveEmailProviderSetting("opsInbox", opsInbox.trim()).then(() =>
+                      queryClient.invalidateQueries({ queryKey: ["admin-email-provider"] }),
+                    )
+                  }
+                >
+                  Save inbox
+                </Button>
+                <p className="text-muted-foreground text-xs">
+                  Contact form emails this address plus every SUPER_ADMIN account.
+                </p>
               </div>
             </div>
             <div className="space-y-2">

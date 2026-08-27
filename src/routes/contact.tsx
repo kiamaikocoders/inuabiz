@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,113 +75,128 @@ function Contact() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
-      <main className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
-        <div>
-          <h1 className="text-4xl font-bold sm:text-5xl">Let's talk</h1>
-          <p className="text-muted-foreground mt-4 max-w-md leading-relaxed">
-            One shop or several, M-Pesa setup or billing — send a note. Most messages get a reply
-            the same day. Leave an email if you want a written confirmation.
-          </p>
+      <main>
+        <section className="relative overflow-hidden">
+          <img
+            src="/images/legal/contact-westlands-afternoon.png"
+            alt="Nairobi street in late afternoon, looking toward office blocks"
+            className="absolute inset-0 size-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[#085540]/58" aria-hidden />
+          <div className="relative z-10 grid items-center gap-10 px-8 py-16 lg:grid-cols-[1fr_480px] lg:py-20 xl:px-20">
+            <div className="max-w-xl">
+              <p className="text-gold text-xs font-semibold tracking-[0.22em]">CONTACT</p>
+              <h1 className="font-display mt-3 text-4xl font-bold leading-tight text-white sm:text-5xl">
+                Get in touch with us
+              </h1>
+              <p className="mt-4 max-w-md text-base leading-relaxed text-white/85">
+                One shop or several, M-Pesa setup or billing — send a note. Most messages get a
+                reply the same day.
+              </p>
+            </div>
 
-          <div className="mt-10 space-y-5">
-            {[
-              { icon: Mail, label: "Email", value: "hello@inuabiz.co.ke", href: "mailto:hello@inuabiz.co.ke" },
-              { icon: MapPin, label: "Office", value: "Nairobi, Kenya" },
-            ].map((c) => (
-              <div key={c.label} className="flex items-center gap-4">
-                <span className="bg-primary-soft text-primary grid size-11 place-items-center rounded-xl">
-                  <c.icon className="size-5" />
-                </span>
-                <div>
-                  <p className="text-muted-foreground text-xs tracking-wide uppercase">{c.label}</p>
-                  {c.href ? (
-                    <a href={c.href} className="font-medium hover:underline">
-                      {c.value}
-                    </a>
-                  ) : (
-                    <p className="font-medium">{c.value}</p>
-                  )}
+            <form
+              className="space-y-5 rounded-2xl bg-card p-7 shadow-lift"
+              onSubmit={(e) => void submit(e)}
+            >
+              <h2 className="font-display text-xl font-bold">Send a message</h2>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Your name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Mary Wanjiru"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone number</Label>
+                  <Input
+                    id="phone"
+                    placeholder="0712 345 678"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        <form className="surface-card space-y-5 p-7" onSubmit={(e) => void submit(e)}>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Your name</Label>
-              <Input
-                id="name"
-                placeholder="Mary Wanjiru"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email (optional)</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="topic">What is this about?</Label>
+                <Select value={topic} onValueChange={setTopic}>
+                  <SelectTrigger id="topic">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="demo">Book a demo</SelectItem>
+                    <SelectItem value="onboarding">Onboarding / setup fee</SelectItem>
+                    <SelectItem value="mpesa">M-Pesa / payment setup</SelectItem>
+                    <SelectItem value="compliance">Compliance / ETR (KES 4,500)</SelectItem>
+                    <SelectItem value="enterprise">Enterprise license or custom build</SelectItem>
+                    <SelectItem value="billing">Billing question</SelectItem>
+                    <SelectItem value="other">Something else</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  rows={4}
+                  placeholder="Tell us about your business…"
+                  required
+                  minLength={8}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" size="lg" disabled={busy}>
+                {busy ? "Sending…" : "Send message"}
+              </Button>
+            </form>
+          </div>
+        </section>
+
+        <section className="bg-card px-8 py-14 xl:px-20">
+          <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+            <div>
+              <h2 className="font-display text-3xl font-bold">Our offices</h2>
+              <p className="text-muted-foreground mt-3 max-w-sm text-sm leading-relaxed">
+                If you are nearby, you are always welcome to visit us.
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
-              <Input
-                id="phone"
-                placeholder="0712 345 678"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+            <div>
+              <p className="text-muted-foreground text-xs font-semibold tracking-[0.18em]">
+                NAIROBI, KENYA
+              </p>
+              <p className="mt-2 text-xl font-semibold">Nairobi, Kenya</p>
+              <p className="text-muted-foreground mt-3 text-sm">
+                <a href="mailto:hello@inuabiz.co.ke" className="hover:text-foreground">
+                  hello@inuabiz.co.ke
+                </a>
+                {" · "}
+                Most messages get a reply the same day.
+              </p>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email (optional)</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="topic">What is this about?</Label>
-            <Select value={topic} onValueChange={setTopic}>
-              <SelectTrigger id="topic">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="demo">Book a demo</SelectItem>
-                <SelectItem value="onboarding">Onboarding / setup fee</SelectItem>
-                <SelectItem value="mpesa">M-Pesa / payment setup</SelectItem>
-                <SelectItem value="compliance">Compliance / ETR (KES 4,500)</SelectItem>
-                <SelectItem value="enterprise">Enterprise license or custom build</SelectItem>
-                <SelectItem value="billing">Billing question</SelectItem>
-                <SelectItem value="other">Something else</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
-            <Textarea
-              id="message"
-              rows={5}
-              placeholder="Tell us about your business…"
-              required
-              minLength={8}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-          </div>
-
-          <Button type="submit" className="w-full" size="lg" disabled={busy}>
-            {busy ? "Sending…" : "Send message"}
-          </Button>
-          <p className="text-muted-foreground text-center text-xs">
-            We never share your number. Leave an email if you want a written confirmation.
-          </p>
-        </form>
+        </section>
       </main>
       <SiteFooter />
     </div>

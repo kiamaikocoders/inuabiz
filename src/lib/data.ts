@@ -14,20 +14,13 @@ import {
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { prettyKePhone, to254 } from "@/lib/phone";
 import { startGhost, type GhostSession } from "@/lib/ghost";
+import { categoryLabel } from "@/lib/category";
 
 const STATUS_MAP: Record<string, Tenant["status"]> = {
   ACTIVE: "Active",
   TRIAL: "Trial",
   PAST_DUE: "Error",
   SUSPENDED: "Suspended",
-};
-
-const CATEGORY_MAP: Record<string, Tenant["category"]> = {
-  DUKA: "Duka",
-  BOUTIQUE: "Boutique",
-  CHEMIST: "Chemist",
-  HARDWARE: "Hardware",
-  EATERY: "Eatery",
 };
 
 const CHANNEL_MAP: Record<string, Sale["channel"]> = {
@@ -102,11 +95,11 @@ export async function saveProduct(
     stock_qty: input.stock,
     low_stock_threshold: input.reorderLevel,
   };
-  if (input.taxClass) payload.tax_class = input.taxClass;
+  if (input.taxClass) payload["tax_class"] = input.taxClass;
   if (input.classificationCode !== undefined) {
-    payload.classification_code = input.classificationCode || null;
+    payload["classification_code"] = input.classificationCode || null;
   }
-  if (input.attrs) payload.attrs = input.attrs;
+  if (input.attrs) payload["attrs"] = input.attrs;
   if (input.id && !input.id.startsWith("p")) {
     const { error } = await sb.from("products").update(payload).eq("id", input.id);
     if (error) throw new Error(error.message);
@@ -208,7 +201,7 @@ export async function fetchTenants(): Promise<Tenant[]> {
     business: row.name as string,
     owner: (row.address_text as string | null) ?? "—",
     phone: prettyKePhone(row.phone as string),
-    category: CATEGORY_MAP[String(row.category)] ?? "Duka",
+    category: categoryLabel(row.category as string),
     town: (row.address_text as string | null)?.split(",").pop()?.trim() ?? "Nairobi",
     status: STATUS_MAP[String(row.status)] ?? "Trial",
     mrr: Number(row.subscription_amount ?? 0),

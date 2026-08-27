@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { AuthSplit } from "@/components/auth/AuthSplit";
+import { AuthLegalConsent } from "@/components/auth/AuthLegal";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { AUTH_SCENES } from "@/lib/auth-scenes";
 import { resendSignupOtp, signUpWithEmail, verifyEmailOtp } from "@/lib/auth";
 import { TRIAL_DAYS } from "@/lib/mock-data";
@@ -33,10 +35,17 @@ function Signup() {
   const [otp, setOtp] = useState("");
   const [stage, setStage] = useState<"form" | "otp">("form");
   const [busy, setBusy] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const submitForm = async () => {
     if (password.length < 8) {
       toast.error("Password too short", { description: "Use at least 8 characters." });
+      return;
+    }
+    if (!acceptedTerms) {
+      toast.error("Please accept the terms", {
+        description: "Tick the box to agree to the Terms of Service and Privacy Policy.",
+      });
       return;
     }
     setBusy(true);
@@ -154,16 +163,17 @@ function Signup() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pw">Password</Label>
-                <Input
+                <PasswordInput
                   id="pw"
-                  type="password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={8}
                   required
                 />
               </div>
-              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+              <AuthLegalConsent checked={acceptedTerms} onCheckedChange={setAcceptedTerms} />
+              <Button type="submit" size="lg" className="w-full" disabled={busy || !acceptedTerms}>
                 {busy ? "Creating…" : "Create account"}
               </Button>
             </form>

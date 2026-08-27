@@ -2,7 +2,8 @@ import { getServiceClient, handleOptions, jsonResponse } from "../_shared/cors.t
 import { dispatchOutbound } from "../_shared/outbound.ts";
 
 /**
- * Public contact form. Sends contact-ack to the visitor and stores the lead.
+ * Public contact form. Stores the lead, emails ops (WYA inbox pattern + Resend),
+ * acks the visitor, and notifies SUPER_ADMIN in-app.
  */
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -38,6 +39,7 @@ Deno.serve(async (req) => {
         email: email.includes("@") ? email : null,
         topic,
         message,
+        status: "new",
       })
       .select("id")
       .single();
@@ -56,29 +58,52 @@ Deno.serve(async (req) => {
         message: `${topic} — ${message.slice(0, 180)}`,
         type: "SYSTEM",
         priority: "NORMAL",
-        metadata: { contact_id: row.id, email, phone },
+        metadata: { contact_id: row.id, email, phone, href: "/admin/inbox" },
       });
     }
 
+    const topicLabel: Record<string, string> = {
+      demo: "Book a demo",
+      onboarding: "Onboarding / setup fee",
+      mpesa: "M-Pesa / payment setup",
+      etims: "Compliance / ETR",
+      compliance: "Compliance / ETR",
+      enterprise: "Enterprise license",
+      billing: "Billing question",
+      other: "Something else",
+    };
+    const topicText = topicLabel[topic] ?? topic;
+    const ref = `TKT-${String(row.id).replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+    const note = escapeHtml(message).replace(/\n/g, "<br />");
+
     if (email.includes("@")) {
-      const topicLabel: Record<string, string> = {
-        demo: "Book a demo",
-        onboarding: "Onboarding / setup fee",
-        mpesa: "M-Pesa / payment setup",
-        etims: "Compliance / ETR",
-        compliance: "Compliance / ETR",
-        enterprise: "Enterprise license",
-        billing: "Billing question",
-        other: "Something else",
-      };
       await dispatchOutbound({
         template_id: "contact-ack",
         to: email,
         idempotency_key: `contact-ack/${row.id}`,
         vars: {
           customer_name: name,
-          topic: topicLabel[topic] ?? topic,
-          ref: `TKT-${String(row.id).replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+          topic: topicText,
+          ref,
+        },
+      });
+    }
+
+    const ops = await collectOpsEmails(service);
+    for (const to of ops) {
+      if (to === email) continue;
+      await dispatchOutbound({
+        template_id: "contact-inbound",
+        to,
+        reply_to: email.includes("@") ? email : undefined,
+        idempotency_key: `contact-inbound/${row.id}/${to}`,
+        vars: {
+          customer_name: name,
+          topic: topicText,
+          visitor_email: email.includes("@") ? email : "not given",
+          visitor_phone: phone || "not given",
+          note,
+          ref,
         },
       });
     }
@@ -89,3 +114,42 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: err instanceof Error ? err.message : "Could not send" }, 500);
   }
 });
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function stripJson(value: unknown): string {
+  if (typeof value === "string") return value.replace(/^"|"$/g, "");
+  if (value == null) return "";
+  return String(value).replace(/^"|"$/g, "");
+}
+
+async function collectOpsEmails(
+  service: ReturnType<typeof getServiceClient>,
+): Promise<string[]> {
+  const emails = new Set<string>();
+  const { data: settings } = await service
+    .from("platform_settings")
+    .select("key, value")
+    .eq("key", "email.ops_inbox")
+    .maybeSingle();
+  const inbox = stripJson(settings?.value).trim().toLowerCase() || "hello@inuabiz.co.ke";
+  if (inbox.includes("@")) emails.add(inbox);
+
+  const { data: admins } = await service
+    .from("profiles")
+    .select("id")
+    .eq("role", "SUPER_ADMIN")
+    .limit(20);
+  for (const admin of admins ?? []) {
+    const { data } = await service.auth.admin.getUserById(admin.id);
+    const em = data.user?.email?.trim().toLowerCase();
+    if (em?.includes("@")) emails.add(em);
+  }
+  return [...emails];
+}

@@ -161,6 +161,11 @@ function heuristicBriefing(snap: PlatformSnapshot): AdminBriefing {
         href: "/admin/vendors",
       },
       {
+        title: "Inspect shop categories",
+        why: "Chemist expiry, eatery tickets and service queues live on /admin/categories — not the org label.",
+        href: "/admin/categories",
+      },
+      {
         title: "Inspect webhook health",
         why: "Unmatched C2B or Paybill hits create the unclaimed pile.",
         href: "/admin/health",
@@ -227,7 +232,7 @@ export async function runAdminBriefing(): Promise<AdminBriefing> {
   const fallback = heuristicBriefing(snap);
   try {
     const { text, model } = await complete(
-      "You are the InuaBiz super-admin copilot for a Kenyan micro-POS SaaS (KES 3,000 per shop / month Standard, 3-day trial, Daraja M-Pesa STK). Reply with JSON only: {headline, summary, briefingPoints: string[], actions: [{title, why, href}], atRisk: [{id, business, severity, reason}], unclaimedMatches: [{paymentId, tenantId, business, confidence, reason}]}. href must be an existing admin path like /admin/unclaimed. Use KES. Be blunt and operational. Keep under 180 words in summary+points.",
+      "You are the InuaBiz super-admin copilot for a Kenyan micro-POS SaaS (KES 3,000 per shop / month Standard, 3-day trial, Daraja M-Pesa STK). Shop category (Duka, Boutique, Chemist, Hardware, Eatery, Electronics, Agritech, Services, Other) drives till modules — expiry, kitchen tickets, floor tables, serials. Point operators to /admin/categories for that desk. Reply with JSON only: {headline, summary, briefingPoints: string[], actions: [{title, why, href}], atRisk: [{id, business, severity, reason}], unclaimedMatches: [{paymentId, tenantId, business, confidence, reason}]}. href must be an existing admin path like /admin/unclaimed or /admin/categories. Use KES. Be blunt and operational. Keep under 180 words in summary+points.",
       JSON.stringify(snap),
       1100,
     );
@@ -289,7 +294,7 @@ export async function improveEmailSubject(name: string, current: string): Promis
 export async function briefTenant(tenant: Tenant): Promise<{ summary: string; nextSteps: string[] }> {
   try {
     const { text, model } = await complete(
-      "You brief an InuaBiz support agent before they impersonate a Kenyan vendor. JSON only: {summary, nextSteps: string[]}. 80 words max. Practical.",
+      "You brief an InuaBiz support agent before they impersonate a Kenyan vendor. JSON only: {summary, nextSteps: string[]}. 80 words max. Practical. Mention the shop category till they will see (chemist expiry, eatery floor, tickets, serials) when the category is not Duka.",
       JSON.stringify(tenant),
       400,
     );
@@ -326,7 +331,7 @@ export async function askAdminCopilot(
   const messages = [
     {
       role: "system",
-      content: `You are the InuaBiz operator copilot. Answer from the snapshot. Money in KES. Point to /admin/* routes including /admin/communications. Snapshot: ${JSON.stringify(snap)}. Latest MRR trend: ${JSON.stringify(mrrTrend)}.`,
+      content: `You are the InuaBiz operator copilot. Answer from the snapshot. Money in KES. Point to /admin/* routes including /admin/communications and /admin/categories (shop-level category, expiry, tickets, floor). Snapshot: ${JSON.stringify(snap)}. Latest MRR trend: ${JSON.stringify(mrrTrend)}.`,
     },
     ...history.slice(-8),
     { role: "user", content: question },

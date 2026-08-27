@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, Check, Landmark, ShieldCheck, Smartphone, Sparkles } from "lucide-react";
+import { Building2, Check, Smartphone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Accordion,
   AccordionContent,
@@ -34,30 +33,47 @@ export const Route = createFileRoute("/pricing")({
 });
 
 const standardIncludes = [
-  "Unlimited POS (cash, credit, M-Pesa STK)",
+  "Unlimited POS — cash, credit, STK",
   "Till and Paybill matched to the sale",
-  "Duka debt ledger and stock alerts",
-  "Fiscal shop invoices and optional email receipts",
-  "Wholesale invoices into M-Pesa Bill Manager",
-  "Staff invites and extra shops (self-serve)",
-  "Daily till summary and AI restock notes",
-  "Optional M-Pesa Ratiba auto-renewal",
+  "Kukopesha ledger and stock alerts",
+  "Fiscal invoices and email receipts",
+  "Extra shops self-serve",
+  "Daily till summary at 6am EAT",
 ];
 
 const complianceIncludes = [
   "Everything in Standard",
-  "Electronic tax records (ETR) on paid and credit sales",
+  "ETR on paid and credit sales",
   "KRA PIN on the shop profile",
   "Audit-ready INB invoice numbers",
-  "Quoted upgrade — not a self-serve PIN today",
+  "Quoted — not a self-serve PIN",
 ];
 
 const enterpriseIncludes = [
-  "Custom software builds and bespoke workflows",
-  "Dedicated / isolated database per tenant",
-  "White-label branding and category shop UI",
-  "Upfront license rather than shared-tier SaaS",
-  "SLA: hosting, maintenance and support",
+  "Custom software builds",
+  "Dedicated / isolated database",
+  "White-label branding",
+  "Upfront license, not a PIN",
+  "Hosting, maintenance and support",
+];
+
+const licensePoints = [
+  {
+    t: "Upfront build / license",
+    d: "Bespoke features and workflows scoped to your operation. Quoted once, not metered like the public 3,000 / 4,500 plans.",
+  },
+  {
+    t: "Dedicated infrastructure",
+    d: "Separate database instance and hosting so your data, performance and backups stay isolated from the shared SaaS tenants.",
+  },
+  {
+    t: "White-label & branding",
+    d: "Your mark, colours and category shop configuration — not the InuaBiz marketing skin — on the till your cashiers open.",
+  },
+  {
+    t: "Ongoing SLA",
+    d: "Cloud hosting, system maintenance and support as a recurring contract beside the license, with agreed response times.",
+  },
 ];
 
 const faqs = [
@@ -82,10 +98,6 @@ const faqs = [
     a: "Not for Standard. Start with a personal M-Pesa number. The Compliance pack is for shops that already keep a KRA PIN and want ETR records handled with us.",
   },
   {
-    q: "What happens if a Standard payment fails?",
-    a: "We retry and show a retry button plus your Till or Paybill as backup. Data is never deleted — only writing new sales pauses until you renew.",
-  },
-  {
     q: "Can I cancel Standard anytime?",
     a: "Yes. You keep access until the end of the paid period. Enterprise licenses follow the contract and SLA you sign.",
   },
@@ -93,53 +105,81 @@ const faqs = [
 
 function Pricing() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
       <main>
-        <section className="mx-auto w-full max-w-6xl px-4 pt-16 pb-10 text-center sm:px-6">
-          <Badge variant="secondary">SaaS, compliance and custom builds</Badge>
-          <h1 className="mt-5 text-4xl font-bold sm:text-5xl">Pricing that matches how you run</h1>
-          <p className="text-muted-foreground mx-auto mt-4 max-w-2xl leading-relaxed">
-            Self-serve Standard for the counter. A Compliance (ETR) pack when you need it. Custom
-            terms for many shops — and a standalone enterprise license when you need your own stack.
-          </p>
+        <section className="relative overflow-hidden px-4 pb-16 pt-12 sm:px-6 lg:px-20">
+          <img
+            src="/images/pricing/hero-hardware.jpg"
+            alt="Hardware dukawalla at a wooden counter in late morning Nairobi light"
+            className="absolute inset-0 size-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[#085540]/72" aria-hidden />
+          <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center text-center">
+            <p className="rounded-full bg-black/30 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-white">
+              3-DAY FREE TRIAL
+            </p>
+            <h1 className="text-primary-foreground mt-4 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
+              Choose the till that matches how you run
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
+              Self-serve Standard from KES 3,000 a shop. Compliance when you need ETR. Custom terms
+              when you outgrow the public meter.
+            </p>
+            <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white">
+              {["Create account & start trial", "Cancel anytime", "No cut on your sales"].map((item) => (
+                <li key={item} className="flex items-center gap-2">
+                  <span className="bg-gold grid size-[18px] place-items-center rounded-full">
+                    <Check className="size-3 text-white" />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="relative z-10 mx-auto mt-10 grid max-w-6xl items-stretch gap-5 lg:grid-cols-3">
+            <PlanCard
+              className="order-2 lg:order-1"
+              badge="Quoted"
+              name="Compliance"
+              price={KES(COMPLIANCE_PRICE)}
+              cadence="per shop / month · we switch you"
+              blurb="Standard plus the ETR pack for shops that already keep a KRA PIN."
+              items={complianceIncludes}
+              cta="Talk about compliance"
+              to="/contact"
+            />
+            <PlanCard
+              className="order-1 lg:order-2"
+              featured
+              badge="Most popular"
+              name="Standard"
+              price={KES(SUBSCRIPTION_PRICE)}
+              cadence="per shop / month · M-Pesa PIN"
+              blurb={`The till you start on. ${TRIAL_DAYS}-day trial on shop one, then one PIN. No cut on sales.`}
+              items={standardIncludes}
+              cta="Start free trial"
+              to="/signup"
+            />
+            <PlanCard
+              className="order-3"
+              badge="Custom"
+              badgeGold
+              name="Enterprise"
+              price="Quote"
+              cadence="license + SLA"
+              blurb="Bespoke workflows, isolated database and white-label — not the shared SaaS meter."
+              items={enterpriseIncludes}
+              cta="Request a quote"
+              to="/contact"
+              goldCta
+            />
+          </div>
         </section>
 
-        <section className="mx-auto grid w-full max-w-6xl gap-5 px-4 pb-16 sm:px-6 lg:grid-cols-3">
-          <PlanCard
-            eyebrow="Standard"
-            price={KES(SUBSCRIPTION_PRICE)}
-            cadence="per shop / month"
-            blurb={`Base POS and operations. ${TRIAL_DAYS}-day trial on shop one, then M-Pesa PIN. No cut on your sales.`}
-            items={standardIncludes}
-            cta="Start free trial"
-            to="/signup"
-            featured
-          />
-          <PlanCard
-            eyebrow="Compliance"
-            price={KES(COMPLIANCE_PRICE)}
-            cadence="per shop / month"
-            blurb="ETR compliance pack for shops that need fuller tax records. We onboard this with you — not a self-serve PIN today."
-            items={complianceIncludes}
-            cta="Talk about compliance"
-            to="/contact"
-            icon={ShieldCheck}
-          />
-          <PlanCard
-            eyebrow="Enterprise"
-            price="Custom"
-            cadence="license + SLA"
-            blurb="Bespoke workflows, isolated databases, white-label and an upfront build — not the shared SaaS meter."
-            items={enterpriseIncludes}
-            cta="Request a quote"
-            to="/contact"
-            icon={Landmark}
-          />
-        </section>
-
-        <section className="mx-auto grid w-full max-w-6xl gap-5 px-4 pb-16 sm:px-6 md:grid-cols-2">
-          <div className="surface-card p-7">
+        <section className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-16 sm:px-6 md:grid-cols-2">
+          <div className="rounded-[24px] bg-card p-7 shadow-lift">
             <span className="bg-primary-soft text-primary grid size-11 place-items-center rounded-xl">
               <Smartphone className="size-5" />
             </span>
@@ -149,11 +189,11 @@ function Pricing() {
               onboarding is {KES(SETUP_FEE)}.
             </p>
             <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-              Hybrid trial: pay the setup fee, the trial unlocks, then the monthly subscription
-              STK takes over. Say so on the contact form and we will run that flow for you.
+              Hybrid trial: pay the setup fee, the trial unlocks, then the monthly subscription STK
+              takes over. Say so on the contact form and we will run that flow for you.
             </p>
           </div>
-          <div className="surface-card p-7">
+          <div className="rounded-[24px] bg-card p-7 shadow-lift">
             <span className="bg-primary-soft text-primary grid size-11 place-items-center rounded-xl">
               <Building2 className="size-5" />
             </span>
@@ -169,67 +209,81 @@ function Pricing() {
           </div>
         </section>
 
-        <section className="border-y border-border bg-card">
-          <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+        <section className="px-4 pb-16 sm:px-6 lg:px-20">
+          <div className="mx-auto max-w-6xl rounded-[28px] bg-primary p-8 shadow-lift sm:p-10">
             <div className="flex items-start gap-3">
-              <span className="bg-gold/20 text-gold-foreground grid size-11 shrink-0 place-items-center rounded-xl">
-                <Sparkles className="size-5" />
+              <span className="bg-gold text-gold-foreground grid size-9 shrink-0 place-items-center rounded-[10px]">
+                <Sparkles className="size-4" />
               </span>
               <div>
-                <p className="text-primary text-sm font-semibold tracking-widest uppercase">
-                  Enterprise &amp; standalone licenses
+                <p className="text-gold text-xs font-semibold tracking-[0.18em]">
+                  ENTERPRISE &amp; STANDALONE LICENSES
                 </p>
-                <h2 className="mt-2 text-3xl font-bold">Built for one client, not the shared till</h2>
-                <p className="text-muted-foreground mt-3 max-w-2xl leading-relaxed">
+                <h2 className="text-primary-foreground mt-2 text-3xl font-bold">
+                  Built for one client, not the shared till
+                </h2>
+                <p className="text-primary-foreground/80 mt-3 max-w-2xl text-sm leading-relaxed sm:text-base">
                   Larger operators who need dedicated setups pay an upfront custom software build
                   and licensing fee rather than Standard or Compliance SaaS. That license includes
                   deployment to isolated infrastructure and a maintenance contract.
                 </p>
               </div>
             </div>
-            <ul className="mt-10 grid gap-5 sm:grid-cols-2">
-              {[
-                {
-                  t: "Upfront build / license",
-                  d: "Bespoke features and workflows scoped to your operation. Quoted once, not metered like the public 3,000 / 4,500 plans.",
-                },
-                {
-                  t: "Dedicated infrastructure",
-                  d: "Separate database instance and hosting so your data, performance and backups stay isolated from the shared SaaS tenants.",
-                },
-                {
-                  t: "White-label & branding",
-                  d: "Your mark, colours and category shop configuration — not the InuaBiz marketing skin — on the till your cashiers open.",
-                },
-                {
-                  t: "Ongoing SLA",
-                  d: "Cloud hosting, system maintenance and support as a recurring contract beside the license, with agreed response times.",
-                },
-              ].map((x) => (
-                <li key={x.t} className="rounded-xl border border-border bg-background p-5">
-                  <h3 className="font-semibold">{x.t}</h3>
+            <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+              {licensePoints.map((x) => (
+                <li key={x.t} className="rounded-[18px] bg-card p-5 shadow-soft">
+                  <h3 className="font-display font-bold">{x.t}</h3>
                   <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{x.d}</p>
                 </li>
               ))}
             </ul>
-            <Button className="mt-8" asChild>
+            <Button size="lg" variant="gold" className="mt-8" asChild>
               <Link to="/contact">Talk to Nairobi about a license</Link>
             </Button>
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-          <h2 className="text-2xl font-bold sm:text-3xl">Frequently asked</h2>
-          <Accordion type="single" collapsible className="mt-6">
-            {faqs.map((f) => (
-              <AccordionItem key={f.q} value={f.q}>
-                <AccordionTrigger className="text-left">{f.q}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground leading-relaxed">
-                  {f.a}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+        <section id="faq" className="px-4 py-16 sm:px-6 lg:px-20">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 lg:grid-cols-[400px_1fr] lg:gap-16">
+            <div>
+              <p className="text-primary flex items-center gap-2 text-xs font-semibold tracking-[0.18em]">
+                <span className="bg-gold size-1.5 rounded-full" aria-hidden />
+                FAQs
+              </p>
+              <h2 className="mt-3 text-3xl font-bold">Frequently asked questions</h2>
+              <div className="mt-8 flex flex-col items-center rounded-[24px] bg-card px-7 py-8 text-center shadow-lift">
+                <img
+                  src="/images/pricing/faq-nairobi-woman.jpg"
+                  alt="InuaBiz teammate in Nairobi"
+                  className="size-[72px] rounded-full object-cover"
+                />
+                <h3 className="mt-4 text-xl font-bold">Talk to Nairobi</h3>
+                <p className="text-muted-foreground mt-2 max-w-xs text-sm leading-relaxed">
+                  If the public plans do not fit — extra shops, ETR, or a license — book 15 minutes
+                  before you subscribe.
+                </p>
+                <Button variant="gold" className="mt-5 rounded-full" asChild>
+                  <Link to="/contact">Talk to the team</Link>
+                </Button>
+              </div>
+            </div>
+            <Accordion type="single" collapsible defaultValue={faqs[0].q} className="space-y-3">
+              {faqs.map((f) => (
+                <AccordionItem
+                  key={f.q}
+                  value={f.q}
+                  className="overflow-hidden rounded-[18px] border border-border bg-card px-5 shadow-soft data-[state=open]:shadow-lift"
+                >
+                  <AccordionTrigger className="py-5 text-base font-semibold hover:no-underline">
+                    {f.q}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground pb-5 leading-relaxed">
+                    {f.a}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
         </section>
       </main>
       <SiteFooter />
@@ -238,7 +292,9 @@ function Pricing() {
 }
 
 function PlanCard({
-  eyebrow,
+  badge,
+  badgeGold,
+  name,
   price,
   cadence,
   blurb,
@@ -246,9 +302,12 @@ function PlanCard({
   cta,
   to,
   featured,
-  icon: Icon,
+  goldCta,
+  className,
 }: {
-  eyebrow: string;
+  badge: string;
+  badgeGold?: boolean;
+  name: string;
   price: string;
   cadence: string;
   blurb: string;
@@ -256,72 +315,58 @@ function PlanCard({
   cta: string;
   to: "/signup" | "/contact";
   featured?: boolean;
-  icon?: typeof ShieldCheck;
+  goldCta?: boolean;
+  className?: string;
 }) {
   return (
-    <div
+    <article
       className={cn(
-        "flex flex-col rounded-2xl p-7",
-        featured
-          ? "bg-hero-gradient relative overflow-hidden shadow-lift"
-          : "surface-card",
+        "flex flex-col rounded-[24px] p-7",
+        featured ? "bg-primary text-primary-foreground shadow-lift" : "bg-card shadow-lift",
+        className,
       )}
     >
-      {featured ? <div className="grid-paper absolute inset-0 opacity-[0.07]" aria-hidden /> : null}
-      <div className="relative flex flex-1 flex-col">
-        <div className="flex items-center gap-2">
-          {Icon ? (
-            <Icon className={cn("size-4", featured ? "text-gold" : "text-primary")} />
-          ) : null}
-          <p
-            className={cn(
-              "text-sm font-semibold tracking-widest uppercase",
-              featured ? "text-gold" : "text-primary",
-            )}
-          >
-            {eyebrow}
-          </p>
-        </div>
-        <p
-          className={cn(
-            "mt-4 font-display text-4xl font-bold",
-            featured ? "text-primary-foreground" : "text-foreground",
-          )}
-        >
-          {price}
-        </p>
-        <p className={cn("mt-1 text-sm", featured ? "text-primary-foreground/70" : "text-muted-foreground")}>
-          {cadence}
-        </p>
-        <p
-          className={cn(
-            "mt-4 text-sm leading-relaxed",
-            featured ? "text-primary-foreground/85" : "text-muted-foreground",
-          )}
-        >
-          {blurb}
-        </p>
-        <ul className="mt-6 flex flex-1 flex-col gap-2.5">
-          {items.map((item) => (
-            <li key={item} className="flex gap-2.5 text-sm">
-              <Check
-                className={cn("mt-0.5 size-4 shrink-0", featured ? "text-gold" : "text-success")}
-              />
-              <span className={featured ? "text-primary-foreground/80" : "text-muted-foreground"}>
-                {item}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <Button
-          size="lg"
-          className="mt-7 w-full"
-          variant={featured ? "secondary" : "outline"}
-          asChild
-        >
-          <Link to={to}>{cta}</Link>
-        </Button>
-      </div>
-    </div>
+      <p
+        className={cn(
+          "w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] uppercase",
+          featured || badgeGold
+            ? "bg-gold text-gold-foreground"
+            : "bg-primary text-primary-foreground",
+        )}
+      >
+        {badge}
+      </p>
+      <h2 className="mt-4 text-2xl font-bold">{name}</h2>
+      <p className="font-display mt-3 text-4xl font-bold">{price}</p>
+      <p className={cn("mt-1 text-sm", featured ? "text-primary-foreground/75" : "text-muted-foreground")}>
+        {cadence}
+      </p>
+      <p className={cn("mt-4 text-sm leading-relaxed", featured ? "text-primary-foreground/85" : "text-muted-foreground")}>
+        {blurb}
+      </p>
+      <ul className="mt-6 flex flex-1 flex-col gap-2.5">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2.5 text-sm">
+            <span
+              className={cn(
+                "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full",
+                featured ? "bg-gold" : "bg-primary",
+              )}
+            >
+              <Check className="size-3 text-white" />
+            </span>
+            <span className={featured ? "text-primary-foreground/90" : "text-foreground/80"}>{item}</span>
+          </li>
+        ))}
+      </ul>
+      <Button
+        size="lg"
+        className="mt-7 w-full rounded-xl"
+        variant={featured ? "secondary" : goldCta ? "gold" : "default"}
+        asChild
+      >
+        <Link to={to}>{cta}</Link>
+      </Button>
+    </article>
   );
 }
