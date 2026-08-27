@@ -2039,6 +2039,7 @@ export type Database = {
           location_lat: number | null
           location_lng: number | null
           name: string | null
+          owner_name: string | null
           phone: string | null
           plan_code: string | null
           status: Database["public"]["Enums"]["tenant_status"] | null

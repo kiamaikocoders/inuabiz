@@ -1,5 +1,6 @@
 import { getServiceClient, handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { mapPayHeroStatus } from "../_shared/payhero.ts";
+import { dispatchOutbound, paymentEmailPayload } from "../_shared/outbound.ts";
 import {
   applyCompleteSubscription,
   applyShopAddon,
@@ -106,15 +107,22 @@ Deno.serve(async (req) => {
 
     let paymentTransactionId = existingTx?.id as string | undefined;
 
+    // Keep the original invoice_id the client is polling — only fill gaps.
+    const stableInvoiceId = String(
+      existingTx?.invoice_id ?? payheroRef,
+    );
     const txRow = {
-      tenant_id: tenantId,
-      sale_id: null,
-      purpose: "SAAS_SUBSCRIPTION" as const,
-      invoice_id: payheroRef,
-      tracking_id: payload.response?.CheckoutRequestID ?? existingTx?.tracking_id ?? null,
+      tenant_id: tenantId ?? existingTx?.tenant_id ?? null,
+      sale_id: existingTx?.sale_id ?? null,
+      purpose: (existingTx?.purpose as string | undefined) ?? "SAAS_SUBSCRIPTION",
+      invoice_id: stableInvoiceId,
+      tracking_id:
+        payload.response?.CheckoutRequestID ??
+        existingTx?.tracking_id ??
+        payheroRef,
       amount: amount || Number(existingTx?.amount ?? 0),
       currency: "KES",
-      payment_channel: "PAYHERO" as const,
+      payment_channel: (existingTx?.payment_channel as string | undefined) ?? "PAYHERO",
       status: txStatus,
       account: payload.response?.Phone ?? existingTx?.account,
       api_ref: externalRef || existingTx?.api_ref,
@@ -137,23 +145,47 @@ Deno.serve(async (req) => {
       await service.from("subscription_payments").upsert(
         {
           tenant_id: tenantId,
-          payhero_reference: payheroRef,
+          payhero_reference: stableInvoiceId,
           mpesa_receipt_code: receipt,
           amount: amount || Number(existingTx?.amount ?? 0),
           status: mappedStatus,
-          payment_transaction_id: paymentTransactionId ?? null,
+          payment_transaction_id: paymentTransactionId ?? existingTx?.id ?? null,
         },
         { onConflict: "payhero_reference" },
       );
     }
 
     if (success && tenantId) {
-      await applyCompleteSubscription(service, tenantId, payheroRef, receipt);
-
       const meta = (existingTx?.metadata ?? null) as Record<string, unknown> | null;
+      await applyCompleteSubscription(service, tenantId, stableInvoiceId, receipt, {
+        id: String(paymentTransactionId ?? existingTx?.id ?? stableInvoiceId),
+        purpose: String(txRow.purpose),
+        amount: Number(txRow.amount),
+        account: (txRow.account as string | null) ?? null,
+        api_ref: (txRow.api_ref as string | null) ?? null,
+        metadata: meta,
+      });
+
       if (parsed.kind === "shop_addon" || meta?.kind === "SHOP_ADDON") {
         await applyShopAddon(service, tenantId, meta);
       }
+    }
+
+    if (!success && mappedStatus === "FAILED" && tenantId) {
+      const meta = (existingTx?.metadata ?? null) as Record<string, unknown> | null;
+      const failPayload = paymentEmailPayload(
+        {
+          id: String(paymentTransactionId ?? existingTx?.id ?? stableInvoiceId),
+          purpose: String(txRow.purpose),
+          tenant_id: tenantId,
+          amount: Number(txRow.amount),
+          account: (txRow.account as string | null) ?? null,
+          api_ref: (txRow.api_ref as string | null) ?? null,
+          metadata: meta,
+        },
+        false,
+      );
+      if (failPayload) await dispatchOutbound(failPayload);
     }
 
     return jsonResponse({ ok: true, status: mappedStatus, reference: payheroRef });

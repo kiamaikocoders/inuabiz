@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { dispatchOutbound, paymentEmailPayload } from "./outbound.ts";
 
 type ServiceClient = SupabaseClient;
 
@@ -36,9 +37,23 @@ export async function applyCompleteSubscription(
   tenantId: string,
   invoiceId: string,
   mpesaReceipt?: string | null,
+  tx?: {
+    id?: string;
+    purpose?: string | null;
+    amount?: number | null;
+    account?: string | null;
+    api_ref?: string | null;
+    metadata?: Record<string, unknown> | null;
+  } | null,
 ) {
   const periodEnd = new Date();
   periodEnd.setDate(periodEnd.getDate() + 30);
+
+  const { data: tenant } = await service
+    .from("tenants")
+    .select("name, email")
+    .eq("id", tenantId)
+    .maybeSingle();
 
   await service
     .from("tenants")
@@ -58,10 +73,11 @@ export async function applyCompleteSubscription(
     })
     .eq("tenant_id", tenantId);
 
+  const shopName = (tenant?.name as string | undefined) ?? "shop";
   await notifyAdmins(
     service,
     "SaaS subscription paid",
-    `Tenant ${tenantId} paid via PayHero. Access extended 30 days.`,
+    `${shopName} paid via PayHero. Access extended 30 days.`,
     "SUBSCRIPTION",
     "NORMAL",
     { tenant_id: tenantId, invoice_id: invoiceId },
@@ -86,6 +102,31 @@ export async function applyCompleteSubscription(
         metadata: { invoice_id: invoiceId },
       })),
     );
+  }
+
+  const emailPayload = paymentEmailPayload(
+    {
+      id: tx?.id ?? invoiceId,
+      purpose: tx?.purpose ?? "SAAS_SUBSCRIPTION",
+      tenant_id: tenantId,
+      amount: tx?.amount ?? null,
+      account: tx?.account ?? null,
+      api_ref: tx?.api_ref ?? invoiceId,
+      metadata: tx?.metadata ?? null,
+    },
+    true,
+  );
+  if (emailPayload) {
+    const to = (tenant?.email as string | null) ?? undefined;
+    await dispatchOutbound({
+      ...emailPayload,
+      ...(to ? { to } : {}),
+      vars: {
+        ...((emailPayload.vars as Record<string, string> | undefined) ?? {}),
+        shop: shopName,
+        receipt: mpesaReceipt ?? invoiceId,
+      },
+    });
   }
 }
 

@@ -94,12 +94,21 @@ Deno.serve(async (req) => {
 
         if (mapped === "COMPLETE") {
           if (row.purpose === "SAAS_SUBSCRIPTION" && row.tenant_id) {
+            const meta = row.metadata as Record<string, unknown> | null;
             await applyCompleteSubscription(
               service,
               row.tenant_id as string,
               row.invoice_id as string,
+              null,
+              {
+                id: row.id as string,
+                purpose: row.purpose as string,
+                amount: null,
+                account: null,
+                api_ref: (row.api_ref as string | null) ?? null,
+                metadata: meta,
+              },
             );
-            const meta = row.metadata as Record<string, unknown> | null;
             if (meta?.kind === "SHOP_ADDON") {
               await applyShopAddon(service, row.tenant_id as string, meta);
             }
@@ -115,6 +124,22 @@ Deno.serve(async (req) => {
             .from("subscription_payments")
             .update({ status: "FAILED" })
             .eq("payhero_reference", row.invoice_id);
+          const { paymentEmailPayload, dispatchOutbound } = await import(
+            "../_shared/outbound.ts"
+          );
+          const failPayload = paymentEmailPayload(
+            {
+              id: row.id as string,
+              purpose: row.purpose as string,
+              tenant_id: row.tenant_id as string,
+              amount: null,
+              account: null,
+              api_ref: (row.api_ref as string | null) ?? null,
+              metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+            },
+            false,
+          );
+          if (failPayload) await dispatchOutbound(failPayload);
         }
 
         results.push({ invoice_id: row.invoice_id, state: mapped });

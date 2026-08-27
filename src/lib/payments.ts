@@ -65,8 +65,27 @@ export async function fetchBillingSnapshot(): Promise<BillingSnapshot | null> {
     .maybeSingle();
 
   const planCode = String(sub?.plan_code ?? "SHOP_MONTHLY").toUpperCase();
+  const normalized = planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY";
+
+  const { data: planRow } = await sb
+    .from("subscription_plans")
+    .select("name, amount_kes")
+    .eq("code", normalized)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const { data: liveAmount } = await sb.rpc("subscription_amount_for_tenant", {
+    p_tenant_id: profile.tenant_id,
+  });
+
+  const amount =
+    liveAmount != null && Number.isFinite(Number(liveAmount))
+      ? Number(liveAmount)
+      : Number(sub?.amount ?? planRow?.amount_kes ?? 3000);
+
   const planName =
-    planCode === "COMPLIANCE" ? "Compliance (ETR)" : "Standard";
+    (planRow?.name as string | undefined) ??
+    (normalized === "COMPLIANCE" ? "Compliance (ETR)" : "Standard");
 
   return {
     tenantName: (tenant?.name as string | undefined) ?? "Your shop",
@@ -79,9 +98,9 @@ export async function fetchBillingSnapshot(): Promise<BillingSnapshot | null> {
       (sub?.current_period_end as string | null) ??
       (tenant?.access_until as string | null) ??
       null,
-    amount: Number(sub?.amount ?? 3000),
+    amount,
     phone: (profile.phone as string | null) ?? (tenant?.phone as string | null),
-    planCode: planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY",
+    planCode: normalized,
     planName,
   };
 }
@@ -157,21 +176,57 @@ export async function pollSaleStatus(
 
 export async function pollSubscriptionPayment(
   invoiceId: string,
-  timeoutMs = 90_000,
+  timeoutMs = 120_000,
+  opts?: { alternateIds?: string[] },
 ): Promise<"COMPLETE" | "FAILED" | "TIMEOUT"> {
   const sb = getSupabase();
   if (!sb) return "TIMEOUT";
+  const ids = [...new Set([invoiceId, ...(opts?.alternateIds ?? [])].filter(Boolean))];
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const { data } = await sb
-      .from("payment_transactions")
-      .select("status")
-      .eq("invoice_id", invoiceId)
+
+  let baselineAccessMs = 0;
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  if (profile?.tenant_id) {
+    const { data: tenant } = await sb
+      .from("tenants")
+      .select("access_until")
+      .eq("id", profile.tenant_id)
       .maybeSingle();
-    const status = String(data?.status ?? "");
-    if (status === "COMPLETE") return "COMPLETE";
-    if (status === "FAILED" || status === "CANCELLED") return "FAILED";
-    await new Promise((r) => setTimeout(r, 2500));
+    baselineAccessMs = tenant?.access_until
+      ? new Date(tenant.access_until as string).getTime()
+      : 0;
+  }
+
+  while (Date.now() - started < timeoutMs) {
+    for (const id of ids) {
+      const { data } = await sb
+        .from("payment_transactions")
+        .select("status")
+        .or(`invoice_id.eq.${id},tracking_id.eq.${id},api_ref.eq.${id}`)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const status = String(data?.status ?? "");
+      if (status === "COMPLETE") return "COMPLETE";
+      if (status === "FAILED" || status === "CANCELLED") return "FAILED";
+    }
+
+    // Fallback: access extended after this STK started (webhook beat the tx read).
+    if (profile?.tenant_id) {
+      const { data: tenant } = await sb
+        .from("tenants")
+        .select("status, access_until")
+        .eq("id", profile.tenant_id)
+        .maybeSingle();
+      const accessMs = tenant?.access_until
+        ? new Date(tenant.access_until as string).getTime()
+        : 0;
+      if (String(tenant?.status ?? "") === "ACTIVE" && accessMs > baselineAccessMs + 60_000) {
+        return "COMPLETE";
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 2000));
   }
   return "TIMEOUT";
 }

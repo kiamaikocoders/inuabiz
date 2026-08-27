@@ -26,7 +26,8 @@ import { createShop, fetchShops, setActiveShop } from "@/lib/ops";
 import { fetchProfile } from "@/lib/auth";
 import { isVendorOwner } from "@/lib/identity";
 import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
-import { pollSubscriptionPayment } from "@/lib/payments";
+import { fetchBillingSnapshot, pollSubscriptionPayment } from "@/lib/payments";
+import { fetchPublicPricing } from "@/lib/plans";
 import { KES } from "@/lib/mock-data";
 import { CATEGORY_LIST, categoryLabel } from "@/lib/category";
 
@@ -41,6 +42,8 @@ function ShopsPage() {
   const queryClient = useQueryClient();
   const { data: shops = [] } = useQuery({ queryKey: ["shops"], queryFn: fetchShops });
   const { data: profile } = useQuery({ queryKey: ["identity"], queryFn: fetchProfile });
+  const { data: pricing } = useQuery({ queryKey: ["public-pricing"], queryFn: fetchPublicPricing });
+  const { data: billing } = useQuery({ queryKey: ["billing"], queryFn: fetchBillingSnapshot });
   const owner = isVendorOwner(profile?.role ?? "VENDOR_ADMIN");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -50,6 +53,12 @@ function ShopsPage() {
 
   const [payPhone, setPayPhone] = useState("");
   const [stkHint, setStkHint] = useState("");
+
+  const shopAddon =
+    pricing?.shopMonthly ??
+    (billing?.amount && shops.length > 0
+      ? Math.round(billing.amount / Math.max(shops.length, 1))
+      : 3000);
 
   const addShop = async () => {
     if (!name.trim()) return;
@@ -63,6 +72,7 @@ function ShopsPage() {
           ok?: boolean;
           transaction?: { invoice_id?: string };
           checkout_request_id?: string;
+          payhero_reference?: string;
           message?: string;
         }>("provision-shop", {
           name: name.trim(),
@@ -73,14 +83,19 @@ function ShopsPage() {
         if (error || !data?.ok) {
           throw new Error(error ?? "Could not send the M-Pesa prompt.");
         }
-        const invoiceId = data.transaction?.invoice_id ?? data.checkout_request_id;
+        const invoiceId =
+          data.transaction?.invoice_id ?? data.payhero_reference ?? data.checkout_request_id;
         setStkHint(data.message ?? "Enter PIN on your phone.");
         if (!invoiceId) {
           toast.info("Check your phone", { description: data.message });
           return;
         }
-        toast.info("Enter M-Pesa PIN", { description: `${KES(3000)} to add this shop.` });
-        const result = await pollSubscriptionPayment(invoiceId);
+        toast.info("Enter M-Pesa PIN", { description: `${KES(shopAddon)} to add this shop.` });
+        const result = await pollSubscriptionPayment(invoiceId, 120_000, {
+          alternateIds: [data.checkout_request_id ?? "", data.payhero_reference ?? ""].filter(
+            Boolean,
+          ),
+        });
         if (result !== "COMPLETE") {
           throw new Error(
             result === "FAILED"
@@ -108,7 +123,7 @@ function ShopsPage() {
   return (
     <AppShell
       title="Shops"
-      description="Locations under this business. First shop is in the trial. Extra shops: pay KES 3,000 on M-Pesa, then the shop is created."
+      description={`Locations under this business. First shop is in the trial. Extra shops: pay ${KES(shopAddon)} on M-Pesa, then the shop is created.`}
       actions={
         owner ? (
           <Button size="sm" onClick={() => setOpen(true)}>
@@ -157,7 +172,7 @@ function ShopsPage() {
             <DialogTitle>Add a shop</DialogTitle>
           </DialogHeader>
           <p className="text-muted-foreground text-sm">
-            Pay {KES(3000)} by M-Pesa first. The new shop is created only after the PIN succeeds.
+            Pay {KES(shopAddon)} by M-Pesa first. The new shop is created only after the PIN succeeds.
           </p>
           <div className="grid gap-3">
             <div className="space-y-1.5">
@@ -195,7 +210,7 @@ function ShopsPage() {
           {stkHint && <p className="text-muted-foreground text-xs">{stkHint}</p>}
           <DialogFooter>
             <Button onClick={() => void addShop()} disabled={busy || !name.trim()}>
-              {busy ? "Waiting for PIN…" : `Pay ${KES(3000)} and create`}
+              {busy ? "Waiting for PIN…" : `Pay ${KES(shopAddon)} and create`}
             </Button>
           </DialogFooter>
         </DialogContent>

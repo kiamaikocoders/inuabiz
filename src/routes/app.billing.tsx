@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import { prettyKePhone } from "@/lib/phone";
 import { invokeFunction } from "@/lib/supabase";
 import {
@@ -34,6 +34,7 @@ import {
   fetchPaymentHistory,
   pollSubscriptionPayment,
 } from "@/lib/payments";
+import { fetchPublicPricing } from "@/lib/plans";
 
 export const Route = createFileRoute("/app/billing")({
   head: () => ({
@@ -49,8 +50,8 @@ export const Route = createFileRoute("/app/billing")({
   component: Billing,
 });
 
-function daysBetween(fromIso: string | null, toIso: string | null | undefined): number {
-  if (!fromIso || !toIso) return TRIAL_DAYS;
+function daysBetween(fromIso: string | null, toIso: string | null | undefined, trialDays: number): number {
+  if (!fromIso || !toIso) return trialDays;
   const ms = new Date(toIso).getTime() - Date.now();
   return Math.max(0, Math.ceil(ms / 86_400_000));
 }
@@ -60,6 +61,10 @@ function Billing() {
   const { data: snap } = useQuery({
     queryKey: ["billing"],
     queryFn: fetchBillingSnapshot,
+  });
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
   });
   const { data: history = [] } = useQuery({
     queryKey: ["payment-history"],
@@ -71,9 +76,10 @@ function Billing() {
   const [state, setState] = useState<"idle" | "waiting" | "done" | "failed">("idle");
   const [busy, setBusy] = useState(false);
 
-  const amount = snap?.amount ?? SUBSCRIPTION_PRICE;
-  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil);
-  const used = Math.min(TRIAL_DAYS, TRIAL_DAYS - daysLeft);
+  const trialDays = pricing?.trialDays ?? 3;
+  const amount = snap?.amount ?? pricing?.shopMonthly ?? 3000;
+  const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil, trialDays);
+  const used = Math.min(trialDays, trialDays - daysLeft);
   const statusLabel =
     snap?.status === "ACTIVE"
       ? "Active"
@@ -89,6 +95,7 @@ function Billing() {
     const { data, error } = await invokeFunction<{
       ok?: boolean;
       checkout_request_id?: string;
+      payhero_reference?: string;
       transaction?: { invoice_id?: string };
       message?: string;
     }>("create-subscription-charge", { phone: phone || snap?.phone });
@@ -98,28 +105,43 @@ function Billing() {
       toast.error("STK failed", { description: error ?? "Could not send the M-Pesa prompt." });
       return;
     }
-    const invoiceId = data.transaction?.invoice_id ?? data.checkout_request_id;
+    const invoiceId =
+      data.transaction?.invoice_id ?? data.payhero_reference ?? data.checkout_request_id;
     if (!invoiceId) {
       setState("done");
       setBusy(false);
       toast.success("Prompt sent", { description: data.message });
       return;
     }
-    const result = await pollSubscriptionPayment(invoiceId);
+    const result = await pollSubscriptionPayment(invoiceId, 120_000, {
+      alternateIds: [data.checkout_request_id ?? "", data.payhero_reference ?? ""].filter(Boolean),
+    });
     setBusy(false);
     if (result === "COMPLETE") {
       setState("done");
       toast.success("Subscription active", { description: "Access extended by 30 days." });
       void queryClient.invalidateQueries({ queryKey: ["billing"] });
       void queryClient.invalidateQueries({ queryKey: ["payment-history"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant-access"] });
     } else if (result === "FAILED") {
       setState("failed");
       toast.error("Payment failed", { description: "PIN cancelled or timed out. Try again." });
     } else {
-      setState("waiting");
-      toast.info("Still waiting", {
-        description: "Enter PIN on the phone. PayHero will confirm within a few seconds.",
-      });
+      // Final reconcile — webhook may still be in flight.
+      const latest = await fetchBillingSnapshot();
+      if (latest?.status === "ACTIVE") {
+        setState("done");
+        toast.success("Subscription active", { description: "Payment confirmed." });
+        void queryClient.invalidateQueries({ queryKey: ["billing"] });
+        void queryClient.invalidateQueries({ queryKey: ["payment-history"] });
+        void queryClient.invalidateQueries({ queryKey: ["tenant-access"] });
+      } else {
+        setState("failed");
+        toast.info("Still confirming", {
+          description:
+            "If you entered the PIN, refresh Subscription in a moment — PayHero may still be confirming.",
+        });
+      }
     }
   };
 
@@ -172,10 +194,10 @@ function Billing() {
               <div className="text-primary-foreground/70 flex justify-between text-xs">
                 <span>Trial progress</span>
                 <span>
-                  {used} of {TRIAL_DAYS} days used
+                  {used} of {trialDays} days used
                 </span>
               </div>
-              <Progress value={(used / TRIAL_DAYS) * 100} className="mt-2 h-1.5" />
+              <Progress value={(used / trialDays) * 100} className="mt-2 h-1.5" />
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">

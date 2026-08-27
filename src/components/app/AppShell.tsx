@@ -39,6 +39,8 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { fetchProfile } from "@/lib/auth";
 import { useShopCategory } from "@/hooks/use-shop-category";
 import type { FeatureModule } from "@/lib/category";
+import { fetchBillingSnapshot, vendorPlanBadge } from "@/lib/payments";
+import { KES } from "@/lib/mock-data";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; exact?: boolean };
 
@@ -123,6 +125,24 @@ function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined })
     queryKey: ["identity"],
     queryFn: fetchProfile,
   });
+  const { data: billing } = useQuery({
+    queryKey: ["billing"],
+    queryFn: fetchBillingSnapshot,
+    enabled: isSupabaseConfigured(),
+  });
+
+  const planBadge = vendorPlanBadge(billing);
+  const shopCount = Math.max(shops.length, 1);
+  const amount = billing?.amount ?? 0;
+  const perShop =
+    shopCount > 0 && amount > 0 ? Math.round(amount / shopCount) : amount;
+  const billingCopy = access
+    ? billing
+      ? `${planBadge} · ${KES(amount)} / month${
+          shopCount > 1 ? ` (${shopCount} shops × ${KES(perShop)})` : ""
+        }`
+      : "Loading your plan…"
+    : "Renew to keep POS, AI insights and reconciliation.";
 
   return (
     <div className="flex h-full flex-col bg-sidebar py-5">
@@ -153,9 +173,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined })
             {access ? "Subscription" : "Access locked"}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/70">
-            {access
-              ? "KES 3,000 per shop / month. Two shops are KES 6,000."
-              : "Renew to keep POS, AI insights and reconciliation."}
+            {billingCopy}
           </p>
           <Button size="sm" className="mt-3 w-full" variant="secondary" asChild>
             <Link to="/app/billing" onClick={onNavigate}>
