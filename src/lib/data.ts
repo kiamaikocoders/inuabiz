@@ -100,6 +100,13 @@ export async function saveProduct(
     if (error) throw new Error(error.message);
     return { demo: false, id: input.id };
   }
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("tenant_id, active_shop_id")
+    .maybeSingle();
+  if (!profile?.tenant_id) throw new Error("Complete onboarding first");
+  payload["tenant_id"] = profile.tenant_id;
+  if (profile.active_shop_id) payload["shop_id"] = profile.active_shop_id;
   const { data, error } = await sb.from("products").insert(payload).select("id").single();
   if (error) throw new Error(error.message);
   return { demo: false, id: data.id as string };
@@ -193,13 +200,13 @@ export async function fetchTenants(): Promise<Tenant[]> {
   const { data, error } = await sb
     .from("admin_tenant_map")
     .select(
-      "id, name, category, phone, status, location_lat, location_lng, address_text, created_at, subscription_amount",
+      "id, name, category, phone, status, location_lat, location_lng, address_text, created_at, subscription_amount, owner_name, plan_code",
     );
   if (error || !data?.length) return [];
   return data.map((row) => ({
     id: row.id as string,
     business: row.name as string,
-    owner: (row.address_text as string | null) ?? "—",
+    owner: ((row.owner_name as string | null)?.trim() || "—") as string,
     phone: prettyKePhone(row.phone as string),
     category: categoryLabel(row.category as string),
     town: (row.address_text as string | null)?.split(",").pop()?.trim() ?? "Nairobi",
