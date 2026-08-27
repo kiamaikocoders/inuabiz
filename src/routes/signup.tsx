@@ -132,7 +132,7 @@ function Signup() {
                   id="nm"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Mama Njoroge"
+                  placeholder="Your name"
                   required
                 />
               </div>
@@ -142,7 +142,7 @@ function Signup() {
                   id="sn"
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
-                  placeholder="Njoroge Mini Mart"
+                  placeholder="Your shop name"
                   required
                 />
               </div>

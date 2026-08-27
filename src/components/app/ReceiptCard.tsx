@@ -5,12 +5,6 @@ import { cn } from "@/lib/utils";
 import type { LastSale, ReceiptLine } from "@/lib/last-sale";
 import { taxClassLabel, type TaxClass } from "@/lib/tax";
 
-const DEMO_LINES: ReceiptLine[] = [
-  { name: "Unga Pembe 2kg", qty: 1, price: 195, taxClass: "STANDARD_16" },
-  { name: "Cooking Oil 1L", qty: 1, price: 340, taxClass: "STANDARD_16" },
-  { name: "Sukari Kabras 1kg", qty: 4, price: 175, taxClass: "STANDARD_16" },
-];
-
 const AUDIT_FOOTER =
   "Provisional Tax Document — Audit-Ready Record Generated via InuaBiz System.";
 
@@ -21,8 +15,8 @@ export function receiptFromSale(sale: LastSale | null): LastSale & {
   footer: string;
   lines: ReceiptLine[];
 } {
-  const lines = sale?.lines?.length ? sale.lines : DEMO_LINES;
-  const total = sale?.total ?? 1500;
+  const lines = sale?.lines?.length ? sale.lines : [];
+  const total = sale?.total ?? 0;
   const out: LastSale & {
     shop: string;
     location: string;
@@ -30,15 +24,15 @@ export function receiptFromSale(sale: LastSale | null): LastSale & {
     footer: string;
     lines: ReceiptLine[];
   } = {
-    id: sale?.id ?? "demo",
-    ref: sale?.ref ?? "INB-2026-0001",
+    id: sale?.id ?? "",
+    ref: sale?.ref ?? "—",
     total,
     items: lines.length,
-    channel: sale?.channel ?? "M-Pesa STK",
-    customer: sale?.customer ?? "Walk-in Customer",
-    shop: sale?.legalName || sale?.shop || "Njoroge Mini Mart",
-    location: sale?.location ?? "Kasarani, Nairobi",
-    when: sale?.when ?? "Today",
+    channel: sale?.channel ?? "—",
+    customer: sale?.customer ?? "Walk-in",
+    shop: sale?.legalName || sale?.shop || "InuaBiz",
+    location: sale?.location ?? "",
+    when: sale?.when ?? "",
     footer: sale?.footer ?? AUDIT_FOOTER,
     lines,
   };
@@ -98,21 +92,25 @@ export function ReceiptCard({
         <p className="text-muted-foreground mt-5 w-full text-left text-[11px] font-semibold tracking-wide">
           ITEMS
         </p>
-        <ul className="mt-2 w-full space-y-3 text-left">
-          {r.lines.map((line) => (
-            <li key={`${line.name}-${line.qty}`} className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[13px] font-semibold">{line.name}</p>
-                <p className="text-muted-foreground text-[11px]">
-                  {line.qty} × {KES(line.price)}
-                  {line.taxClass ? ` · ${taxClassLabel(line.taxClass as TaxClass)}` : ""}
-                  {line.note ? ` · ${line.note}` : ""}
-                </p>
-              </div>
-              <p className="text-[13px] font-semibold">{KES(line.price * line.qty)}</p>
-            </li>
-          ))}
-        </ul>
+        {r.lines.length === 0 ? (
+          <p className="text-muted-foreground mt-2 w-full text-left text-[13px]">No items on this receipt.</p>
+        ) : (
+          <ul className="mt-2 w-full space-y-3 text-left">
+            {r.lines.map((line) => (
+              <li key={`${line.name}-${line.qty}`} className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-semibold">{line.name}</p>
+                  <p className="text-muted-foreground text-[11px]">
+                    {line.qty} × {KES(line.price)}
+                    {line.taxClass ? ` · ${taxClassLabel(line.taxClass as TaxClass)}` : ""}
+                    {line.note ? ` · ${line.note}` : ""}
+                  </p>
+                </div>
+                <p className="text-[13px] font-semibold">{KES(line.price * line.qty)}</p>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="bg-border mt-4 h-px w-full" />
         <dl className="mt-3 w-full space-y-1.5 text-[13px]">

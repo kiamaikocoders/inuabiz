@@ -13,7 +13,7 @@ export const AUTH_SCENES = {
     imageAlt: "Chemist counter at midday, shelves of packaged goods behind the till",
     quote: "I stopped losing money to the ledger book.",
     body: "Vendors on InuaBiz recover an average of KES 9,400 a month in credit that used to disappear between pages.",
-    byline: "Mama Njoroge · Kasarani",
+    byline: "Duka owner · Nairobi",
     caption: "Secured with email verification. Extra shops are paid on M-Pesa before they go live.",
   },
   signup: {

@@ -41,9 +41,13 @@ function SaleSuccess() {
           <Store className="mr-2 size-4" /> New sale
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/app/sales/$saleId" params={{ saleId: sale?.id ?? "s1" }}>
-            View sale
-          </Link>
+          {sale ? (
+            <Link to="/app/sales/$saleId" params={{ saleId: sale.id }}>
+              View sale
+            </Link>
+          ) : (
+            <Link to="/app/sales">View sales</Link>
+          )}
         </Button>
         <Button variant="ghost" onClick={() => window.print()}>
           <Printer className="mr-2 size-4" /> Print receipt

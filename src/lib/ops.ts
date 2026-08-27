@@ -563,32 +563,39 @@ export async function fetchFloorTables(): Promise<FloorTable[]> {
     .select("id, label, seats, status")
     .eq("shop_id", ctx.shopId)
     .order("label");
-  if (error) return [];
-  if (data?.length) {
-    return data.map((row) => ({
-      id: row.id as string,
-      label: row.label as string,
-      seats: Number(row.seats),
-      status: row.status as FloorTable["status"],
-    }));
-  }
-  const seed = Array.from({ length: 8 }, (_, i) => ({
-    tenant_id: ctx.tenantId,
-    shop_id: ctx.shopId,
-    label: `T${i + 1}`,
-    seats: i < 4 ? 4 : 6,
-    status: "FREE",
-  }));
-  const { data: inserted } = await sb
-    .from("shop_floor_tables")
-    .insert(seed)
-    .select("id, label, seats, status");
-  return (inserted ?? []).map((row) => ({
+  if (error || !data) return [];
+  return data.map((row) => ({
     id: row.id as string,
     label: row.label as string,
     seats: Number(row.seats),
     status: row.status as FloorTable["status"],
   }));
+}
+
+export async function addFloorTable(seats = 4): Promise<FloorTable | null> {
+  const sb = getSupabase();
+  const ctx = await activeShopContext();
+  if (!sb || !ctx) return null;
+  const existing = await fetchFloorTables();
+  const next = existing.length + 1;
+  const { data, error } = await sb
+    .from("shop_floor_tables")
+    .insert({
+      tenant_id: ctx.tenantId,
+      shop_id: ctx.shopId,
+      label: `T${next}`,
+      seats,
+      status: "FREE",
+    })
+    .select("id, label, seats, status")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Could not add table");
+  return {
+    id: data.id as string,
+    label: data.label as string,
+    seats: Number(data.seats),
+    status: data.status as FloorTable["status"],
+  };
 }
 
 export async function setFloorTableStatus(

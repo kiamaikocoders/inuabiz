@@ -39,14 +39,14 @@ export function productToDraft(
   defaults?: { taxClass?: string },
 ): ProductDraft {
   return {
-    name: p?.name ?? "Unga Pembe 2kg",
-    sku: p?.sku ?? "UNG-2K",
+    name: p?.name ?? "",
+    sku: p?.sku ?? "",
     category: p?.category ?? "Staples",
-    description: p ? "" : "Maize flour — 2kg bag. Fast mover on Saturday.",
-    cost: p ? String(p.cost) : "155",
-    price: p ? String(p.price) : "195",
-    stock: p ? String(p.stock) : "42",
-    reorderLevel: p ? String(p.reorderLevel) : "12",
+    description: "",
+    cost: p ? String(p.cost) : "",
+    price: p ? String(p.price) : "",
+    stock: p ? String(p.stock) : "",
+    reorderLevel: p ? String(p.reorderLevel) : "",
     taxClass: p?.taxClass ?? defaults?.taxClass ?? "STANDARD_16",
     classificationCode: p?.classificationCode ?? "",
     attrs: { ...emptyProductAttrs(), ...(p?.attrs ?? {}) },
@@ -137,7 +137,7 @@ export function ProductForm({
             <Input
               id="pn"
               required
-              placeholder="Unga Pembe 2kg"
+              placeholder="Product name"
               value={draft.name}
               onChange={(e) => set("name", e.target.value)}
             />
@@ -166,7 +166,7 @@ export function ProductForm({
               </Label>
               <Input
                 id="sku"
-                placeholder="UNG-2K"
+                placeholder="SKU or barcode"
                 value={draft.sku}
                 onChange={(e) => set("sku", e.target.value)}
               />
@@ -179,7 +179,7 @@ export function ProductForm({
             <Textarea
               id="pdesc"
               rows={3}
-              placeholder="Maize flour — 2kg bag. Fast mover on Saturday."
+              placeholder="Optional notes"
               value={draft.description}
               onChange={(e) => set("description", e.target.value)}
             />

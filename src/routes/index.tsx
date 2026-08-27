@@ -38,7 +38,7 @@ const steps = [
   { time: "30s", title: "Create your account", body: "Name, shop name, email and password — then confirm the email OTP." },
   { time: "45s", title: "Business & GPS pin", body: "Finish shop setup: category and one-tap location detection." },
   { time: "30s", title: "Payment destination", body: "Add your M-Pesa number, Till or Paybill. The 3-day trial starts when you finish." },
-  { time: "15s", title: "First test sale", body: "Land on the POS with a sample product and check out immediately." },
+  { time: "15s", title: "First sale", body: "Add a product on inventory, then ring it up on the till." },
 ];
 
 function Landing() {
@@ -100,17 +100,17 @@ function Landing() {
             <div className="relative">
               <div className="bg-card mx-auto w-full max-w-sm rounded-3xl border border-border/60 p-5 shadow-lift">
                 <div className="flex items-center justify-between">
-                  <p className="font-display text-sm font-semibold">Today · Njoroge Mini Mart</p>
-                  <Badge variant="secondary">Live</Badge>
+                  <p className="font-display text-sm font-semibold">Today · Your till</p>
+                  <Badge variant="secondary">Preview</Badge>
                 </div>
-                <p className="mt-4 font-display text-3xl font-bold">{KES(18600)}</p>
-                <p className="text-muted-foreground text-xs">34 sales · 6 on credit</p>
+                <p className="mt-4 font-display text-3xl font-bold">M-Pesa on the sale</p>
+                <p className="text-muted-foreground text-xs">STK, Till and Paybill land in the same book</p>
 
                 <div className="mt-5 space-y-2.5">
                   {[
-                    { n: "Unga Pembe 2kg", a: 195, c: "M-Pesa STK" },
-                    { n: "Cooking Oil 1L", a: 340, c: "Till" },
-                    { n: "Fresh Milk 500ml", a: 70, c: "Cash" },
+                    { n: "STK prompt", c: "Customer pays from their phone" },
+                    { n: "Named credit", c: "Due date on the ledger" },
+                    { n: "Cash in the book", c: "Same day's till" },
                   ].map((r) => (
                     <div
                       key={r.n}
@@ -120,7 +120,6 @@ function Landing() {
                         <p className="text-sm font-medium">{r.n}</p>
                         <p className="text-muted-foreground text-[11px]">{r.c}</p>
                       </div>
-                      <p className="text-sm font-semibold">{KES(r.a)}</p>
                     </div>
                   ))}
                 </div>
@@ -130,8 +129,7 @@ function Landing() {
                     <Sparkles className="size-3.5" /> AI insight
                   </p>
                   <p className="text-primary/90 mt-1 text-xs leading-relaxed">
-                    Sugar runs out Thursday at the current pace. Order 2 cartons before Friday's
-                    rush.
+                    Restock notes land before you run out — from this shop's real sales and stock.
                   </p>
                 </div>
               </div>
@@ -188,7 +186,7 @@ function Landing() {
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {[
               {
-                who: "Mama Njoroge",
+                who: "Duka owner",
                 what: "Retail duka owner",
                 pain: "Manual ledger books, lost credit records, unmatched M-Pesa texts.",
                 fix: "2-tap credit recording and STK that posts itself to the sale.",

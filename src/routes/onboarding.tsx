@@ -120,7 +120,7 @@ const provisioningSteps = [
   "Creating your shop workspace",
   "Linking your M-Pesa destination",
   "Saving your plan",
-  "Loading starter products",
+  "Opening your till",
   "Starting your free trial",
 ];
 
@@ -681,7 +681,7 @@ function Onboarding() {
                   <FieldError id="otp-error" message={errors["otp"]} />
                   <p id="otp-hint" className="text-muted-foreground text-xs">
                     {otpSent
-                      ? "Demo mode — enter any four digits."
+                      ? "Enter the four-digit code, then Continue."
                       : "Tap Send code and we'll SMS a four-digit code."}
                   </p>
                 </div>
@@ -706,7 +706,7 @@ function Onboarding() {
                     aria-invalid={Boolean(errors["business"])}
                     aria-describedby={errors["business"] ? "bn-error" : undefined}
                     autoComplete="organization"
-                    placeholder="Njoroge Mini Mart"
+                    placeholder="Your shop name"
                     value={business}
                     maxLength={60}
                     onChange={(e) => {
