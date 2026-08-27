@@ -3,7 +3,7 @@ import { resolveSecret } from "../_shared/daraja.ts";
 
 const DEFAULT_FROM = "InuaBiz <support@mail.inuabiz.co.ke>";
 const DEFAULT_SITE = "https://inuabiz.co.ke";
-const APP_URL = "https://app.inuabiz.co.ke";
+const APP_URL = "https://inuabiz.co.ke";
 
 type Body = {
   sale_id?: string;

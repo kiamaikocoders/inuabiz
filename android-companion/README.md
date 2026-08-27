@@ -4,7 +4,7 @@ Sideload APK for the phone that holds the shop M-Pesa SIM. It is **not** publish
 
 ## Pairing
 
-1. Owner opens **Settings** on https://app.inuabiz.co.ke and taps **Pair phone**.
+1. Owner opens **Settings** on https://inuabiz.co.ke/app/settings and taps **Pair phone**.
 2. Copy the `ibc_…` token (shown once).
 3. Install this APK, paste the token, allow SMS.
 4. Keep the quiet notification running.

@@ -80,7 +80,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/credit" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open credit book</a>
+            <a href="https://inuabiz.co.ke/app/credit" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open credit book</a>
           </td>
         </tr>
       </table>
@@ -197,7 +197,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#B8472E;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/inventory" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open inventory</a>
+            <a href="https://inuabiz.co.ke/app/inventory" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open inventory</a>
           </td>
         </tr>
       </table>
@@ -310,7 +310,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/billing" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Subscribe — KES 3,000</a>
+            <a href="https://inuabiz.co.ke/app/billing" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Subscribe — KES 3,000</a>
           </td>
         </tr>
       </table>
@@ -427,7 +427,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/billing" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">View billing</a>
+            <a href="https://inuabiz.co.ke/app/billing" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">View billing</a>
           </td>
         </tr>
       </table>
@@ -544,7 +544,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#B8472E;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/billing" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Retry payment</a>
+            <a href="https://inuabiz.co.ke/app/billing" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Retry payment</a>
           </td>
         </tr>
       </table>
@@ -665,7 +665,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/app/sales" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open the day</a>
+            <a href="https://inuabiz.co.ke/app/sales" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Open the day</a>
           </td>
         </tr>
       </table>
@@ -778,7 +778,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#121816;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/maintenance" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Status page</a>
+            <a href="https://inuabiz.co.ke/maintenance" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Status page</a>
           </td>
         </tr>
       </table>
@@ -887,7 +887,7 @@ values
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
         <tr>
           <td align="center" style="background:#0B6E4F;border-radius:999px;">
-            <a href="https://app.inuabiz.co.ke/contact" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Visit help</a>
+            <a href="https://inuabiz.co.ke/contact" style="display:block;padding:12px 32px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;color:#F7F4EF;text-decoration:none;">Visit help</a>
           </td>
         </tr>
       </table>

@@ -15,7 +15,7 @@ export type VendorProfile = {
 };
 
 function appOrigin(): string {
-  return typeof window !== "undefined" ? window.location.origin : "https://app.inuabiz.co.ke";
+  return typeof window !== "undefined" ? window.location.origin : "https://inuabiz.co.ke";
 }
 
 function emailRedirectTo(path: string): string {

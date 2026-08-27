@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">InuaBiz Companion</string>
-    <string name="intro">Paste the token from Settings on app.inuabiz.co.ke. This phone must hold the shop M-Pesa SIM.</string>
+    <string name="intro">Paste the token from Settings on inuabiz.co.ke. This phone must hold the shop M-Pesa SIM.</string>
     <string name="token_hint">ibc_…</string>
     <string name="save">Save and listen</string>
     <string name="unpair">Unpair this phone</string>

@@ -27,7 +27,7 @@ const steps = [
   {
     n: "1",
     title: "Pair from Settings",
-    body: "On app.inuabiz.co.ke, open Settings as the owner and tap Pair phone. Copy the token — it is shown once.",
+    body: "On inuabiz.co.ke, sign in, open Settings as the owner and tap Pair phone. Copy the token — it is shown once.",
   },
   {
     n: "2",

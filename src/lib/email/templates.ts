@@ -28,8 +28,8 @@ type Spec = Omit<InuaBizEmailOpts, "siteUrl" | "bodyHtml"> & {
   body: string;
 };
 
-const APP = "https://app.inuabiz.co.ke";
-const ADMIN = "https://admin.inuabiz.co.ke";
+const APP = "https://inuabiz.co.ke";
+const ADMIN = "https://inuabiz.co.ke";
 
 const SPECS: Spec[] = [
   {
