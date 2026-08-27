@@ -10,7 +10,9 @@ import { AuthSplit } from "@/components/auth/AuthSplit";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { AUTH_SCENES } from "@/lib/auth-scenes";
 import {
+  challengeAndVerifyTotp,
   fetchProfile,
+  mfaNeedsChallenge,
   sendPasswordReset,
   signInWithEmail,
   updatePassword,
@@ -32,13 +34,27 @@ export const Route = createFileRoute("/login")({
   component: Login,
 });
 
+async function continueAfterAuth(navigate: ReturnType<typeof useNavigate>) {
+  const profile = await fetchProfile();
+  if (profile?.role === "SUPER_ADMIN") {
+    await navigate({ to: "/admin" });
+    return;
+  }
+  if (!profile?.tenant_id || !profile.onboarding_completed_at) {
+    await navigate({ to: "/onboarding" });
+    return;
+  }
+  await navigate({ to: "/app" });
+}
+
 function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [rememberMe, setRememberMeState] = useState(true);
-  const [stage, setStage] = useState<"signin" | "forgot" | "reset">("signin");
+  const [stage, setStage] = useState<"signin" | "forgot" | "reset" | "mfa">("signin");
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
     setRememberMeState(getRememberMe());
@@ -49,18 +65,82 @@ function Login() {
   useEffect(() => {
     const sb = getSupabase();
     if (!sb) return;
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const recovery = hash.includes("type=recovery") || hash.includes("type=password_recovery");
+    if (!recovery) {
+      void (async () => {
+        const { data } = await sb.auth.getSession();
+        if (!data.session) return;
+        if (await mfaNeedsChallenge()) return;
+        await continueAfterAuth(navigate);
+      })();
+    }
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setStage("reset");
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   return (
     <AuthSplit scene={AUTH_SCENES.login}>
       <div>
-        {stage === "forgot" ? (
+        {stage === "mfa" ? (
+          <>
+            <h1 className="text-2xl font-bold">Authenticator code</h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Enter the 6-digit code from your authenticator app to finish sign-in.
+            </p>
+            <form
+              className="mt-8 space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (mfaCode.length !== 6) {
+                  toast.error("Enter the 6-digit code");
+                  return;
+                }
+                setBusy(true);
+                void challengeAndVerifyTotp(mfaCode)
+                  .then(async () => {
+                    toast.success("Signed in");
+                    await continueAfterAuth(navigate);
+                  })
+                  .catch((err: unknown) => {
+                    toast.error("Could not verify", {
+                      description: err instanceof Error ? err.message : "Check the code and try again",
+                    });
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="mfa-code">Code</Label>
+                <Input
+                  id="mfa-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  required
+                />
+              </div>
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                {busy ? "Verifying…" : "Continue"}
+              </Button>
+            </form>
+            <p className="text-muted-foreground mt-8 text-center text-sm">
+              <button
+                type="button"
+                className="text-primary font-medium hover:underline"
+                onClick={() => setStage("signin")}
+              >
+                Back to sign in
+              </button>
+            </p>
+          </>
+        ) : stage === "forgot" ? (
           <>
             <h1 className="text-2xl font-bold">Reset password</h1>
             <p className="text-muted-foreground mt-2 text-sm">
@@ -131,16 +211,7 @@ function Login() {
                 void updatePassword(password)
                   .then(async () => {
                     toast.success("Password updated");
-                    const profile = await fetchProfile();
-                    if (profile?.role === "SUPER_ADMIN") {
-                      await navigate({ to: "/admin" });
-                      return;
-                    }
-                    if (!profile?.tenant_id || !profile.onboarding_completed_at) {
-                      await navigate({ to: "/onboarding" });
-                      return;
-                    }
-                    await navigate({ to: "/app" });
+                    await continueAfterAuth(navigate);
                   })
                   .catch((err: unknown) => {
                     toast.error("Could not update password", {
@@ -184,17 +255,19 @@ function Login() {
                 setBusy(true);
                 void signInWithEmail(email, password)
                   .then(async () => {
-                    const profile = await fetchProfile();
+                    let needsMfa = false;
+                    try {
+                      needsMfa = await mfaNeedsChallenge();
+                    } catch {
+                      needsMfa = false;
+                    }
+                    if (needsMfa) {
+                      setMfaCode("");
+                      setStage("mfa");
+                      return;
+                    }
                     toast.success("Signed in");
-                    if (profile?.role === "SUPER_ADMIN") {
-                      await navigate({ to: "/admin" });
-                      return;
-                    }
-                    if (!profile?.tenant_id || !profile.onboarding_completed_at) {
-                      await navigate({ to: "/onboarding" });
-                      return;
-                    }
-                    await navigate({ to: "/app" });
+                    await continueAfterAuth(navigate);
                   })
                   .catch((err: unknown) => {
                     toast.error("Could not sign in", {

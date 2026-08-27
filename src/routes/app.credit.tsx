@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/table";
 import { KES } from "@/lib/mock-data";
 import { fetchCreditBook, recordCredit, remindCredit } from "@/lib/data";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/app/credit")({
   head: () => ({
@@ -171,7 +170,7 @@ function Credit() {
           tone="danger"
           hint={`${overdue.length} customers`}
         />
-        <StatCard label="Reminders" value={isSupabaseConfigured() ? "Email" : "Demo"} />
+        <StatCard label="Reminders" value="Email" />
       </div>
 
       <div className="surface-card mt-4 p-5">

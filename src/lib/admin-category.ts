@@ -7,7 +7,6 @@ import {
   type BusinessCategory,
   type FeatureModule,
 } from "@/lib/category";
-import { tenants as mockTenants } from "@/lib/mock-data";
 import { getSupabase } from "@/lib/supabase";
 
 export type AdminShopRow = {
@@ -63,21 +62,9 @@ export type CategoryMix = {
   tenants: number;
 };
 
-function mockShops(): AdminShopRow[] {
-  return mockTenants.map((t) => ({
-    id: t.id,
-    tenantId: t.id,
-    tenantName: t.business,
-    name: t.business,
-    category: parseCategory(t.category),
-    address: t.town,
-    isDefault: true,
-  }));
-}
-
 export async function fetchAdminShops(): Promise<AdminShopRow[]> {
   const sb = getSupabase();
-  if (!sb) return mockShops();
+  if (!sb) return [];
   const { data: shops, error } = await sb
     .from("shops")
     .select("id, tenant_id, name, category, address_text, is_default")

@@ -18,10 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { KES, sales as mockSales } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import { fetchSales } from "@/lib/data";
 import { downloadCsv, fetchAuditInvoices } from "@/lib/ops";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/app/sales")({
   head: () => ({
@@ -44,7 +43,7 @@ function Sales() {
   const [tab, setTab] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const { data: sales = isSupabaseConfigured() ? [] : mockSales } = useQuery({
+  const { data: sales = [] } = useQuery({
     queryKey: ["sales"],
     queryFn: fetchSales,
   });

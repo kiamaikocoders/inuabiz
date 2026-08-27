@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, products as mockProducts } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import { fetchProducts } from "@/lib/data";
 import { useShopCategory } from "@/hooks/use-shop-category";
 
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/app/inventory")({
 function Inventory() {
   const [q, setQ] = useState("");
   const { def, hasModule } = useShopCategory();
-  const { data: products = mockProducts } = useQuery({
+  const { data: products = [] } = useQuery({
     queryKey: ["products"],
     queryFn: fetchProducts,
   });

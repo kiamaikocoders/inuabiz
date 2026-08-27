@@ -1,14 +1,8 @@
 import { askAi } from "@/lib/ai-server";
+import { fetchTenants } from "@/lib/data";
+import { fetchMrrSnapshot, fetchNotifications, fetchUnclaimedPayments } from "@/lib/ops";
 import { getSupabase } from "@/lib/supabase";
-import {
-  KES,
-  adminNotifications,
-  mrrTrend,
-  platformHealth,
-  tenants,
-  unclaimedPayments,
-  type Tenant,
-} from "@/lib/mock-data";
+import { KES, type Tenant } from "@/lib/mock-data";
 
 export type AdminAiRunType =
   | "briefing"
@@ -18,14 +12,38 @@ export type AdminAiRunType =
   | "tenant_brief"
   | "chat";
 
+export type HealthRow = {
+  name: string;
+  detail: string;
+  status: string;
+  value: number;
+};
+
+export type SnapshotVendor = {
+  id: string;
+  business: string;
+  phone: string;
+  town: string;
+  status: Tenant["status"];
+};
+
+export type SnapshotUnclaimed = {
+  id: string;
+  amount: number;
+  account: string;
+  apiRef: string;
+  reason: string;
+};
+
 export type PlatformSnapshot = {
   generatedAt: string;
   mrrKes: number;
   tenantCounts: Record<Tenant["status"], number> & { total: number };
   trials: Array<{ id: string; business: string; town: string }>;
   attention: Array<{ id: string; business: string; status: Tenant["status"]; town: string }>;
-  unclaimed: { count: number; valueKes: number; items: typeof unclaimedPayments };
-  health: typeof platformHealth;
+  vendors: SnapshotVendor[];
+  unclaimed: { count: number; valueKes: number; items: SnapshotUnclaimed[] };
+  health: HealthRow[];
   towns: Array<{ town: string; count: number }>;
   alerts: Array<{ title: string; message: string; priority: string }>;
 };
@@ -68,7 +86,54 @@ function extractJson(raw: string): unknown {
   return JSON.parse(body.slice(start, end + 1));
 }
 
-export function buildPlatformSnapshot(): PlatformSnapshot {
+function digits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function matchUnclaimed(
+  items: SnapshotUnclaimed[],
+  vendors: SnapshotVendor[],
+): UnclaimedMatch[] {
+  const matches: UnclaimedMatch[] = [];
+  for (const p of items) {
+    const needle = digits(p.account).slice(-9);
+    if (needle.length < 6) continue;
+    let best: { vendor: SnapshotVendor; score: number } | null = null;
+    for (const v of vendors) {
+      const hay = digits(v.phone);
+      if (!hay) continue;
+      const score =
+        hay.includes(needle) || needle.includes(hay.slice(-9))
+          ? 88
+          : hay.slice(-4) === needle.slice(-4)
+            ? 54
+            : 0;
+      if (score && (!best || score > best.score)) best = { vendor: v, score };
+    }
+    if (!best) continue;
+    matches.push({
+      paymentId: p.id,
+      tenantId: best.vendor.id,
+      business: best.vendor.business,
+      confidence: best.score,
+      reason:
+        best.score >= 80
+          ? `Phone ${p.account} matches ${best.vendor.business} (${best.vendor.phone}).`
+          : `Last four ${needle.slice(-4)} is closest to ${best.vendor.phone}. ${p.reason}.`,
+    });
+  }
+  return matches;
+}
+
+export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
+  const [tenants, unclaimed, mrr, notes, spend] = await Promise.all([
+    fetchTenants(),
+    fetchUnclaimedPayments(),
+    fetchMrrSnapshot(),
+    fetchNotifications(),
+    fetchAiSpendThisMonth(),
+  ]);
+
   const byStatus = tenants.reduce(
     (acc, t) => {
       acc[t.status] += 1;
@@ -85,9 +150,37 @@ export function buildPlatformSnapshot(): PlatformSnapshot {
     .map(([town, count]) => ({ town, count }))
     .sort((a, b) => b.count - a.count);
 
+  const health: HealthRow[] = [
+    {
+      name: "Paying tenants",
+      detail: `${mrr?.active_tenants ?? byStatus.Active} active · ${KES(mrr?.mrr_kes ?? tenants.filter((t) => t.status === "Active").reduce((s, t) => s + t.mrr, 0))} MRR`,
+      status: (mrr?.active_tenants ?? byStatus.Active) > 0 ? "Healthy" : "Degraded",
+      value: Math.min(100, (mrr?.active_tenants ?? byStatus.Active) * 8),
+    },
+    {
+      name: "Unclaimed queue",
+      detail: `${unclaimed.length} unmatched · ${KES(unclaimed.reduce((s, p) => s + p.amount, 0))}`,
+      status: unclaimed.length === 0 ? "Healthy" : unclaimed.length > 5 ? "Critical" : "Degraded",
+      value: Math.min(100, unclaimed.length * 15),
+    },
+    {
+      name: "Trials",
+      detail: `${mrr?.trial_tenants ?? byStatus.Trial} open trials`,
+      status: "Healthy",
+      value: Math.min(100, (mrr?.trial_tenants ?? byStatus.Trial) * 12),
+    },
+    {
+      name: "Admin AI",
+      detail: `${spend.runs} runs · ${KES(Math.round(spend.costKes))} this month`,
+      status: "Healthy",
+      value: Math.min(100, spend.runs * 6),
+    },
+  ];
+
   return {
     generatedAt: new Date().toISOString(),
-    mrrKes: tenants.filter((t) => t.status === "Active").reduce((s, t) => s + t.mrr, 0),
+    mrrKes:
+      mrr?.mrr_kes ?? tenants.filter((t) => t.status === "Active").reduce((s, t) => s + t.mrr, 0),
     tenantCounts: { ...byStatus, total: tenants.length },
     trials: tenants
       .filter((t) => t.status === "Trial")
@@ -95,15 +188,29 @@ export function buildPlatformSnapshot(): PlatformSnapshot {
     attention: tenants
       .filter((t) => t.status === "Error" || t.status === "Suspended")
       .map((t) => ({ id: t.id, business: t.business, status: t.status, town: t.town })),
+    vendors: tenants.map((t) => ({
+      id: t.id,
+      business: t.business,
+      phone: t.phone,
+      town: t.town,
+      status: t.status,
+    })),
     unclaimed: {
-      count: unclaimedPayments.length,
-      valueKes: unclaimedPayments.reduce((s, p) => s + p.amount, 0),
-      items: unclaimedPayments,
+      count: unclaimed.length,
+      valueKes: unclaimed.reduce((s, p) => s + p.amount, 0),
+      items: unclaimed.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        account: p.account,
+        apiRef: p.apiRef,
+        reason: p.reason,
+      })),
     },
-    health: platformHealth,
+    health,
     towns,
-    alerts: adminNotifications
+    alerts: notes
       .filter((n) => !n.read)
+      .slice(0, 8)
       .map((n) => ({ title: n.title, message: n.message, priority: n.priority })),
   };
 }
@@ -127,27 +234,19 @@ function heuristicBriefing(snap: PlatformSnapshot): AdminBriefing {
     })),
   ];
 
-  const unclaimedMatches: UnclaimedMatch[] = snap.unclaimed.items.map((p, i) => {
-    const guess = tenants[i % tenants.length]!;
-    return {
-      paymentId: p.id,
-      tenantId: guess.id,
-      business: guess.business,
-      confidence: 62 - i * 8,
-      reason: `Phone fragment ${p.account.slice(-4)} is closest to ${guess.phone}. ${p.reason}.`,
-    };
-  });
+  const unclaimedMatches = matchUnclaimed(snap.unclaimed.items, snap.vendors);
+  const trialNames = snap.trials.map((t) => t.business).join(", ") || "no open trials";
 
   return {
     headline: `${KES(snap.mrrKes)} MRR · ${snap.unclaimed.count} unclaimed · ${atRisk.length} vendors need a human`,
-    summary: `Platform is collecting ${KES(snap.mrrKes)}/mo across ${snap.tenantCounts.Active} paying dukas. ${snap.tenantCounts.Trial} trials are still open. ${KES(snap.unclaimed.valueKes)} sits in the unclaimed queue — match C2B/Paybill orphans before lunch.`,
+    summary: `Platform is collecting ${KES(snap.mrrKes)}/mo across ${snap.tenantCounts.Active} paying dukas. ${snap.tenantCounts.Trial} trials are still open. ${KES(snap.unclaimed.valueKes)} sits in the unclaimed queue.`,
     briefingPoints: [
-      `Convert ${snap.trials.map((t) => t.business).join(", ") || "no open trials"} before the 3-day clock runs out.`,
-      `Map ${snap.unclaimed.count} orphan payments (${KES(snap.unclaimed.valueKes)}) — auto-match is not 100%.`,
+      `Convert ${trialNames} before the 3-day clock runs out.`,
+      `Map ${snap.unclaimed.count} orphan payments (${KES(snap.unclaimed.valueKes)}).`,
       snap.health.find((h) => h.status !== "Healthy")
         ? `${snap.health.find((h) => h.status !== "Healthy")!.name} is ${snap.health.find((h) => h.status !== "Healthy")!.status.toLowerCase()}.`
-        : "All health checks are green.",
-      `GIS density is heaviest in ${snap.towns[0]?.town ?? "Nairobi"} (${snap.towns[0]?.count ?? 0} stores).`,
+        : "Live health checks that we measure are green.",
+      `GIS density is heaviest in ${snap.towns[0]?.town ?? "—"} (${snap.towns[0]?.count ?? 0} stores).`,
     ],
     actions: [
       {
@@ -228,11 +327,11 @@ async function logRun(
 }
 
 export async function runAdminBriefing(): Promise<AdminBriefing> {
-  const snap = buildPlatformSnapshot();
+  const snap = await buildPlatformSnapshot();
   const fallback = heuristicBriefing(snap);
   try {
     const { text, model } = await complete(
-      "You are the InuaBiz super-admin copilot for a Kenyan micro-POS SaaS (KES 3,000 per shop / month Standard, 3-day trial, Daraja M-Pesa STK). Shop category (Duka, Boutique, Chemist, Hardware, Eatery, Electronics, Agritech, Services, Other) drives till modules — expiry, kitchen tickets, floor tables, serials. Point operators to /admin/categories for that desk. Reply with JSON only: {headline, summary, briefingPoints: string[], actions: [{title, why, href}], atRisk: [{id, business, severity, reason}], unclaimedMatches: [{paymentId, tenantId, business, confidence, reason}]}. href must be an existing admin path like /admin/unclaimed or /admin/categories. Use KES. Be blunt and operational. Keep under 180 words in summary+points.",
+      "You are the InuaBiz super-admin copilot for a Kenyan micro-POS SaaS (KES 3,000 per shop / month Standard, 3-day trial, Daraja M-Pesa STK). Shop category (Duka, Boutique, Chemist, Hardware, Eatery, Electronics, Agritech, Services, Other) drives till modules — expiry, kitchen tickets, floor tables, serials. Point operators to /admin/categories for that desk. Reply with JSON only: {headline, summary, briefingPoints: string[], actions: [{title, why, href}], atRisk: [{id, business, severity, reason}], unclaimedMatches: [{paymentId, tenantId, business, confidence, reason}]}. href must be an existing admin path like /admin/unclaimed or /admin/categories. Use KES. Be blunt and operational. Keep under 180 words in summary+points. Never invent tenants, payments or phone numbers that are not in the snapshot.",
       JSON.stringify(snap),
       1100,
     );
@@ -258,10 +357,10 @@ export async function runAdminBriefing(): Promise<AdminBriefing> {
 }
 
 export async function draftBroadcast(audience: string, intent: string): Promise<string> {
-  const snap = buildPlatformSnapshot();
+  const snap = await buildPlatformSnapshot();
   try {
     const { text, model } = await complete(
-      "Write one short in-app banner for Kenyan duka owners. JSON only: {message}. Max 160 characters. No hashtags. Kiswahili mix is OK if natural. Audience and intent are given.",
+      "Write one short in-app banner for Kenyan duka owners. JSON only: {message}. Max 160 characters. No hashtags. Kiswahili mix is OK if natural. Audience and intent are given. Do not invent MRR or trial counts.",
       JSON.stringify({ audience, intent, mrrKes: snap.mrrKes, trials: snap.trials.length }),
       200,
     );
@@ -294,7 +393,7 @@ export async function improveEmailSubject(name: string, current: string): Promis
 export async function briefTenant(tenant: Tenant): Promise<{ summary: string; nextSteps: string[] }> {
   try {
     const { text, model } = await complete(
-      "You brief an InuaBiz support agent before they impersonate a Kenyan vendor. JSON only: {summary, nextSteps: string[]}. 80 words max. Practical. Mention the shop category till they will see (chemist expiry, eatery floor, tickets, serials) when the category is not Duka.",
+      "You brief an InuaBiz support agent before they impersonate a Kenyan vendor. JSON only: {summary, nextSteps: string[]}. 80 words max. Practical. Mention the shop category till they will see (chemist expiry, eatery floor, tickets, serials) when the category is not Duka. Do not invent sales figures.",
       JSON.stringify(tenant),
       400,
     );
@@ -327,11 +426,11 @@ export async function askAdminCopilot(
   question: string,
   history: Array<{ role: "user" | "assistant"; content: string }>,
 ): Promise<string> {
-  const snap = buildPlatformSnapshot();
+  const snap = await buildPlatformSnapshot();
   const messages = [
     {
       role: "system",
-      content: `You are the InuaBiz operator copilot. Answer from the snapshot. Money in KES. Point to /admin/* routes including /admin/communications and /admin/categories (shop-level category, expiry, tickets, floor). Snapshot: ${JSON.stringify(snap)}. Latest MRR trend: ${JSON.stringify(mrrTrend)}.`,
+      content: `You are the InuaBiz operator copilot. Answer only from the snapshot. If the snapshot does not contain the answer, say you do not have that figure. Money in KES. Point to /admin/* routes including /admin/communications and /admin/categories (shop-level category, expiry, tickets, floor). Snapshot: ${JSON.stringify(snap)}.`,
     },
     ...history.slice(-8),
     { role: "user", content: question },

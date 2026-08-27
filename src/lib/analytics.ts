@@ -75,6 +75,7 @@ export function track(name: string, props: Record<string, unknown> = {}): void {
 export const ONBOARDING_STEPS = [
   "phone_verification",
   "business_details",
+  "shop_photo",
   "payment_destination",
   "plan_choice",
 ] as const;

@@ -64,6 +64,7 @@ export type Sale = {
   channel: "M-Pesa STK" | "M-Pesa" | "PayHero" | "Cash" | "Till" | "Paybill" | "Credit";
   customer: string;
   status: "Complete" | "Pending" | "Failed";
+  createdAt?: string;
 };
 
 export const sales: Sale[] = [
@@ -190,6 +191,7 @@ export type NotificationItem = {
   priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
   read: boolean;
   time: string;
+  createdAt?: string;
 };
 
 export const vendorNotifications: NotificationItem[] = [
@@ -241,6 +243,7 @@ export type Tenant = {
   joined: string;
   lat: number;
   lng: number;
+  createdAt?: string;
 };
 
 export const tenants: Tenant[] = [

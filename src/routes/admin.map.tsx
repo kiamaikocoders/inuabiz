@@ -1,17 +1,20 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, MapPin } from "lucide-react";
+import { Eye, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/admin/StatusPill";
-import { KES, tenants as mockTenants, type Tenant } from "@/lib/mock-data";
+import { KES, type Tenant } from "@/lib/mock-data";
 import { VendorMap } from "@/components/admin/VendorMap";
+import { MapLegend } from "@/components/admin/MapLegend";
 import { fetchTenants, startImpersonation } from "@/lib/data";
 import { MAPBOX_TOKEN } from "@/lib/mapbox";
 import { fetchAdminShops, shopCategoriesLabel, shopsForTenant } from "@/lib/admin-category";
+import { parseCategory, type BusinessCategory } from "@/lib/category";
+import { DEFAULT_MAP_LAYERS, type MapLayers } from "@/lib/map-legend";
 
 export const Route = createFileRoute("/admin/map")({
   head: () => ({
@@ -31,7 +34,7 @@ export const Route = createFileRoute("/admin/map")({
 
 function StoreMap() {
   const navigate = useNavigate();
-  const { data: tenantList = mockTenants } = useQuery({
+  const { data: tenantList = [] } = useQuery({
     queryKey: ["admin-tenants"],
     queryFn: fetchTenants,
   });
@@ -39,27 +42,66 @@ function StoreMap() {
     queryKey: ["admin-shops"],
     queryFn: fetchAdminShops,
   });
-  const [selected, setSelected] = useState<Tenant | null>(tenantList[0] ?? null);
-  const current = selected ?? tenantList[0] ?? null;
+  const [selected, setSelected] = useState<Tenant | null>(null);
+  const [layers, setLayers] = useState<MapLayers>(DEFAULT_MAP_LAYERS);
+  const [legendOpen, setLegendOpen] = useState(true);
+  const current = selected;
+
+  const categoryOf = (t: Tenant): BusinessCategory => {
+    const shop = shopsForTenant(shops, t.id)[0];
+    return shop?.category ?? parseCategory(t.category);
+  };
+
+  const presentCategories = useMemo(() => {
+    const set = new Set<BusinessCategory>();
+    for (const t of tenantList) set.add(categoryOf(t));
+    return set;
+    // shops is used inside categoryOf
+  }, [tenantList, shops]);
 
   return (
     <AdminShell
       title="GIS store map"
       description="Vendor locations with live status markers"
+      contentClassName="p-0 sm:p-0 overflow-hidden"
       actions={
         <Badge variant="outline" className="rounded-full">
           {MAPBOX_TOKEN ? "Mapbox streets-v12" : "Token missing"}
         </Badge>
       }
     >
-      <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <div className="surface-card overflow-hidden p-0">
-          <VendorMap tenants={tenantList} selected={current} onSelect={setSelected} />
-        </div>
+      <div className="relative h-[calc(100dvh-72px)] w-full">
+        <VendorMap
+          tenants={tenantList}
+          selected={current}
+          onSelect={setSelected}
+          layers={layers}
+          categoryOf={categoryOf}
+        />
 
-        <div className="space-y-4">
+        <div className="pointer-events-none absolute inset-0 z-10 p-3 sm:p-4">
+          <div className="pointer-events-auto absolute top-3 left-3 sm:top-4 sm:left-4 lg:top-auto lg:bottom-4">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="mb-2 lg:hidden"
+              onClick={() => setLegendOpen((open) => !open)}
+            >
+              <KeyRound className="mr-1.5 size-3.5" />
+              {legendOpen ? "Hide map key" : "Map key"}
+            </Button>
+            <div className={legendOpen ? "block" : "hidden lg:block"}>
+              <MapLegend
+                layers={layers}
+                onChange={setLayers}
+                presentCategories={presentCategories}
+              />
+            </div>
+          </div>
+
           {current && (
-            <div className="surface-card p-5">
+            <div className="pointer-events-auto surface-card absolute top-3 right-3 max-h-[min(52vh,28rem)] w-[min(100%-1.5rem,22rem)] overflow-y-auto p-5 shadow-lg sm:top-4 sm:right-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">{current.business}</h2>
@@ -72,7 +114,10 @@ function StoreMap() {
 
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                 {[
-                  ["Category", shopCategoriesLabel(shopsForTenant(shops, current.id)) || current.category],
+                  [
+                    "Category",
+                    shopCategoriesLabel(shopsForTenant(shops, current.id)) || current.category,
+                  ],
                   ["Town", current.town],
                   ["Joined", current.joined],
                   ["MRR", current.mrr ? KES(current.mrr) : "—"],
@@ -110,25 +155,6 @@ function StoreMap() {
               </Button>
             </div>
           )}
-
-          <div className="surface-card p-5">
-            <h2 className="inline-flex items-center gap-2 font-semibold">
-              <MapPin className="text-primary size-4" /> Regional density
-            </h2>
-            <div className="mt-4 space-y-2">
-              {Object.entries(
-                tenantList.reduce<Record<string, number>>((acc, t) => {
-                  acc[t.town] = (acc[t.town] ?? 0) + 1;
-                  return acc;
-                }, {}),
-              ).map(([town, count]) => (
-                <div key={town} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{town}</span>
-                  <span className="font-semibold">{count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </AdminShell>

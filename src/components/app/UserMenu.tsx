@@ -45,13 +45,17 @@ export function UserMenu({
         >
           <span
             className={cn(
-              "grid size-9 place-items-center rounded-full text-[11px] font-bold",
+              "grid size-9 place-items-center overflow-hidden rounded-full text-[11px] font-bold",
               kind === "admin"
                 ? "bg-foreground text-background"
                 : "bg-primary-soft text-primary",
             )}
           >
-            {letters}
+            {identity.avatarUrl ? (
+              <img src={identity.avatarUrl} alt="" className="size-full object-cover" />
+            ) : (
+              letters
+            )}
           </span>
           <span className="hidden min-w-0 text-left sm:block">
             <span className="block max-w-36 truncate text-xs font-semibold leading-tight">

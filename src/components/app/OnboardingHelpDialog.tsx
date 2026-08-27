@@ -67,6 +67,28 @@ const HELP: StepHelp[] = [
     ],
   },
   {
+    title: "Help with your shop photo",
+    intro: "A photo of the shopfront or counter is optional. Skip it now if you are in a hurry.",
+    faqs: [
+      {
+        q: "Do I have to add a photo?",
+        a: "No. Tap Skip for now and finish setup. You can upload a photo later from Profile or Settings.",
+      },
+      {
+        q: "What photo should I use?",
+        a: "A clear shot of the shopfront, till, or signage works best. JPEG, PNG or WebP under 2 MB.",
+      },
+      {
+        q: "Where does the photo show?",
+        a: "On your InuaBiz profile and shop settings. It is not posted publicly on the marketing site.",
+      },
+      {
+        q: "Can I change it later?",
+        a: "Yes. Open Settings → Business Profile, or Profile, and tap the photo to replace it.",
+      },
+    ],
+  },
+  {
     title: "Help with payment destination",
     intro: "Add every channel customers already pay into. Mark one as primary for checkout prompts.",
     faqs: [

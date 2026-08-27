@@ -25,7 +25,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
-import { vendorNotifications } from "@/lib/mock-data";
 import { stopGhost, useGhost } from "@/lib/ghost";
 import { useIdentity } from "@/lib/identity";
 import { UserMenu } from "@/components/app/UserMenu";
@@ -187,7 +186,7 @@ export function AppShell({
     queryFn: fetchNotifications,
     enabled: isSupabaseConfigured(),
   });
-  const unread = (liveNotes ?? vendorNotifications).filter((n) => !n.read).length;
+  const unread = (liveNotes ?? []).filter((n) => !n.read).length;
   const { data: access = true } = useQuery({
     queryKey: ["tenant-access"],
     queryFn: fetchTenantAccess,

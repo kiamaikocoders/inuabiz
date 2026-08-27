@@ -34,8 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, mrrTrend, platformHealth, tenants as mockTenants } from "@/lib/mock-data";
-import { fetchTenants } from "@/lib/data";
+import { KES } from "@/lib/mock-data";
+import { fetchTenants, mrrTrendFromTenants } from "@/lib/data";
+import { fetchAiSpendThisMonth } from "@/lib/admin-ai";
 import { fetchMrrSnapshot, fetchUnclaimedPayments } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { categoryMix, fetchAdminShops, shopCategoriesLabel, shopsForTenant } from "@/lib/admin-category";
@@ -97,7 +98,7 @@ function MrrTooltip({
 
 function AdminOverview() {
   const live = isSupabaseConfigured();
-  const { data: tenants = live ? [] : mockTenants } = useQuery({
+  const { data: tenants = [] } = useQuery({
     queryKey: ["admin-tenants"],
     queryFn: fetchTenants,
     enabled: live,
@@ -116,13 +117,18 @@ function AdminOverview() {
     queryKey: ["admin-shops"],
     queryFn: fetchAdminShops,
   });
+  const { data: aiSpend } = useQuery({
+    queryKey: ["admin-ai-spend"],
+    queryFn: fetchAiSpendThisMonth,
+    enabled: live,
+  });
   const mix = categoryMix(shops);
   const active = tenants.filter((t) => t.status === "Active");
   const trials = tenants.filter((t) => t.status === "Trial");
   const mrr = snap?.mrr_kes ?? active.reduce((s, t) => s + t.mrr, 0);
-  const unclaimedCount = live ? unclaimed.length : 0;
+  const unclaimedCount = unclaimed.length;
   const latest = { month: "Now", mrr };
-  const chart = mrrTrend.map((row, i) => (i === mrrTrend.length - 1 ? { ...row, mrr } : row));
+  const chart = mrrTrendFromTenants(tenants);
   const [selected, setSelected] = useState<string[]>([]);
 
   const toggle = (id: string, checked: boolean) => {
@@ -166,21 +172,23 @@ function AdminOverview() {
         <StatCard
           label="Monthly recurring revenue"
           value={KES(mrr)}
-          delta={29}
           icon={Wallet}
           tone="violet"
         />
         <StatCard
           label="Active tenants"
           value={String(active.length)}
-          delta={12}
           icon={Store}
           tone="success"
         />
         <StatCard
           label="Trials running"
           value={String(snap?.trial_tenants ?? trials.length)}
-          deltaLabel="68% conv."
+          hint={
+            snap?.conversions_this_month
+              ? `${snap.conversions_this_month} converted this month`
+              : "open trials"
+          }
           tone="gold"
           icon={Hourglass}
         />
@@ -189,12 +197,10 @@ function AdminOverview() {
           value={String(unclaimedCount)}
           icon={ShieldAlert}
           tone="danger"
-          deltaLabel="needs mapping"
         />
         <StatCard
           label="Past due"
           value={String(snap?.past_due_tenants ?? tenants.filter((t) => t.status === "Error").length)}
-          delta={-1}
           icon={TrendingDown}
           tone="muted"
         />
@@ -228,58 +234,87 @@ function AdminOverview() {
         <div className="surface-card p-5 lg:col-span-2">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold">MRR growth</h2>
+              <h2 className="text-sm font-semibold">MRR (cumulative by signup month)</h2>
               <p className="mt-1 font-display text-[22px] font-bold">
                 {latest ? KES(latest.mrr) : "—"}
               </p>
             </div>
-            <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
-              +29% MoM
-            </span>
           </div>
           <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chart} margin={{ left: -12, right: 8, top: 8 }}>
-                <defs>
-                  <linearGradient id="gMrr" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--color-border)"
-                  vertical={false}
-                />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
-                <YAxis tickLine={false} axisLine={false} fontSize={12} hide />
-                <Tooltip
-                  content={
-                    <MrrTooltip
-                      activeTenants={snap?.active_tenants ?? active.length}
-                      trials={snap?.trial_tenants ?? trials.length}
-                      unclaimed={unclaimedCount}
-                    />
-                  }
-                />
-                <Area
-                  type="monotone"
-                  dataKey="mrr"
-                  stroke="var(--color-chart-1)"
-                  strokeWidth={2.5}
-                  fill="url(#gMrr)"
-                  dot={{ r: 4, strokeWidth: 0, fill: "var(--color-chart-1)" }}
-                  activeDot={{ r: 5 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chart.some((r) => r.mrr > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chart} margin={{ left: -12, right: 8, top: 8 }}>
+                  <defs>
+                    <linearGradient id="gMrr" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--color-border)"
+                    vertical={false}
+                  />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis tickLine={false} axisLine={false} fontSize={12} hide />
+                  <Tooltip
+                    content={
+                      <MrrTooltip
+                        activeTenants={snap?.active_tenants ?? active.length}
+                        trials={snap?.trial_tenants ?? trials.length}
+                        unclaimed={unclaimedCount}
+                      />
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="mrr"
+                    stroke="var(--color-chart-1)"
+                    strokeWidth={2.5}
+                    fill="url(#gMrr)"
+                    dot={{ r: 4, strokeWidth: 0, fill: "var(--color-chart-1)" }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground flex h-full items-center justify-center text-sm">
+                MRR appears when paying tenants are on the map.
+              </p>
+            )}
           </div>
         </div>
 
         <div className="surface-card p-5">
-          <h2 className="text-sm font-semibold">Platform health</h2>
+          <h2 className="text-sm font-semibold">Live ops</h2>
           <div className="mt-4 space-y-4">
-            {platformHealth.slice(0, 4).map((h) => (
+            {[
+              {
+                name: "Unclaimed queue",
+                status: unclaimedCount === 0 ? "Healthy" : "Degraded",
+                value: Math.min(100, unclaimedCount * 15),
+                detail: `${unclaimedCount} unmatched payments`,
+              },
+              {
+                name: "Trials",
+                status: "Healthy",
+                value: Math.min(100, (snap?.trial_tenants ?? trials.length) * 12),
+                detail: `${snap?.trial_tenants ?? trials.length} open`,
+              },
+              {
+                name: "Past due",
+                status:
+                  (snap?.past_due_tenants ?? 0) > 0 ? "Degraded" : "Healthy",
+                value: Math.min(100, (snap?.past_due_tenants ?? 0) * 20),
+                detail: `${snap?.past_due_tenants ?? 0} tenants`,
+              },
+              {
+                name: "Admin AI",
+                status: "Healthy",
+                value: Math.min(100, (aiSpend?.runs ?? 0) * 6),
+                detail: `${aiSpend?.runs ?? 0} runs · ${KES(Math.round(aiSpend?.costKes ?? 0))} this month`,
+              },
+            ].map((h) => (
               <div key={h.name}>
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="font-medium">{h.name}</span>

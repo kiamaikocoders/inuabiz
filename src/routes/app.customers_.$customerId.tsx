@@ -4,8 +4,8 @@ import { ArrowLeft, Phone } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { KES, debts, sales } from "@/lib/mock-data";
-import { fetchCustomer } from "@/lib/data";
+import { KES } from "@/lib/mock-data";
+import { fetchCreditBook, fetchCustomer, fetchSales } from "@/lib/data";
 
 export const Route = createFileRoute("/app/customers_/$customerId")({
   head: () => ({
@@ -20,6 +20,8 @@ function CustomerDetail() {
     queryKey: ["customer", customerId],
     queryFn: () => fetchCustomer(customerId),
   });
+  const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: fetchSales });
+  const { data: debts = [] } = useQuery({ queryKey: ["credit-book"], queryFn: fetchCreditBook });
 
   if (!customer) {
     return (
@@ -29,10 +31,12 @@ function CustomerDetail() {
     );
   }
 
-  const relatedSales = sales.filter((s) =>
-    s.customer.toLowerCase().includes(customer.name.split(" ")[0]!.toLowerCase()),
+  const relatedSales = sales.filter(
+    (s) =>
+      s.customer.toLowerCase().includes(customer.name.split(" ")[0]!.toLowerCase()) ||
+      (customer.phone && s.customer.replace(/\s/g, "").includes(customer.phone.replace(/\s/g, ""))),
   );
-  const relatedDebt = debts.filter((d) => d.phone === customer.phone || d.customer === customer.name);
+  const relatedDebt = debts.filter((d) => d.phone === customer.phone || d.id === customer.id);
 
   return (
     <AppShell title={customer.name} description={customer.phone}>
@@ -102,7 +106,10 @@ function CustomerDetail() {
           <div className="surface-card p-5">
             <h3 className="font-semibold">Recent sales</h3>
             <div className="mt-3 space-y-2">
-              {(relatedSales.length ? relatedSales : sales.slice(0, 3)).map((s) => (
+              {relatedSales.length === 0 && (
+                <p className="text-muted-foreground text-sm">No matching sales on this till.</p>
+              )}
+              {relatedSales.map((s) => (
                 <Link
                   key={s.id}
                   to="/app/sales/$saleId"

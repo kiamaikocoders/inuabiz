@@ -8,6 +8,7 @@ export type VendorProfile = {
   role: string;
   full_name: string | null;
   phone: string | null;
+  avatar_url?: string | null;
   active_shop_id?: string | null;
   pending_shop_name?: string | null;
   onboarding_completed_at?: string | null;
@@ -119,7 +120,7 @@ export async function fetchProfile(): Promise<VendorProfile | null> {
   if (!user) return null;
   const { data } = await sb
     .from("profiles")
-    .select("id, tenant_id, role, full_name, phone, active_shop_id, pending_shop_name, onboarding_completed_at")
+    .select("id, tenant_id, role, full_name, phone, avatar_url, active_shop_id, pending_shop_name, onboarding_completed_at")
     .eq("id", user.id)
     .maybeSingle();
   return (data as VendorProfile | null) ?? null;
@@ -200,6 +201,7 @@ export async function completeOnboarding(input: {
 export async function updateProfile(patch: {
   full_name?: string;
   phone?: string;
+  avatar_url?: string | null;
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -234,9 +236,171 @@ export async function updatePassword(password: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export function friendlyMfaError(message: string): string {
+  if (/mfa|not enabled|disabled|unsupported|enroll/i.test(message)) {
+    return "Authenticator codes are not available on this account yet. Try again later, or email hello@inuabiz.co.ke.";
+  }
+  return message;
+}
+
+/** Re-auth with the current password, then set a new one. TOTP is required if MFA is enrolled. */
+export async function changePassword(current: string, next: string, totpCode?: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { data } = await sb.auth.getUser();
+  const email = data.user?.email?.trim();
+  if (!email) throw new Error("This account has no email to confirm the change");
+  const { error: reauth } = await sb.auth.signInWithPassword({ email, password: current });
+  if (reauth) throw new Error("Current password is incorrect");
+  if (await mfaNeedsChallenge()) {
+    if (!totpCode?.trim()) throw new Error("Enter the 6-digit code from your authenticator app");
+    await challengeAndVerifyTotp(totpCode);
+  }
+  const { error } = await sb.auth.updateUser({ password: next });
+  if (error) throw new Error(error.message);
+}
+
+export type AuthAccount = {
+  email: string;
+  lastSignInAt: string | null;
+};
+
+export async function fetchAuthAccount(): Promise<AuthAccount | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data } = await sb.auth.getUser();
+  const user = data.user;
+  if (!user) return null;
+  return {
+    email: user.email ?? "",
+    lastSignInAt: user.last_sign_in_at ?? null,
+  };
+}
+
+export async function totpFactorEnabled(): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb) return false;
+  const { data, error } = await sb.auth.mfa.listFactors();
+  if (error) return false;
+  return (data.totp ?? []).some((factor) => factor.status === "verified");
+}
+
+export async function enrollTotp(): Promise<{ factorId: string; qr: string; secret: string }> {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Sign in is offline in this demo.");
+  const listed = await sb.auth.mfa.listFactors();
+  for (const factor of listed.data?.all ?? []) {
+    if (factor.factor_type === "totp" && factor.status === "unverified") {
+      await sb.auth.mfa.unenroll({ factorId: factor.id });
+    }
+  }
+  const { data, error } = await sb.auth.mfa.enroll({
+    factorType: "totp",
+    friendlyName: "InuaBiz",
+  });
+  if (error || !data) throw new Error(friendlyMfaError(error?.message ?? "Could not start two-factor setup"));
+  if (data.type !== "totp" || !data.totp) throw new Error("Authenticator setup is not available");
+  return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret };
+}
+
+export async function verifyTotpEnrollment(factorId: string, code: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const challenge = await sb.auth.mfa.challenge({ factorId });
+  if (challenge.error || !challenge.data) {
+    throw new Error(challenge.error?.message ?? "Could not start verification");
+  }
+  const verified = await sb.auth.mfa.verify({
+    factorId,
+    challengeId: challenge.data.id,
+    code: code.trim(),
+  });
+  if (verified.error) throw new Error(verified.error.message);
+  await sb.auth.refreshSession();
+}
+
+export async function disableTotp(code?: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  if (!code?.trim()) throw new Error("Enter the 6-digit code from your authenticator app");
+  await challengeAndVerifyTotp(code);
+  const { data, error } = await sb.auth.mfa.listFactors();
+  if (error) throw new Error(error.message);
+  const factor = (data.totp ?? []).find((item) => item.status === "verified");
+  if (!factor) return;
+  const { error: unenrollError } = await sb.auth.mfa.unenroll({ factorId: factor.id });
+  if (unenrollError) throw new Error(unenrollError.message);
+  await sb.auth.refreshSession();
+}
+
+export async function mfaNeedsChallenge(): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb) return false;
+  const { data, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error || !data) return false;
+  return data.nextLevel === "aal2" && data.currentLevel !== "aal2";
+}
+
+export async function challengeAndVerifyTotp(code: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const factors = await sb.auth.mfa.listFactors();
+  if (factors.error) throw new Error(factors.error.message);
+  const factor = (factors.data.totp ?? []).find((item) => item.status === "verified");
+  if (!factor) throw new Error("No authenticator is set up on this account");
+  const challenge = await sb.auth.mfa.challenge({ factorId: factor.id });
+  if (challenge.error || !challenge.data) {
+    throw new Error(challenge.error?.message ?? "Could not start verification");
+  }
+  const verified = await sb.auth.mfa.verify({
+    factorId: factor.id,
+    challengeId: challenge.data.id,
+    code: code.trim(),
+  });
+  if (verified.error) throw new Error(verified.error.message);
+}
+
+export async function signOutOtherSessions(): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.auth.signOut({ scope: "others" });
+  if (error) throw new Error(error.message);
+}
+
+export function describeThisDevice(): { title: string; detail: string } {
+  if (typeof navigator === "undefined") {
+    return { title: "This device", detail: "Current session" };
+  }
+  const ua = navigator.userAgent;
+  const browser = /Edg\//.test(ua)
+    ? "Edge"
+    : /Chrome\//.test(ua)
+      ? "Chrome"
+      : /Firefox\//.test(ua)
+        ? "Firefox"
+        : /Safari\//.test(ua)
+          ? "Safari"
+          : "Browser";
+  const os = /Windows NT/.test(ua)
+    ? "Windows"
+    : /Mac OS X/.test(ua)
+      ? "macOS"
+      : /Android/.test(ua)
+        ? "Android"
+        : /iPhone|iPad/.test(ua)
+          ? "iOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "This device";
+  return { title: `${os} · ${browser}`, detail: "This device · Active now" };
+}
+
 /** Redirect to login when Supabase is configured but there is no session. */
 export async function requireAuthSession(): Promise<void> {
   if (!isSupabaseConfigured()) return;
+  // Auth tokens live in the browser. SSR has no localStorage, so a reload
+  // would look logged-out and bounce to /login if we checked on the server.
+  if (typeof window === "undefined") return;
   const sb = getSupabase();
   if (!sb) return;
   const { data } = await sb.auth.getSession();

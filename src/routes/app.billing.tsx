@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Check, CreditCard, Repeat, Smartphone } from "lucide-react";
 import { toast } from "sonner";
@@ -26,9 +26,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS, paymentHistory as mockHistory } from "@/lib/mock-data";
+import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 import { prettyKePhone } from "@/lib/phone";
-import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { invokeFunction } from "@/lib/supabase";
 import {
   fetchBillingSnapshot,
   fetchPaymentHistory,
@@ -61,7 +61,7 @@ function Billing() {
     queryKey: ["billing"],
     queryFn: fetchBillingSnapshot,
   });
-  const { data: history = isSupabaseConfigured() ? [] : mockHistory } = useQuery({
+  const { data: history = [] } = useQuery({
     queryKey: ["payment-history"],
     queryFn: fetchPaymentHistory,
   });
@@ -81,20 +81,7 @@ function Billing() {
         ? "Past due"
         : `Trial · ${daysLeft} days left`;
 
-  const rows = useMemo(
-    () =>
-      history.length || isSupabaseConfigured()
-        ? history
-        : mockHistory.map((p) => ({
-            id: p.id,
-            invoice: p.invoice,
-            date: p.date,
-            amount: p.amount,
-            channel: p.channel,
-            status: p.status,
-          })),
-    [history],
-  );
+  const rows = history;
 
   const pay = async () => {
     setBusy(true);

@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { StatCard } from "@/components/app/StatCard";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { KES, customers as mockCustomers } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import { fetchCustomers } from "@/lib/data";
 
 export const Route = createFileRoute("/app/customers")({
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/app/customers")({
 
 function Customers() {
   const [q, setQ] = useState("");
-  const { data: customers = mockCustomers } = useQuery({
+  const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: fetchCustomers,
   });

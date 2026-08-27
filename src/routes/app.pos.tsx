@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { KES, products as mockProducts } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import {
   fetchPrimaryPaymentDestination,
   fetchProducts,
@@ -88,7 +88,7 @@ function POS() {
     queryFn: fetchPrimaryPaymentDestination,
     enabled: isSupabaseConfigured(),
   });
-  const products = liveProducts ?? (isSupabaseConfigured() ? [] : mockProducts);
+  const products = liveProducts ?? [];
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("All");
@@ -174,16 +174,8 @@ function POS() {
     setReceiptCode("");
 
     if (!isSupabaseConfigured()) {
-      setCheckoutDestination(
-        paymentDestination ?? {
-          destinationType: "PERSONAL_MPESA",
-          accountNumber: "0712 345 678",
-          accountName: "Demo shop",
-        },
-      );
-      setBillRef("DEMO1234");
       setBusy(false);
-      setPayOpen(true);
+      toast.error("Sign in to record a sale", { description: "Supabase is not configured on this build." });
       return;
     }
 
@@ -248,17 +240,7 @@ function POS() {
 
     if (!isSupabaseConfigured()) {
       setBusy(false);
-      if (channel === "CASH") {
-        toast.success("Cash sale recorded");
-        finishSale("Cash", "Walk-in");
-      } else {
-        setCreditOpen(false);
-        const customer = shopCustomers.find((c) => c.id === customerId);
-        toast.success("Added to credit ledger", {
-          description: customer ? `Attached to ${customer.name}.` : "Credit sale recorded.",
-        });
-        finishSale("Credit", customer?.name ?? "Customer");
-      }
+      toast.error("Sign in to record a sale", { description: "Supabase is not configured on this build." });
       return;
     }
 
@@ -297,9 +279,7 @@ function POS() {
 
     if (!isSupabaseConfigured()) {
       setBusy(false);
-      setMpesaState("done");
-      saveLastSale(buildSale("M-Pesa", receiptCode, activeSaleId));
-      toast.success("Payment confirmed");
+      toast.error("Sign in to confirm M-Pesa", { description: "Supabase is not configured on this build." });
       return;
     }
 

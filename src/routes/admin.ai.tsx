@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
@@ -44,7 +45,10 @@ export const Route = createFileRoute("/admin/ai")({
 type ChatTurn = { role: "user" | "assistant"; content: string };
 
 function AdminAi() {
-  const snap = buildPlatformSnapshot();
+  const { data: snap } = useQuery({
+    queryKey: ["admin-ai-snapshot"],
+    queryFn: buildPlatformSnapshot,
+  });
   const [briefing, setBriefing] = useState<AdminBriefing | null>(null);
   const [busy, setBusy] = useState(false);
   const [spend, setSpend] = useState({ runs: 0, costKes: 0 });
@@ -108,16 +112,16 @@ function AdminAi() {
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Paying MRR" value={KES(snap.mrrKes)} icon={Wallet} tone="violet" />
+        <StatCard label="Paying MRR" value={KES(snap?.mrrKes ?? 0)} icon={Wallet} tone="violet" />
         <StatCard
           label="Vendors needing a human"
-          value={String(snap.attention.length + snap.trials.length)}
+          value={String((snap?.attention.length ?? 0) + (snap?.trials.length ?? 0))}
           icon={AlertTriangle}
           tone="gold"
         />
         <StatCard
           label="Unclaimed cash"
-          value={KES(snap.unclaimed.valueKes)}
+          value={KES(snap?.unclaimed.valueKes ?? 0)}
           icon={Banknote}
           tone="danger"
         />

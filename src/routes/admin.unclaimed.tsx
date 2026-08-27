@@ -22,11 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, tenants as mockTenants, unclaimedPayments } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import { suggestUnclaimedMatches } from "@/lib/admin-ai";
 import { assignUnclaimed, fetchUnclaimedPayments } from "@/lib/ops";
 import { fetchTenants } from "@/lib/data";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin/unclaimed")({
   head: () => ({
@@ -46,16 +45,13 @@ export const Route = createFileRoute("/admin/unclaimed")({
 
 function Unclaimed() {
   const queryClient = useQueryClient();
-  const live = isSupabaseConfigured();
-  const { data: queue = live ? [] : unclaimedPayments } = useQuery({
+  const { data: queue = [] } = useQuery({
     queryKey: ["unclaimed-payments"],
     queryFn: fetchUnclaimedPayments,
-    enabled: live,
   });
-  const { data: tenantList = live ? [] : mockTenants } = useQuery({
+  const { data: tenantList = [] } = useQuery({
     queryKey: ["admin-tenants"],
     queryFn: fetchTenants,
-    enabled: live,
   });
   const [assign, setAssign] = useState<Record<string, string>>({});
   const [matching, setMatching] = useState(false);

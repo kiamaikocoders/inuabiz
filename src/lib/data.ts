@@ -1,9 +1,4 @@
 import {
-  customers as mockCustomers,
-  debts as mockDebts,
-  products as mockProducts,
-  sales as mockSales,
-  tenants as mockTenants,
   KES,
   type Customer,
   type DebtEntry,
@@ -46,7 +41,7 @@ const SALE_STATUS: Record<string, Sale["status"]> = {
 
 export async function fetchProducts(): Promise<Product[]> {
   const sb = getSupabase();
-  if (!sb) return mockProducts;
+  if (!sb) return [];
   const { data, error } = await sb
     .from("products")
     .select("id, name, sku, cost_price, selling_price, stock_qty, low_stock_threshold")
@@ -110,20 +105,24 @@ export async function saveProduct(
   return { demo: false, id: data.id as string };
 }
 
+function nairobiDay(iso: string | Date): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
+}
+
 export async function fetchSales(): Promise<Sale[]> {
   const sb = getSupabase();
-  if (!sb) return mockSales;
+  if (!sb) return [];
   const { data, error } = await sb
     .from("sales")
     .select("id, total, status, payment_channel, customer_phone, created_at")
     .order("created_at", { ascending: false })
     .limit(50);
-  if (error || !data?.length) return mockSales;
-  return data.map((row, i) => {
+  if (error || !data?.length) return [];
+  return data.map((row) => {
     const created = new Date(row.created_at as string);
     return {
       id: row.id as string,
-      ref: `SL-${String(i + 10231)}`,
+      ref: `SL-${String(row.id).slice(0, 8).toUpperCase()}`,
       time: created.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" }),
       items: 1,
       total: Number(row.total),
@@ -132,6 +131,7 @@ export async function fetchSales(): Promise<Sale[]> {
         ? prettyKePhone(row.customer_phone as string)
         : "Walk-in",
       status: SALE_STATUS[String(row.status)] ?? "Pending",
+      createdAt: row.created_at as string,
     };
   });
 }
@@ -155,11 +155,11 @@ export async function fetchShopCustomers(): Promise<{ id: string; name: string; 
 
 export async function fetchCustomers(): Promise<Customer[]> {
   const sb = getSupabase();
-  if (!sb) return mockCustomers;
+  if (!sb) return [];
   const { data, error } = await sb
     .from("customer_loyalty_stats")
     .select("customer_id, name, phone, paid_sale_count, lifetime_spend, last_paid_at, credit_balance");
-  if (error || !data?.length) return mockCustomers;
+  if (error || !data?.length) return [];
   return data.map((row) => {
     const spend = Number(row.lifetime_spend);
     const visits = Number(row.paid_sale_count);
@@ -189,13 +189,13 @@ export async function fetchCustomer(id: string): Promise<Customer | undefined> {
 
 export async function fetchTenants(): Promise<Tenant[]> {
   const sb = getSupabase();
-  if (!sb) return mockTenants;
+  if (!sb) return [];
   const { data, error } = await sb
     .from("admin_tenant_map")
     .select(
       "id, name, category, phone, status, location_lat, location_lng, address_text, created_at, subscription_amount",
     );
-  if (error || !data?.length) return mockTenants;
+  if (error || !data?.length) return [];
   return data.map((row) => ({
     id: row.id as string,
     business: row.name as string,
@@ -212,7 +212,205 @@ export async function fetchTenants(): Promise<Tenant[]> {
     }),
     lat: Number(row.location_lat ?? -1.2921),
     lng: Number(row.location_lng ?? 36.8219),
+    createdAt: row.created_at as string,
   }));
+}
+
+export type WeekPoint = { day: string; sales: number; credit: number };
+export type ChannelShare = { channel: string; value: number };
+export type CashflowPoint = { week: string; actual: number | null; forecast: number };
+
+function weekdayShort(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-KE", {
+    weekday: "short",
+    timeZone: "Africa/Nairobi",
+  });
+}
+
+/**
+ * Last 7 Nairobi calendar days of paid sales vs credit charges.
+ */
+export async function fetchWeekTrend(): Promise<WeekPoint[]> {
+  const days: WeekPoint[] = [];
+  const today = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    days.push({ day: weekdayShort(d.toISOString()), sales: 0, credit: 0 });
+  }
+  const keys = days.map((_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (6 - i));
+    return nairobiDay(d);
+  });
+  const index = new Map(keys.map((k, i) => [k, i]));
+
+  const sb = getSupabase();
+  if (!sb) return days;
+  const since = new Date();
+  since.setDate(since.getDate() - 7);
+
+  const { data: sales } = await sb
+    .from("sales")
+    .select("total, paid_at, created_at, status")
+    .gte("created_at", since.toISOString())
+    .limit(2000);
+  for (const row of sales ?? []) {
+    if (String(row.status) !== "PAID") continue;
+    const key = nairobiDay((row.paid_at as string | null) ?? (row.created_at as string));
+    const i = index.get(key);
+    if (i == null) continue;
+    days[i]!.sales += Number(row.total);
+  }
+
+  const { data: credit } = await sb
+    .from("credit_entries")
+    .select("amount, created_at, entry_type")
+    .eq("entry_type", "CHARGE")
+    .gte("created_at", since.toISOString())
+    .limit(2000);
+  for (const row of credit ?? []) {
+    const key = nairobiDay(row.created_at as string);
+    const i = index.get(key);
+    if (i == null) continue;
+    days[i]!.credit += Number(row.amount);
+  }
+  return days;
+}
+
+export async function fetchChannelSplit(): Promise<ChannelShare[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - 7);
+  const { data } = await sb
+    .from("sales")
+    .select("total, payment_channel, status")
+    .eq("status", "PAID")
+    .gte("paid_at", since.toISOString())
+    .limit(2000);
+  const totals = new Map<string, number>();
+  let sum = 0;
+  for (const row of data ?? []) {
+    const label = CHANNEL_MAP[String(row.payment_channel)] ?? "Cash";
+    const amt = Number(row.total);
+    totals.set(label, (totals.get(label) ?? 0) + amt);
+    sum += amt;
+  }
+  if (!sum) return [];
+  return [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([channel, value]) => ({ channel, value: Math.round((value / sum) * 100) }));
+}
+
+/**
+ * Weekly paid revenue for the last `past` weeks, plus a 2-week moving-average forecast.
+ */
+export async function fetchCashflowWeeks(past = 4): Promise<CashflowPoint[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const start = new Date();
+  start.setDate(start.getDate() - past * 7);
+  const { data } = await sb
+    .from("sales")
+    .select("total, paid_at, status")
+    .eq("status", "PAID")
+    .gte("paid_at", start.toISOString())
+    .limit(4000);
+
+  const buckets = new Map<string, number>();
+  for (let i = past - 1; i >= 0; i--) {
+    buckets.set(`W${past - i}`, 0);
+  }
+  const now = Date.now();
+  for (const row of data ?? []) {
+    const paid = new Date(row.paid_at as string).getTime();
+    const weeksAgo = Math.floor((now - paid) / (7 * 86_400_000));
+    if (weeksAgo < 0 || weeksAgo >= past) continue;
+    const label = `W${past - weeksAgo}`;
+    buckets.set(label, (buckets.get(label) ?? 0) + Number(row.total));
+  }
+
+  const actuals = [...buckets.entries()].map(([week, actual]) => ({ week, actual }));
+  const window = actuals.slice(-3).map((r) => r.actual);
+  const avg = window.length ? window.reduce((s, n) => s + n, 0) / window.length : 0;
+  const last = actuals.at(-1)?.actual ?? 0;
+  const points: CashflowPoint[] = actuals.map((r, i) => ({
+    week: r.week,
+    actual: r.actual,
+    forecast: i === 0 ? r.actual : Math.round((r.actual + (actuals[i - 1]?.actual ?? r.actual)) / 2),
+  }));
+  points.push({ week: `W${past + 1}`, actual: null, forecast: Math.round(avg || last) });
+  points.push({
+    week: `W${past + 2}`,
+    actual: null,
+    forecast: Math.round((avg || last) * 1.04),
+  });
+  return points;
+}
+
+export function mrrTrendFromTenants(
+  tenants: Tenant[],
+): Array<{ month: string; mrr: number; tenants: number }> {
+  const now = new Date();
+  const months: Array<{ month: string; end: Date }> = [];
+  for (let i = 5; i >= 0; i--) {
+    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59);
+    months.push({
+      month: start.toLocaleString("en-KE", { month: "short" }),
+      end,
+    });
+  }
+  return months.map(({ month, end }, idx) => {
+    const isLatest = idx === months.length - 1;
+    const active = tenants.filter((t) => {
+      if (t.status !== "Active") return false;
+      if (!t.createdAt) return isLatest;
+      return new Date(t.createdAt) <= end;
+    });
+    return {
+      month,
+      mrr: active.reduce((s, t) => s + t.mrr, 0),
+      tenants: active.length,
+    };
+  });
+}
+
+export async function fetchTodaySales(): Promise<{
+  total: number;
+  count: number;
+  yesterday: number;
+}> {
+  const sb = getSupabase();
+  if (!sb) return { total: 0, count: 0, yesterday: 0 };
+  const now = new Date();
+  const todayKey = nairobiDay(now);
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  const yesterdayKey = nairobiDay(y);
+  const since = new Date();
+  since.setDate(since.getDate() - 2);
+  const { data } = await sb
+    .from("sales")
+    .select("total, paid_at, created_at, status")
+    .eq("status", "PAID")
+    .gte("created_at", since.toISOString())
+    .limit(2000);
+  let total = 0;
+  let count = 0;
+  let yesterday = 0;
+  for (const row of data ?? []) {
+    const key = nairobiDay((row.paid_at as string | null) ?? (row.created_at as string));
+    const amt = Number(row.total);
+    if (key === todayKey) {
+      total += amt;
+      count += 1;
+    } else if (key === yesterdayKey) {
+      yesterday += amt;
+    }
+  }
+  return { total, count, yesterday };
 }
 
 export async function fetchTenant(id: string): Promise<Tenant | undefined> {
@@ -286,7 +484,7 @@ function creditStatus(dueAt: string | null): DebtEntry["status"] {
 
 export async function fetchCreditBook(): Promise<DebtEntry[]> {
   const sb = getSupabase();
-  if (!sb) return mockDebts;
+  if (!sb) return [];
 
   const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
   if (!profile?.tenant_id) return [];

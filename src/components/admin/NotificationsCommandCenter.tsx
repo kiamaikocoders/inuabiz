@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
@@ -14,10 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  adminNotifications,
   type AdminNotificationDomain,
   type AdminNotificationItem,
+  type NotificationItem,
 } from "@/lib/mock-data";
+import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/ops";
 
 type DomainFilter = "all" | "critical" | AdminNotificationDomain;
 
@@ -48,6 +50,63 @@ const RULES = [
   ["Broadcasts", "Log only — no extra ping"],
 ];
 
+function inferDomain(n: NotificationItem): AdminNotificationDomain {
+  const hay = `${n.title} ${n.message} ${n.type}`.toLowerCase();
+  if (hay.includes("unclaimed")) return "unclaimed";
+  if (n.type === "SUBSCRIPTION" || hay.includes("trial") || hay.includes("renew")) {
+    return "subscriptions";
+  }
+  if (hay.includes("broadcast") || hay.includes("newsletter") || hay.includes("email")) {
+    return "comms";
+  }
+  if (hay.includes("ai") || hay.includes("briefing") || hay.includes("copilot")) return "ai";
+  if (hay.includes("webhook") || hay.includes("stk") || hay.includes("daraja")) return "webhooks";
+  if (hay.includes("vendor") || hay.includes("signup") || hay.includes("onboard")) return "vendors";
+  return "health";
+}
+
+const DOMAIN_LABEL: Record<AdminNotificationDomain, string> = {
+  unclaimed: "Unclaimed",
+  vendors: "Vendors",
+  subscriptions: "Subscriptions",
+  webhooks: "Webhooks",
+  ai: "Admin AI",
+  comms: "Communications",
+  health: "Health / System",
+};
+
+function toAdminItem(n: NotificationItem): AdminNotificationItem {
+  const domain = inferDomain(n);
+  const created = n.createdAt ? new Date(n.createdAt) : new Date();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const day: "today" | "yesterday" = created >= startOfToday ? "today" : "yesterday";
+  const stamp = created.toLocaleString("en-KE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return {
+    ...n,
+    domain,
+    domainLabel: DOMAIN_LABEL[domain],
+    day,
+    clock: n.time,
+    occurredAt: stamp,
+    receivedDetail: stamp,
+    firstSeen: stamp,
+    lastUpdate: stamp,
+    source: n.type.toLowerCase(),
+    owner: "Ops",
+    tenant: "—",
+    shop: "—",
+    primaryHref: "/admin/notifications",
+    primaryLabel: "Open",
+  };
+}
+
 function letter(item: AdminNotificationItem): string {
   return item.domainLabel.charAt(0).toUpperCase();
 }
@@ -61,10 +120,15 @@ function severityOf(item: AdminNotificationItem) {
  * dated live feed and an event-detail pane — mapped onto InuaBiz ops.
  */
 export function NotificationsCommandCenter() {
-  const [items, setItems] = useState(adminNotifications);
+  const queryClient = useQueryClient();
+  const { data: live = [] } = useQuery({
+    queryKey: ["notifications", "self"],
+    queryFn: fetchNotifications,
+  });
+  const items = live.map(toAdminItem);
   const [domain, setDomain] = useState<DomainFilter>("all");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(adminNotifications[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState("");
 
   const kpis = useMemo(() => {
     const unread = items.filter((n) => !n.read).length;
@@ -115,12 +179,15 @@ export function NotificationsCommandCenter() {
   const selected = filtered.find((n) => n.id === selectedId) ?? filtered[0] ?? null;
 
   const markRead = (id: string) => {
-    setItems((all) => all.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    void markNotificationRead(id).then(() =>
+      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    );
   };
 
   const markAllRead = () => {
-    setItems((all) => all.map((n) => ({ ...n, read: true })));
-    toast.success("All marked as read");
+    void markAllNotificationsRead()
+      .then(() => queryClient.invalidateQueries({ queryKey: ["notifications"] }))
+      .then(() => toast.success("All marked as read"));
   };
 
   return (
@@ -223,11 +290,22 @@ export function NotificationsCommandCenter() {
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold">Live activity feed</p>
             <div className="flex items-center gap-2 text-[11px]">
-              <span className="text-muted-foreground font-medium">Today · 19 Aug 2026</span>
+              <span className="text-muted-foreground font-medium">
+                {new Date().toLocaleDateString("en-KE", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
               <span className="text-primary">Realtime</span>
             </div>
           </div>
 
+          {filtered.length === 0 && (
+            <p className="text-muted-foreground px-3 py-12 text-center text-sm">
+              No notifications yet.
+            </p>
+          )}
           {(["today", "yesterday"] as const).map((day) => {
             const rows = filtered.filter((n) => n.day === day);
             if (!rows.length) return null;

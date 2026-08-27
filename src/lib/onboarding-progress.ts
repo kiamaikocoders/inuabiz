@@ -11,6 +11,7 @@ export type OnboardingPayChannels = Record<
 >;
 
 export type OnboardingDraft = {
+  schema?: number;
   step: number;
   phone: string;
   otpSent: boolean;
@@ -85,8 +86,16 @@ export function loadDraft(): OnboardingDraft | null {
     }
     const plan = draft.planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY";
     const { channels, primary } = normalizeChannels(draft);
+    const schema = draft.schema === 2 ? 2 : 1;
+    const step =
+      schema === 2
+        ? Math.min(Math.max(draft.step, 0), 4)
+        : draft.step >= 2
+          ? Math.min(draft.step + 1, 4)
+          : Math.min(Math.max(draft.step, 0), 1);
     return {
-      step: Math.min(Math.max(draft.step, 0), 3),
+      schema: 2,
+      step,
       phone: draft.phone ?? "",
       otpSent: draft.otpSent ?? false,
       business: draft.business ?? "",
@@ -103,10 +112,10 @@ export function loadDraft(): OnboardingDraft | null {
   }
 }
 
-export function saveDraft(draft: Omit<OnboardingDraft, "updatedAt">): void {
+export function saveDraft(draft: Omit<OnboardingDraft, "updatedAt" | "schema">): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEY, JSON.stringify({ ...draft, updatedAt: Date.now() }));
+    localStorage.setItem(KEY, JSON.stringify({ ...draft, schema: 2, updatedAt: Date.now() }));
   } catch {
     /* ignore quota errors */
   }

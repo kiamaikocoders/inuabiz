@@ -50,6 +50,13 @@ export const ONBOARDING_STEPS = [
     caption: "Category shapes the till, inventory fields and extra screens for this shop.",
   },
   {
+    id: "photo",
+    label: "Photo",
+    image: "/images/about-options/about-a-intro-new-duka.png",
+    imageAlt: "Newly painted neighbourhood duka in morning light, shutter half open at the doorway",
+    caption: "A shop photo is optional — skip it now and add one later in Settings.",
+  },
+  {
     id: "pay",
     label: "Pay",
     image: "/images/onboarding/pay-boutique.jpg",

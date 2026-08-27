@@ -86,6 +86,15 @@ export async function fetchBillingSnapshot(): Promise<BillingSnapshot | null> {
   };
 }
 
+export type VendorPlanBadge = "Free trial" | "Standard" | "Compliance";
+
+export function vendorPlanBadge(snap: BillingSnapshot | null | undefined): VendorPlanBadge {
+  if (!snap) return "Free trial";
+  const status = snap.status.toUpperCase();
+  if (status === "TRIAL" || status === "") return "Free trial";
+  return snap.planCode === "COMPLIANCE" ? "Compliance" : "Standard";
+}
+
 export async function fetchPaymentHistory(): Promise<PaymentRow[]> {
   const sb = getSupabase();
   if (!sb) return [];

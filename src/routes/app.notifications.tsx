@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { vendorNotifications, type NotificationItem } from "@/lib/mock-data";
+import { type NotificationItem } from "@/lib/mock-data";
 import {
   fetchNotificationPrefs,
   fetchNotifications,
@@ -53,7 +53,7 @@ function Notifications() {
     queryFn: fetchNotificationPrefs,
     enabled: isSupabaseConfigured(),
   });
-  const items = live ?? vendorNotifications;
+  const items = live ?? [];
   const rows = items.filter((n) => (tab === "unread" ? !n.read : true));
 
   useEffect(() => {

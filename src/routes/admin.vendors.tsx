@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, tenants as mockTenants } from "@/lib/mock-data";
+import { KES } from "@/lib/mock-data";
 import { fetchTenants, startImpersonation } from "@/lib/data";
 import { fetchAdminShops, shopCategoriesLabel } from "@/lib/admin-category";
 import { CATEGORY_LIST, parseCategory, type BusinessCategory } from "@/lib/category";
@@ -54,7 +54,7 @@ function Vendors() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("all");
   const [cat, setCat] = useState<BusinessCategory | "ALL">("ALL");
-  const { data: tenants = mockTenants } = useQuery({
+  const { data: tenants = [] } = useQuery({
     queryKey: ["admin-tenants"],
     queryFn: fetchTenants,
   });

@@ -26,12 +26,11 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
-import { adminNotifications, tenants, unclaimedPayments } from "@/lib/mock-data";
 import { useIdentity } from "@/lib/identity";
 import { UserMenu } from "@/components/app/UserMenu";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTenants } from "@/lib/data";
-import { fetchUnclaimedPayments } from "@/lib/ops";
+import { fetchNotifications, fetchUnclaimedPayments } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { countNewContactMessages } from "@/lib/inbox";
 
@@ -61,7 +60,6 @@ const navGroups: NavGroup[] = [
         to: "/admin/vendors",
         label: "Vendors",
         icon: Store,
-        badge: tenants.length,
         well: "bg-sky-500 text-white shadow-sky-500/40",
       },
       {
@@ -80,7 +78,6 @@ const navGroups: NavGroup[] = [
         to: "/admin/unclaimed",
         label: "Unclaimed payments",
         icon: ShieldAlert,
-        badge: unclaimedPayments.length,
         well: "bg-destructive text-white shadow-destructive/40",
       },
       {
@@ -133,7 +130,6 @@ const navGroups: NavGroup[] = [
         to: "/admin/notifications",
         label: "Notifications",
         icon: Bell,
-        badge: adminNotifications.filter((n) => !n.read).length,
         well: "bg-info text-white shadow-info/40",
       },
       {
@@ -173,6 +169,7 @@ function SidebarInner({
   vendorCount,
   unclaimedCount,
   inboxCount,
+  unreadCount,
 }: {
   onNavigate?: (() => void) | undefined;
   query: string;
@@ -182,6 +179,7 @@ function SidebarInner({
   vendorCount: number;
   unclaimedCount: number;
   inboxCount: number;
+  unreadCount: number;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
@@ -263,6 +261,8 @@ function SidebarInner({
                             ? unclaimedCount
                             : item.to === "/admin/inbox"
                               ? inboxCount
+                            : item.to === "/admin/notifications"
+                              ? unreadCount
                               : item.badge;
                       return badge ? (
                       <span className="bg-gold/20 text-gold-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
@@ -304,13 +304,14 @@ export function AdminShell({
   description,
   actions,
   children,
+  contentClassName,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
+  contentClassName?: string;
 }) {
-  const unread = adminNotifications.filter((n) => !n.read).length;
   const identity = useIdentity("admin");
   const live = isSupabaseConfigured();
   const { data: vendors = [] } = useQuery({
@@ -328,9 +329,15 @@ export function AdminShell({
     queryFn: countNewContactMessages,
     enabled: live,
   });
-  const vendorCount = live ? vendors.length : tenants.length;
-  const unclaimedCount = live ? unclaimed.length : unclaimedPayments.length;
-  const inboxCount = live ? inboxNew : 0;
+  const { data: notes = [] } = useQuery({
+    queryKey: ["notifications", "self"],
+    queryFn: fetchNotifications,
+    enabled: live,
+  });
+  const vendorCount = vendors.length;
+  const unclaimedCount = unclaimed.length;
+  const inboxCount = inboxNew;
+  const unread = notes.filter((n) => !n.read).length;
   const [query, setQuery] = useState("");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -360,6 +367,7 @@ export function AdminShell({
           vendorCount={vendorCount}
           unclaimedCount={unclaimedCount}
           inboxCount={inboxCount}
+          unreadCount={unread}
         />
       </aside>
 
@@ -382,6 +390,7 @@ export function AdminShell({
                   vendorCount={vendorCount}
                   unclaimedCount={unclaimedCount}
                   inboxCount={inboxCount}
+                  unreadCount={unread}
                 />
               </SheetContent>
             </Sheet>
@@ -422,7 +431,7 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-7">{children}</main>
+        <main className={cn("flex-1 p-4 sm:p-7", contentClassName)}>{children}</main>
       </div>
     </div>
   );

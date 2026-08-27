@@ -25,6 +25,7 @@ export type TenantHeader = {
   address_text: string | null;
   category: string;
   vat_registered: boolean;
+  logo_url: string | null;
 };
 
 export type StaffRow = {
@@ -87,7 +88,7 @@ export async function fetchTenantHeader(): Promise<TenantHeader | null> {
   if (!profile?.tenant_id) return null;
   const { data } = await sb
     .from("tenants")
-    .select("id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered")
+    .select("id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url")
     .eq("id", profile.tenant_id)
     .maybeSingle();
   return (data as TenantHeader | null) ?? null;
@@ -102,6 +103,7 @@ export async function saveTenantHeader(patch: {
   address_text?: string | null;
   category?: string;
   vat_registered?: boolean;
+  logo_url?: string | null;
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -215,6 +217,7 @@ export async function fetchNotifications(): Promise<NotificationItem[]> {
       hour: "2-digit",
       minute: "2-digit",
     }),
+    createdAt: row.created_at as string,
   }));
 }
 
@@ -295,6 +298,59 @@ export async function fetchUnclaimedPayments(): Promise<UnclaimedRow[]> {
       apiRef: String(raw["api_ref"] ?? raw["BillRefNumber"] ?? "—"),
       received: new Date(row.created_at as string).toLocaleString("en-KE"),
       reason: String(raw["reason"] ?? "Unmatched api_ref"),
+    };
+  });
+}
+
+export type PaymentEventRow = {
+  id: string;
+  event: string;
+  tenant: string;
+  time: string;
+  attempts: number;
+  status: string;
+};
+
+export async function fetchRecentPaymentEvents(): Promise<PaymentEventRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("payment_transactions")
+    .select("id, purpose, status, created_at, invoice_id, tenant_id")
+    .order("created_at", { ascending: false })
+    .limit(12);
+  if (error || !data) return [];
+  const openUnclaimed = new Set((await fetchUnclaimedPayments()).map((u) => u.invoiceId));
+  const tenantIds = [
+    ...new Set(data.map((row) => row.tenant_id as string | null).filter((id): id is string => Boolean(id))),
+  ];
+  const names = new Map<string, string>();
+  if (tenantIds.length) {
+    const { data: tenants } = await sb.from("tenants").select("id, name").in("id", tenantIds);
+    for (const t of tenants ?? []) names.set(t.id as string, t.name as string);
+  }
+  return data.map((row) => {
+    const unclaimed = openUnclaimed.has(String(row.invoice_id));
+    const rawStatus = String(row.status);
+    const status = unclaimed
+      ? "Unclaimed"
+      : rawStatus === "COMPLETE"
+        ? "Delivered"
+        : rawStatus === "FAILED" || rawStatus === "CANCELLED"
+          ? "Failed"
+          : "In progress";
+    const tenantId = row.tenant_id as string | null;
+    return {
+      id: row.id as string,
+      event: String(row.purpose).toLowerCase().replaceAll("_", "."),
+      tenant: names.get(tenantId ?? "") ?? (unclaimed ? "Unmapped" : "—"),
+      time: new Date(row.created_at as string).toLocaleTimeString("en-KE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+      attempts: 1,
+      status,
     };
   });
 }

@@ -21,18 +21,10 @@ export function setRememberMe(on: boolean) {
 function authStorage(): SupportedStorage | undefined {
   if (typeof window === "undefined") return undefined;
   return {
-    getItem: (key) => {
-      if (getRememberMe()) return window.localStorage.getItem(key);
-      return window.sessionStorage.getItem(key) ?? window.localStorage.getItem(key);
-    },
+    getItem: (key) => window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key),
     setItem: (key, value) => {
-      if (getRememberMe()) {
-        window.localStorage.setItem(key, value);
-        window.sessionStorage.removeItem(key);
-      } else {
-        window.sessionStorage.setItem(key, value);
-        window.localStorage.removeItem(key);
-      }
+      window.localStorage.setItem(key, value);
+      window.sessionStorage.removeItem(key);
     },
     removeItem: (key) => {
       window.localStorage.removeItem(key);

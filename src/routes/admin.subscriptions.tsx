@@ -16,8 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, mrrTrend, tenants as mockTenants } from "@/lib/mock-data";
-import { fetchTenants } from "@/lib/data";
+import { KES } from "@/lib/mock-data";
+import { fetchTenants, mrrTrendFromTenants } from "@/lib/data";
 import { fetchMrrSnapshot } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/admin/subscriptions")({
 
 function Subscriptions() {
   const live = isSupabaseConfigured();
-  const { data: tenants = live ? [] : mockTenants } = useQuery({
+  const { data: tenants = [] } = useQuery({
     queryKey: ["admin-tenants"],
     queryFn: fetchTenants,
     enabled: live,
@@ -54,9 +54,7 @@ function Subscriptions() {
   const trials = snap?.trial_tenants ?? tenants.filter((t) => t.status === "Trial").length;
   const pastDue = snap?.past_due_tenants ?? tenants.filter((t) => t.status === "Error").length;
   const conversions = snap?.conversions_this_month ?? 0;
-  const chart = mrrTrend.map((row, i) =>
-    i === mrrTrend.length - 1 ? { ...row, mrr } : row,
-  );
+  const chart = mrrTrendFromTenants(tenants);
 
   return (
     <AdminShell

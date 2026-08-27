@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import { ShopLogoPicker } from "@/components/app/ShopLogoPicker";
 import { AppShell } from "@/components/app/AppShell";
 import { RoleBadge, SettingsCard } from "@/components/app/SettingsCard";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
   emailReceiptEnabled,
 } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { uploadBusinessLogo } from "@/lib/business-logo";
 import { CATEGORY_LIST, parseCategory, readDemoCategory, writeDemoCategory } from "@/lib/category";
 
 export const Route = createFileRoute("/app/settings")({
@@ -156,6 +158,22 @@ function SettingsPage() {
           }
           locked={!owner}
         >
+          <ShopLogoPicker
+            className="mb-5"
+            url={header?.logo_url ?? null}
+            name={name || identity.shop}
+            disabled={!owner || !isSupabaseConfigured()}
+            onFile={(file) => {
+              void uploadBusinessLogo(file)
+                .then(async () => {
+                  toast.success("Shop photo updated");
+                  await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
+                })
+                .catch((err: unknown) => {
+                  toast.error(err instanceof Error ? err.message : "Could not upload photo");
+                });
+            }}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="bn" className="text-muted-foreground text-xs">

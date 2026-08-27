@@ -18,12 +18,14 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { OnboardingHelpDialog } from "@/components/app/OnboardingHelpDialog";
+import { ShopLogoPicker } from "@/components/app/ShopLogoPicker";
 import { OnboardingSplit } from "@/components/auth/OnboardingSplit";
 import { CategoryPicker } from "@/components/category/CategoryPicker";
 import { categoryLabel, parseCategory } from "@/lib/category";
 import { cn } from "@/lib/utils";
 import { TRIAL_DAYS, KES } from "@/lib/mock-data";
 import { completeOnboarding, fetchProfile, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
+import { uploadBusinessLogo } from "@/lib/business-logo";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchPublicPricing } from "@/lib/plans";
 import { to254 } from "@/lib/phone";
@@ -45,6 +47,7 @@ import {
 import { clearDraft, defaultPayChannels, hasMeaningfulProgress, loadDraft, saveDraft, type OnboardingPayChannelId, type OnboardingPayChannels } from "@/lib/onboarding-progress";
 
 export const Route = createFileRoute("/onboarding")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Start your free trial — InuaBiz onboarding in 2 minutes" },
@@ -73,13 +76,17 @@ const payTypes = [
 const stepTips = [
   "Use the number you keep on you all day — the login code and M-Pesa alerts land there.",
   "Name your shop exactly as customers know it; it prints on every receipt.",
+  "A shopfront or till photo helps staff recognise the shop. Skip it if you are in a hurry.",
   "Tick every channel you already use — Till, Paybill and personal can all be on.",
   "Most shops stay on Standard. Pick Compliance only if you need ETR / KRA records.",
 ];
 
+const LAST_STEP = 4;
+
 const stepMeta = [
   { title: "M-Pesa number", time: "30 seconds" },
   { title: "Business details", time: "45 seconds" },
+  { title: "Shop photo", time: "20 seconds" },
   { title: "Payment channels", time: "45 seconds" },
   { title: "Choose your plan", time: "20 seconds" },
 ];
@@ -143,9 +150,9 @@ function Onboarding() {
   const [emailSent, setEmailSent] = useState(false);
   const [accountReady, setAccountReady] = useState(!isSupabaseConfigured());
   const [ownerName, setOwnerName] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const { online, retry } = useNetworkOnline();
-
-
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
@@ -153,7 +160,15 @@ function Onboarding() {
   const stepEnteredAtRef = useRef<number>(Date.now());
   const finishedRef = useRef(false);
   const stepRef = useRef(0);
+  const logoPreviewRef = useRef<string | null>(null);
   stepRef.current = step;
+  logoPreviewRef.current = logoPreview;
+
+  useEffect(() => {
+    return () => {
+      if (logoPreviewRef.current) URL.revokeObjectURL(logoPreviewRef.current);
+    };
+  }, []);
 
   const provisioning = provisionIndex >= 0;
 
@@ -295,7 +310,7 @@ function Onboarding() {
   useEffect(() => {
     if (!hydrated) return;
     stepEnteredAtRef.current = Date.now();
-    setAnnouncement(`Step ${step + 1} of 4: ${stepMeta[step]!.title}`);
+    setAnnouncement(`Step ${step + 1} of ${LAST_STEP + 1}: ${stepMeta[step]!.title}`);
     const t = window.setTimeout(() => headingRef.current?.focus(), 60);
     return () => window.clearTimeout(t);
   }, [step, hydrated]);
@@ -323,7 +338,7 @@ function Onboarding() {
       if (!b.success) found["business"] = b.error.issues[0]!.message;
       if (!located) found["location"] = "Pin your store location to continue";
     }
-    if (target === 2) {
+    if (target === 3) {
       const enabled = payTypes.filter((p) => payChannels[p.id].enabled);
       if (enabled.length === 0) {
         found["payChannels"] = "Add at least one payment channel";
@@ -356,7 +371,7 @@ function Onboarding() {
   const next = () => {
     trackStepCompleted(stepRef.current, Date.now() - stepEnteredAtRef.current);
     setStep((s) => {
-      const target = Math.min(s + 1, 3);
+      const target = Math.min(s + 1, LAST_STEP);
       trackStepViewed(target);
       return target;
     });
@@ -384,6 +399,8 @@ function Onboarding() {
     setPlanCode("SHOP_MONTHLY");
     setCoords(null);
     setLocated(false);
+    setLogoFile(null);
+    setLogoPreview(null);
     setErrors({});
     setResumed(false);
     startedAtRef.current = Date.now();
@@ -464,7 +481,7 @@ function Onboarding() {
     }
     setErrors({});
     setBusy(true);
-    trackStepCompleted(3, Date.now() - stepEnteredAtRef.current);
+    trackStepCompleted(LAST_STEP, Date.now() - stepEnteredAtRef.current);
     trackOnboardingCompleted(Date.now() - startedAtRef.current, {
       category,
       destination_type: destType,
@@ -492,7 +509,19 @@ function Onboarding() {
       ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       ...(ownerName ? { fullName: ownerName } : {}),
     })
-      .then(() => {
+      .then(async () => {
+        if (logoFile) {
+          try {
+            await uploadBusinessLogo(logoFile);
+          } catch (err: unknown) {
+            toast.error("Shop photo skipped", {
+              description:
+                err instanceof Error
+                  ? `${err.message} You can add it later in Settings.`
+                  : "You can add it later in Settings.",
+            });
+          }
+        }
         setProvisionIndex(0);
       })
       .catch((err: unknown) => {
@@ -511,6 +540,7 @@ function Onboarding() {
     emailCopy,
     enabledDestinations,
     located,
+    logoFile,
     ownerName,
     phone,
     planCode,
@@ -529,7 +559,7 @@ function Onboarding() {
       {resumed && !provisioning && (
         <div className="border-primary/40 bg-primary-soft mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
           <p className="text-primary text-sm font-medium">
-            We saved your progress — you're back on step {step + 1} of 4.
+            We saved your progress — you're back on step {step + 1} of {LAST_STEP + 1}.
           </p>
           <Button type="button" size="sm" variant="outline" onClick={restart}>
             <RotateCcw className="mr-1.5 size-3.5" /> Start over
@@ -746,6 +776,31 @@ function Onboarding() {
           {step === 2 && (
             <div>
               <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
+                Add a shop photo
+              </h1>
+              <p className="text-muted-foreground mt-2 text-sm">
+                Optional. A till or shopfront shot helps staff recognise this shop. Skip and add it
+                later from Settings.
+              </p>
+              <div className="mt-7">
+                <ShopLogoPicker
+                  url={logoPreview}
+                  name={business || "Shop"}
+                  onFile={(file) => {
+                    setLogoFile(file);
+                    setLogoPreview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return URL.createObjectURL(file);
+                    });
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
                 Where should money land?
               </h1>
               <p className="text-muted-foreground mt-2 text-sm">
@@ -850,7 +905,7 @@ function Onboarding() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === LAST_STEP && (
             <div>
               {provisioning ? (
                 <>
@@ -973,6 +1028,7 @@ function Onboarding() {
                       ["Business", business],
                       ["Category", categoryLabel(category)],
                       ["Phone", phone],
+                      ["Photo", logoFile ? "Added" : "Skipped"],
                       [
                         "Payments",
                         enabledDestinations
@@ -1068,10 +1124,30 @@ function Onboarding() {
               <Button onClick={sendCode} size="lg" disabled={busy || !online}>
                 {busy ? "Sending…" : !online ? "Waiting for signal…" : "Send code"}
               </Button>
-            ) : step < 3 ? (
-              <Button onClick={continueStep} size="lg" disabled={busy}>
-                {busy ? "Working…" : "Continue"}
-              </Button>
+            ) : step < LAST_STEP ? (
+              <div className="flex items-center gap-2">
+                {step === 2 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    disabled={busy}
+                    onClick={() => {
+                      setLogoFile(null);
+                      setLogoPreview((prev) => {
+                        if (prev) URL.revokeObjectURL(prev);
+                        return null;
+                      });
+                      next();
+                    }}
+                  >
+                    Skip for now
+                  </Button>
+                )}
+                <Button onClick={continueStep} size="lg" disabled={busy}>
+                  {busy ? "Working…" : "Continue"}
+                </Button>
+              </div>
             ) : (
               <Button size="lg" onClick={finish} disabled={busy || provisioning || !online}>
                 {provisioning ? (

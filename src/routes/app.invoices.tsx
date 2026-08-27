@@ -27,8 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES, invoices as mockInvoices } from "@/lib/mock-data";
-import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { KES } from "@/lib/mock-data";
+import { invokeFunction } from "@/lib/supabase";
 import { fetchBillInvoices } from "@/lib/payments";
 
 export const Route = createFileRoute("/app/invoices")({
@@ -51,20 +51,7 @@ function Invoices() {
     queryKey: ["bill-invoices"],
     queryFn: fetchBillInvoices,
   });
-  const invoices =
-    live.length || isSupabaseConfigured()
-      ? live
-      : mockInvoices.map((i) => ({
-          id: i.id,
-          number: i.number,
-          buyer: i.buyer,
-          phone: i.phone,
-          amount: i.amount,
-          issued: i.issued,
-          due: i.due,
-          channel: i.channel,
-          status: i.status,
-        }));
+  const invoices = live;
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);

@@ -6,7 +6,6 @@ import {
   type BundledTemplate,
   type EmailCategory,
 } from "@/lib/email/templates";
-import { broadcasts as mockBroadcasts } from "@/lib/mock-data";
 
 export type { EmailCategory };
 
@@ -125,47 +124,8 @@ function mapBroadcastRow(row: Record<string, unknown>): PlatformBroadcast {
 }
 
 function mockBroadcastRows(): PlatformBroadcast[] {
-  const local = readJson<PlatformBroadcast[]>(BROADCAST_KEY, []);
-  const seeded = mockBroadcasts.map((b) => ({
-    id: b.id,
-    title: b.message.slice(0, 48),
-    body: b.message,
-    audience: "all" as BroadcastAudience,
-    channel: "banner_email" as BroadcastChannel,
-    status: (b.status === "Scheduled" ? "scheduled" : "published") as BroadcastStatus,
-    recipient_count: 34,
-    created_at: "2026-08-18T09:00:00.000Z",
-    published_at: b.status === "Sent" ? "2026-08-18T09:00:00.000Z" : null,
-  }));
-  return [...local, ...seeded];
+  return readJson<PlatformBroadcast[]>(BROADCAST_KEY, []);
 }
-
-const DEMO_LOG: EmailSendLogRow[] = [
-  {
-    id: "d1",
-    to_email: "peter.o@example.com",
-    template_id: "sale-receipt",
-    subject: "Receipt for KES 905 — Mama Njoroge's Duka",
-    status: "sent",
-    created_at: "2026-08-18T13:42:00.000Z",
-  },
-  {
-    id: "d2",
-    to_email: "njoroge@example.com",
-    template_id: "low-stock",
-    subject: "Blue Band 250g is running out",
-    status: "sent",
-    created_at: "2026-08-18T11:03:00.000Z",
-  },
-  {
-    id: "d3",
-    to_email: "zack@inuabiz.co.ke",
-    template_id: "magic-link-admin",
-    subject: "Sign in to the InuaBiz desk",
-    status: "sent",
-    created_at: "2026-08-18T08:14:00.000Z",
-  },
-];
 
 /**
  * List Figma email templates: database first, bundled catalog as fallback.
@@ -300,11 +260,11 @@ export async function listEmailSendLog(limit = 80): Promise<EmailSendLogRow[]> {
     if (error && !isMissingRelation(error)) throw error;
   }
   const local = readJson<EmailSendLogRow[]>(LOG_KEY, []);
-  return [...local, ...DEMO_LOG].slice(0, limit);
+  return local.slice(0, limit);
 }
 
 /**
- * Broadcast history from platform_broadcasts, with mock fallback.
+ * Broadcast history from platform_broadcasts, then local drafts.
  */
 export async function listBroadcasts(): Promise<PlatformBroadcast[]> {
   const sb = getSupabase();
@@ -313,7 +273,7 @@ export async function listBroadcasts(): Promise<PlatformBroadcast[]> {
       .from("platform_broadcasts")
       .select("*")
       .order("created_at", { ascending: false });
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       return data.map((row) => mapBroadcastRow(row as Record<string, unknown>));
     }
     if (error && !isMissingRelation(error)) throw error;

@@ -1,6 +1,7 @@
-import { insights as mockInsights, KES, products, type Insight } from "@/lib/mock-data";
+import { KES, type Insight } from "@/lib/mock-data";
 import { askAi } from "@/lib/ai-server";
 import { invokeFunction } from "@/lib/supabase";
+import { fetchCashflowWeeks, fetchProducts, fetchTodaySales, type CashflowPoint } from "@/lib/data";
 
 type EdgeInsight = {
   ok?: boolean;
@@ -18,16 +19,16 @@ type EdgeInsight = {
   };
 };
 
-function heuristicUserPrompt(): string {
-  const low = products.filter((p) => p.stock <= p.reorderLevel);
-  return JSON.stringify({
-    currency: "KES",
-    shop: "Kenyan duka",
-    weekly_sales: 79600,
-    low_stock: low.map((p) => ({ name: p.name, stock: p.stock, reorder: p.reorderLevel })),
-    movers: products.slice(0, 5).map((p) => ({ name: p.name, price: p.price })),
-  });
-}
+export type LiveInsights = {
+  items: Insight[];
+  source: "supabase" | "gateway" | "heuristic";
+  model: string;
+  revenueKes: number;
+  saleCount: number;
+  bestsellers: Array<{ name: string; qty: number; revenue: number }>;
+  reorderCount: number;
+  cashflow: CashflowPoint[];
+};
 
 function fromLlmJson(raw: string, model: string): Insight[] {
   try {
@@ -71,6 +72,8 @@ function fromLlmJson(raw: string, model: string): Insight[] {
   } catch {
     /* fall through */
   }
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
   return [
     {
       id: "ai-raw",
@@ -82,8 +85,11 @@ function fromLlmJson(raw: string, model: string): Insight[] {
   ];
 }
 
-function fromEdge(payload: NonNullable<EdgeInsight["insight"]>["payload"], model: string): Insight[] {
-  if (!payload) return mockInsights;
+function fromHeuristicPayload(
+  payload: NonNullable<EdgeInsight["insight"]>["payload"],
+  model: string,
+): Insight[] {
+  if (!payload) return [];
   const llm = payload.llm;
   if (llm?.summary) {
     return fromLlmJson(JSON.stringify(llm), model);
@@ -107,46 +113,105 @@ function fromEdge(payload: NonNullable<EdgeInsight["insight"]>["payload"], model
       confidence: 86,
     });
   }
-  return cards.length ? cards : mockInsights;
+  return cards;
 }
 
-export async function generateLiveInsights(): Promise<{
-  items: Insight[];
-  source: "supabase" | "gateway" | "demo";
-  model: string;
-}> {
+async function shopPrompt(): Promise<string> {
+  const [products, today] = await Promise.all([fetchProducts(), fetchTodaySales()]);
+  const low = products.filter((p) => p.stock <= p.reorderLevel);
+  return JSON.stringify({
+    currency: "KES",
+    shop: "Kenyan duka",
+    sales_today_kes: today.total,
+    sales_today_count: today.count,
+    sales_yesterday_kes: today.yesterday,
+    catalog_size: products.length,
+    low_stock: low.map((p) => ({ name: p.name, stock: p.stock, reorder: p.reorderLevel })),
+    movers: products.slice(0, 8).map((p) => ({ name: p.name, price: p.price, stock: p.stock })),
+  });
+}
+
+export async function generateLiveInsights(): Promise<LiveInsights> {
+  const cashflow = await fetchCashflowWeeks(4).catch(() => [] as CashflowPoint[]);
   const edge = await invokeFunction<EdgeInsight>("generate-ai-insights", {
     insight_type: "weekly_overview",
   });
-  if (edge.data?.insight?.payload) {
-    const model = edge.data.insight.model ?? "generate-ai-insights";
+  const payload = edge.data?.insight?.payload;
+  if (payload) {
+    const model = edge.data?.insight?.model ?? "generate-ai-insights";
     return {
-      items: fromEdge(edge.data.insight.payload, model),
+      items: fromHeuristicPayload(payload, model),
       source: "supabase",
       model,
+      revenueKes: payload.revenue_kes ?? 0,
+      saleCount: payload.sale_count ?? 0,
+      bestsellers: payload.bestsellers ?? [],
+      reorderCount: payload.reorder_suggestions?.length ?? 0,
+      cashflow,
     };
   }
 
   try {
+    const prompt = await shopPrompt();
     const res = await askAi({
       data: {
         messages: [
           {
             role: "system",
             content:
-              "You are a Kenyan MSME retail advisor for dukas. Reply with JSON only: {summary, actions: string[], risks: string[]}. Use KES. Keep under 120 words total.",
+              "You are a Kenyan MSME retail advisor for dukas. Reply with JSON only: {summary, actions: string[], risks: string[]}. Use KES. Keep under 120 words total. If there is no sales data, say so plainly — do not invent SKUs or revenue.",
           },
-          { role: "user", content: heuristicUserPrompt() },
+          { role: "user", content: prompt },
         ],
         maxTokens: 500,
+        json: true,
       },
     });
+    const products = await fetchProducts();
+    const today = await fetchTodaySales();
+    const low = products.filter((p) => p.stock <= p.reorderLevel);
     return {
       items: fromLlmJson(res.text, "gemini-2.5-flash"),
       source: "gateway",
       model: "gemini-2.5-flash",
+      revenueKes: today.total,
+      saleCount: today.count,
+      bestsellers: [],
+      reorderCount: low.length,
+      cashflow,
     };
   } catch {
-    return { items: mockInsights, source: "demo", model: "demo" };
+    const products = await fetchProducts().catch(() => []);
+    const today = await fetchTodaySales().catch(() => ({ total: 0, count: 0, yesterday: 0 }));
+    const low = products.filter((p) => p.stock <= p.reorderLevel);
+    const items: Insight[] = [];
+    if (today.total > 0) {
+      items.push({
+        id: "cf-live",
+        title: `Today · ${KES(today.total)}`,
+        body: `${today.count} paid sales today. Yesterday was ${KES(today.yesterday)}.`,
+        kind: "Forecast",
+        confidence: 95,
+      });
+    }
+    for (const p of low.slice(0, 4)) {
+      items.push({
+        id: `re-${p.id}`,
+        title: `Restock ${p.name}`,
+        body: `Only ${p.stock} left (reorder at ${p.reorderLevel}).`,
+        kind: "Reorder",
+        confidence: 88,
+      });
+    }
+    return {
+      items,
+      source: "heuristic",
+      model: "heuristic-v1",
+      revenueKes: today.total,
+      saleCount: today.count,
+      bestsellers: [],
+      reorderCount: low.length,
+      cashflow,
+    };
   }
 }

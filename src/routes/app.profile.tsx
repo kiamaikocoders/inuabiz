@@ -9,7 +9,7 @@ export const Route = createFileRoute("/app/profile")({
       { title: "Profile — InuaBiz" },
       {
         name: "description",
-        content: "Manage your InuaBiz account name, phone and sign-out options.",
+        content: "Your InuaBiz account, plan, security and sign-in sessions.",
       },
     ],
   }),
