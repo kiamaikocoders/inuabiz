@@ -4,6 +4,7 @@ import type { TaxClass } from "@/lib/tax";
 import type { LastSale, ReceiptLine } from "@/lib/last-sale";
 import type { NotificationItem } from "@/lib/mock-data";
 import { parseCategory } from "@/lib/category";
+import { getGhost } from "@/lib/ghost";
 
 export type ShopRow = {
   id: string;
@@ -125,9 +126,20 @@ export async function saveTenantHeader(patch: {
 export async function fetchStaff(): Promise<StaffRow[]> {
   const sb = getSupabase();
   if (!sb) return [];
+  // Ghost is UI-only (auth stays SUPER_ADMIN). Scope to the ghosted shop,
+  // otherwise the caller's own tenant — never list platform admins as staff.
+  const ghostTenantId = getGhost()?.tenantId ?? null;
+  let tenantId = ghostTenantId;
+  if (!tenantId) {
+    const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+    tenantId = (profile?.tenant_id as string | null) ?? null;
+  }
+  if (!tenantId) return [];
   const { data, error } = await sb
     .from("profiles")
     .select("id, full_name, phone, role, active_shop_id")
+    .eq("tenant_id", tenantId)
+    .neq("role", "SUPER_ADMIN")
     .order("created_at");
   if (error || !data) return [];
   return data as StaffRow[];
@@ -173,11 +185,24 @@ export async function inviteStaff(
 export async function fetchNotifications(): Promise<NotificationItem[]> {
   const sb = getSupabase();
   if (!sb) return [];
-  const { data, error } = await sb
+  // Super-admin RLS can read every row. Ghost sessions must show the vendor
+  // shop feed only — not "New vendor registered" / platform admin alerts.
+  const ghostTenantId = getGhost()?.tenantId ?? null;
+  let query = sb
     .from("notifications")
     .select("id, title, message, type, priority, is_read, created_at")
     .order("created_at", { ascending: false })
     .limit(80);
+  if (ghostTenantId) {
+    query = query.eq("tenant_id", ghostTenantId).neq("recipient_role", "SUPER_ADMIN");
+  } else {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return [];
+    query = query.eq("recipient_id", user.id);
+  }
+  const { data, error } = await query;
   if (error || !data) return [];
   return data.map((row) => ({
     id: row.id as string,

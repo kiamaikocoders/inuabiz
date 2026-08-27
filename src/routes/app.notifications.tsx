@@ -20,6 +20,7 @@ import {
 } from "@/lib/ops";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useState } from "react";
+import { useGhost } from "@/lib/ghost";
 
 export const Route = createFileRoute("/app/notifications")({
   head: () => ({
@@ -40,9 +41,10 @@ const priorityStyle: Record<NotificationItem["priority"], string> = {
 
 function Notifications() {
   const queryClient = useQueryClient();
+  const ghost = useGhost();
   const [tab, setTab] = useState("all");
   const { data: live } = useQuery({
-    queryKey: ["notifications"],
+    queryKey: ["notifications", ghost?.tenantId ?? "self"],
     queryFn: fetchNotifications,
     enabled: isSupabaseConfigured(),
   });

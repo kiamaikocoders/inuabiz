@@ -27,6 +27,7 @@ import {
 import { initials, isVendorOwner, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import { prettyKePhone } from "@/lib/phone";
+import { useGhost } from "@/lib/ghost";
 import {
   fetchShops,
   fetchStaff,
@@ -58,19 +59,20 @@ export const Route = createFileRoute("/app/settings")({
 function SettingsPage() {
   const identity = useIdentity("vendor");
   const owner = isVendorOwner(identity.role);
+  const ghost = useGhost();
   const queryClient = useQueryClient();
   const { data: header } = useQuery({
-    queryKey: ["tenant-header"],
+    queryKey: ["tenant-header", ghost?.tenantId ?? "self"],
     queryFn: fetchTenantHeader,
     enabled: isSupabaseConfigured(),
   });
   const { data: staff = [] } = useQuery({
-    queryKey: ["staff"],
+    queryKey: ["staff", ghost?.tenantId ?? "self"],
     queryFn: fetchStaff,
     enabled: isSupabaseConfigured(),
   });
   const { data: shops = [] } = useQuery({
-    queryKey: ["shops"],
+    queryKey: ["shops", ghost?.tenantId ?? "self"],
     queryFn: fetchShops,
     enabled: isSupabaseConfigured(),
   });

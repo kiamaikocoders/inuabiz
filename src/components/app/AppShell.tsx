@@ -180,8 +180,10 @@ export function AppShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  const ghost = useGhost();
+  const identity = useIdentity("vendor");
   const { data: liveNotes } = useQuery({
-    queryKey: ["notifications"],
+    queryKey: ["notifications", ghost?.tenantId ?? "self"],
     queryFn: fetchNotifications,
     enabled: isSupabaseConfigured(),
   });
@@ -191,8 +193,6 @@ export function AppShell({
     queryFn: fetchTenantAccess,
     enabled: isSupabaseConfigured(),
   });
-  const ghost = useGhost();
-  const identity = useIdentity("vendor");
 
   return (
     <div className="flex min-h-screen bg-background">
