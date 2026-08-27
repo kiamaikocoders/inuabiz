@@ -134,6 +134,7 @@ export async function completeOnboarding(input: {
   lat?: number;
   lng?: number;
   fullName?: string;
+  planCode?: "SHOP_MONTHLY" | "COMPLIANCE";
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -149,6 +150,7 @@ export async function completeOnboarding(input: {
     p_location_lat: input.lat ?? -1.2921,
     p_location_lng: input.lng ?? 36.8219,
     p_full_name: input.fullName ?? null,
+    p_plan_code: input.planCode ?? "SHOP_MONTHLY",
   });
   if (error) throw new Error(error.message);
   const profile = await fetchProfile();

@@ -7,11 +7,9 @@ import {
 } from "../_shared/cors.ts";
 import { functionsPublicBase, payheroStkPush } from "../_shared/payhero.ts";
 
-const SHOP_PRICE_KES = 3000;
-
 /**
- * Extra shop: PayHero STK KES 3,000 first. Shop row is inserted in payhero-webhook
- * after PIN success (metadata.kind = SHOP_ADDON).
+ * Extra shop: PayHero STK at SHOP_MONTHLY plan price first. Shop row is inserted in
+ * payhero-webhook after PIN success (metadata.kind = SHOP_ADDON).
  */
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -35,6 +33,10 @@ Deno.serve(async (req) => {
     if (name.length < 2) return jsonResponse({ error: "Shop name required" }, 400);
 
     const service = getServiceClient();
+    const { data: planAmount } = await service.rpc("plan_amount_kes", {
+      p_code: "SHOP_MONTHLY",
+    });
+    const SHOP_PRICE_KES = Number(planAmount ?? 3000);
     const { data: profile } = await service
       .from("profiles")
       .select("id, tenant_id, phone, role")

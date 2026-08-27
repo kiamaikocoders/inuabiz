@@ -37,6 +37,7 @@ import { Route as AdminHealthRouteImport } from './routes/admin.health'
 import { Route as AdminInboxRouteImport } from './routes/admin.inbox'
 import { Route as AdminMapRouteImport } from './routes/admin.map'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
+import { Route as AdminPlansRouteImport } from './routes/admin.plans'
 import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
@@ -204,6 +205,11 @@ const AdminMapRoute = AdminMapRouteImport.update({
 const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlansRoute = AdminPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminProfileRoute = AdminProfileRouteImport.update({
@@ -375,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/admin/inbox': typeof AdminInboxRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/plans': typeof AdminPlansRoute
   '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -431,6 +438,7 @@ export interface FileRoutesByTo {
   '/admin/inbox': typeof AdminInboxRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/plans': typeof AdminPlansRoute
   '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -490,6 +498,7 @@ export interface FileRoutesById {
   '/admin/inbox': typeof AdminInboxRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/plans': typeof AdminPlansRoute
   '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -550,6 +559,7 @@ export interface FileRouteTypes {
     | '/admin/inbox'
     | '/admin/map'
     | '/admin/notifications'
+    | '/admin/plans'
     | '/admin/profile'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -606,6 +616,7 @@ export interface FileRouteTypes {
     | '/admin/inbox'
     | '/admin/map'
     | '/admin/notifications'
+    | '/admin/plans'
     | '/admin/profile'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -664,6 +675,7 @@ export interface FileRouteTypes {
     | '/admin/inbox'
     | '/admin/map'
     | '/admin/notifications'
+    | '/admin/plans'
     | '/admin/profile'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -915,6 +927,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNotificationsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/plans': {
+      id: '/admin/plans'
+      path: '/plans'
+      fullPath: '/admin/plans'
+      preLoaderRoute: typeof AdminPlansRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/profile': {
       id: '/admin/profile'
       path: '/profile'
@@ -1123,6 +1142,7 @@ interface AdminRouteChildren {
   AdminInboxRoute: typeof AdminInboxRoute
   AdminMapRoute: typeof AdminMapRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminPlansRoute: typeof AdminPlansRoute
   AdminProfileRoute: typeof AdminProfileRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
@@ -1141,6 +1161,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminInboxRoute: AdminInboxRoute,
   AdminMapRoute: AdminMapRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminPlansRoute: AdminPlansRoute,
   AdminProfileRoute: AdminProfileRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,

@@ -1711,6 +1711,62 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          amount_kes: number
+          billing_interval: string
+          code: string
+          created_at: string
+          currency: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          is_public: boolean
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_kes: number
+          billing_interval?: string
+          code: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_kes?: number
+          billing_interval?: string
+          code?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           amount: number
@@ -2033,6 +2089,7 @@ export type Database = {
           p_location_lat?: number
           p_location_lng?: number
           p_phone: string
+          p_plan_code?: string
         }
         Returns: Json
       }
@@ -2050,6 +2107,14 @@ export type Database = {
       subscription_amount_for_tenant: {
         Args: { p_tenant_id: string }
         Returns: number
+      }
+      plan_amount_kes: {
+        Args: { p_code: string }
+        Returns: number
+      }
+      sync_billing_settings_from_plans: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       sync_tenant_subscription_amount: {
         Args: { p_tenant_id: string }

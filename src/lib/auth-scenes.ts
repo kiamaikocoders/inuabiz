@@ -57,10 +57,10 @@ export const ONBOARDING_STEPS = [
     caption: "Personal M-Pesa, Till or Paybill — pick what you already use today.",
   },
   {
-    id: "ready",
-    label: "Ready",
-    image: "/images/onboarding/ready-hardware.jpg",
-    imageAlt: "Hardware shop at golden hour, paint tins and tools along the aisle",
-    caption: "Confirm, then your 3-day trial starts with a sample product on the till.",
+    id: "plan",
+    label: "Plan",
+    image: "/images/features-options/feat-photo-subscription-night.png",
+    imageAlt: "Shop counter at night with a phone showing a subscription payment prompt",
+    caption: "Standard is the default. Pick Compliance if you need ETR / KRA-ready records.",
   },
 ] as const;

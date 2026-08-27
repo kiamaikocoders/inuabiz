@@ -42,7 +42,7 @@ export const Route = createFileRoute("/app/billing")({
       {
         name: "description",
         content:
-          "Manage your KES 3,000 monthly InuaBiz subscription, pay by M-Pesa STK push and review every past invoice.",
+          "Manage your InuaBiz subscription, pay by M-Pesa STK push and review every past invoice.",
       },
     ],
   }),
@@ -167,7 +167,9 @@ function Billing() {
                 <p className="text-gold text-xs font-semibold tracking-widest uppercase">
                   Current plan
                 </p>
-                <h2 className="text-primary-foreground mt-1 text-2xl font-bold">InuaBiz Complete</h2>
+                <h2 className="text-primary-foreground mt-1 text-2xl font-bold">
+                  {snap?.planName ?? "Standard"}
+                </h2>
               </div>
               <Badge className="bg-gold text-gold-foreground border-transparent hover:bg-gold">
                 {statusLabel}

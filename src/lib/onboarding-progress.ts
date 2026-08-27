@@ -11,6 +11,7 @@ export type OnboardingDraft = {
   category: string;
   payType: string;
   payValue: string;
+  planCode: "SHOP_MONTHLY" | "COMPLIANCE";
   coords: { lat: number; lng: number } | null;
   startedAt: number;
   updatedAt: number;
@@ -31,6 +32,8 @@ export function loadDraft(): OnboardingDraft | null {
       localStorage.removeItem(KEY);
       return null;
     }
+    const plan =
+      draft.planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY";
     return {
       step: Math.min(Math.max(draft.step, 0), 3),
       phone: draft.phone ?? "",
@@ -39,6 +42,7 @@ export function loadDraft(): OnboardingDraft | null {
       category: draft.category ?? "DUKA",
       payType: draft.payType ?? "personal",
       payValue: draft.payValue ?? "",
+      planCode: plan,
       coords: draft.coords ?? null,
       startedAt: draft.startedAt ?? Date.now(),
       updatedAt: draft.updatedAt,

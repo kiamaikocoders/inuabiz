@@ -566,8 +566,17 @@ export async function subscriptionAmountKes(tenantId?: string): Promise<number> 
       });
       if (data != null && Number.isFinite(Number(data))) return Number(data);
     } catch {
-      /* fall through to platform default */
+      /* fall through to plan / secret default */
     }
+  }
+  try {
+    const service = getServiceClient();
+    const { data } = await service.rpc("plan_amount_kes", { p_code: "SHOP_MONTHLY" });
+    if (data != null && Number.isFinite(Number(data)) && Number(data) > 0) {
+      return Number(data);
+    }
+  } catch {
+    /* fall through */
   }
   const raw = (await resolveSecret("SUBSCRIPTION_AMOUNT_KES")) ?? "3000";
   return Number(raw);

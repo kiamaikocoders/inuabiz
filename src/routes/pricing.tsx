@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Building2, Check, Smartphone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +11,14 @@ import {
 } from "@/components/ui/accordion";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { COMPLIANCE_PRICE, KES, SETUP_FEE, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import {
+  COMPLIANCE_PRICE,
+  KES,
+  SETUP_FEE,
+  SUBSCRIPTION_PRICE,
+  TRIAL_DAYS,
+} from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/pricing")({
@@ -19,13 +28,13 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "InuaBiz Standard at KES 3,000/month, Compliance (ETR) at KES 4,500/month, optional KES 1,000 setup, and enterprise custom builds with dedicated infrastructure.",
+          "InuaBiz Standard per shop / month, Compliance (ETR), optional assisted setup, and enterprise custom builds with dedicated infrastructure.",
       },
       { property: "og:title", content: "InuaBiz pricing — Standard, Compliance, Enterprise" },
       {
         property: "og:description",
         content:
-          "Self-serve till from KES 3,000 per shop. ETR compliance pack, assisted setup and white-label enterprise licenses — talk to Nairobi.",
+          "Self-serve till from admin-managed plan rates. ETR compliance pack, assisted setup and white-label enterprise licenses — talk to Nairobi.",
       },
     ],
   }),
@@ -60,7 +69,7 @@ const enterpriseIncludes = [
 const licensePoints = [
   {
     t: "Upfront build / license",
-    d: "Bespoke features and workflows scoped to your operation. Quoted once, not metered like the public 3,000 / 4,500 plans.",
+    d: "Bespoke features and workflows scoped to your operation. Quoted once, not metered like the public Standard / Compliance plans.",
   },
   {
     t: "Dedicated infrastructure",
@@ -76,34 +85,46 @@ const licensePoints = [
   },
 ];
 
-const faqs = [
-  {
-    q: "What can I start on today, by myself?",
-    a: `Standard. Sign up, take the ${TRIAL_DAYS}-day trial on the first shop, then pay ${KES(SUBSCRIPTION_PRICE)} per shop / month by M-Pesa PIN. Extra shops on self-serve are the same rate, paid before the shop is created.`,
-  },
-  {
-    q: "How is Compliance (KES 4,500) different?",
-    a: "It is Standard plus the ETR compliance pack for shops that need fuller tax records. Self-serve signup is still Standard (KES 3,000). We switch a shop to Compliance with you and bill KES 4,500 / month — there is no 4,500 PIN on signup today.",
-  },
-  {
-    q: "Is there a setup fee?",
-    a: `Self-serve trial is free. Assisted onboarding is ${KES(SETUP_FEE)}. We can also run a hybrid: you pay the setup fee, the trial starts, then the monthly STK takes over. Ask for that on the contact form.`,
-  },
-  {
-    q: "How do extra shops and multi-location accounts work?",
-    a: `Self-serve: each extra shop is ${KES(SUBSCRIPTION_PRICE)}, paid on M-Pesa before it goes live, billed together at renewal. Several locations, a single commercial account, or a custom rate — that is a quote, not the public calculator.`,
-  },
-  {
-    q: "Do I need a registered business or Paybill?",
-    a: "Not for Standard. Start with a personal M-Pesa number. The Compliance pack is for shops that already keep a KRA PIN and want ETR records handled with us.",
-  },
-  {
-    q: "Can I cancel Standard anytime?",
-    a: "Yes. You keep access until the end of the paid period. Enterprise licenses follow the contract and SLA you sign.",
-  },
-];
-
 function Pricing() {
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shop = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
+  const compliance = pricing?.compliance ?? COMPLIANCE_PRICE;
+  const setup = pricing?.setup ?? SETUP_FEE;
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
+
+  const faqs = useMemo(
+    () => [
+      {
+        q: "What can I start on today, by myself?",
+        a: `Standard. Sign up, take the ${trialDays}-day trial on the first shop, then pay ${KES(shop)} per shop / month by M-Pesa PIN. Extra shops on self-serve are the same rate, paid before the shop is created.`,
+      },
+      {
+        q: `How is Compliance (${KES(compliance)}) different?`,
+        a: `It is Standard plus the ETR compliance pack for shops that need fuller tax records. You can pick Compliance on the last onboarding step, or stay on Standard (${KES(shop)}) and upgrade later from Billing.`,
+      },
+      {
+        q: "Is there a setup fee?",
+        a: `Self-serve trial is free. Assisted onboarding is ${KES(setup)}. We can also run a hybrid: you pay the setup fee, the trial starts, then the monthly STK takes over. Ask for that on the contact form.`,
+      },
+      {
+        q: "How do extra shops and multi-location accounts work?",
+        a: `Self-serve: each extra shop is ${KES(shop)}, paid on M-Pesa before it goes live, billed together at renewal. Several locations, a single commercial account, or a custom rate — that is a quote, not the public calculator.`,
+      },
+      {
+        q: "Do I need a registered business or Paybill?",
+        a: "Not for Standard. Start with a personal M-Pesa number. The Compliance pack is for shops that already keep a KRA PIN and want ETR records handled with us.",
+      },
+      {
+        q: "Can I cancel Standard anytime?",
+        a: "Yes. You keep access until the end of the paid period. Enterprise licenses follow the contract and SLA you sign.",
+      },
+    ],
+    [shop, compliance, setup, trialDays],
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -117,13 +138,13 @@ function Pricing() {
           <div className="absolute inset-0 bg-[#085540]/72" aria-hidden />
           <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center text-center">
             <p className="rounded-full bg-black/30 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-white">
-              3-DAY FREE TRIAL
+              {trialDays}-DAY FREE TRIAL
             </p>
             <h1 className="text-primary-foreground mt-4 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
               Choose the till that matches how you run
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
-              Self-serve Standard from KES 3,000 a shop. Compliance when you need ETR. Custom terms
+              Self-serve Standard from {KES(shop)} a shop. Compliance when you need ETR. Custom terms
               when you outgrow the public meter.
             </p>
             <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white">
@@ -143,7 +164,7 @@ function Pricing() {
               className="order-2 lg:order-1"
               badge="Quoted"
               name="Compliance"
-              price={KES(COMPLIANCE_PRICE)}
+              price={KES(compliance)}
               cadence="per shop / month · we switch you"
               blurb="Standard plus the ETR pack for shops that already keep a KRA PIN."
               items={complianceIncludes}
@@ -155,9 +176,9 @@ function Pricing() {
               featured
               badge="Most popular"
               name="Standard"
-              price={KES(SUBSCRIPTION_PRICE)}
+              price={KES(shop)}
               cadence="per shop / month · M-Pesa PIN"
-              blurb={`The till you start on. ${TRIAL_DAYS}-day trial on shop one, then one PIN. No cut on sales.`}
+              blurb={`The till you start on. ${trialDays}-day trial on shop one, then one PIN. No cut on sales.`}
               items={standardIncludes}
               cta="Start free trial"
               to="/signup"
@@ -186,7 +207,7 @@ function Pricing() {
             <h2 className="mt-4 text-lg font-semibold">Setup &amp; onboarding</h2>
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
               Self-serve signup has no setup fee. If you want us at the counter with you, assisted
-              onboarding is {KES(SETUP_FEE)}.
+              onboarding is {KES(setup)}.
             </p>
             <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
               Hybrid trial: pay the setup fee, the trial unlocks, then the monthly subscription STK
@@ -199,7 +220,7 @@ function Pricing() {
             </span>
             <h2 className="mt-4 text-lg font-semibold">Multi-shop</h2>
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-              A few extra locations on one login: each extra shop is {KES(SUBSCRIPTION_PRICE)} on
+              A few extra locations on one login: each extra shop is {KES(shop)} on
               M-Pesa before it is created. Renewal is shop count × the plan rate.
             </p>
             <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -267,7 +288,7 @@ function Pricing() {
                 </Button>
               </div>
             </div>
-            <Accordion type="single" collapsible defaultValue={faqs[0].q} className="space-y-3">
+            <Accordion type="single" collapsible defaultValue={faqs[0]!.q} className="space-y-3">
               {faqs.map((f) => (
                 <AccordionItem
                   key={f.q}

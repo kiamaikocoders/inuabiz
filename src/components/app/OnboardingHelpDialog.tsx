@@ -85,20 +85,24 @@ const HELP: StepHelp[] = [
     ],
   },
   {
-    title: "Help with finishing setup",
-    intro: "Review your details, then we create your shop and start the free trial.",
+    title: "Help choosing a plan",
+    intro: "Standard is the default till. Compliance adds ETR / KRA-ready records at a higher monthly rate.",
     faqs: [
+      {
+        q: "Which plan should I pick?",
+        a: "Most shops start on Standard. Choose Compliance only if you already keep a KRA PIN and need ETR-style records on paid and credit sales.",
+      },
+      {
+        q: "Can I switch later?",
+        a: "Yes from Billing once you are live. Picking Compliance here means your trial and later STK use the Compliance rate from day one.",
+      },
+      {
+        q: "Do I pay during the trial?",
+        a: "No. The trial is full access. After it ends, M-Pesa STK uses the plan you selected here.",
+      },
       {
         q: "Something on the summary is wrong",
         a: "Tap Back to return to the step and edit it. Your progress is saved as you type, so nothing is lost.",
-      },
-      {
-        q: "Setup seems stuck",
-        a: "Keep the page open — setup takes a few seconds. If it stalls, reload; we resume exactly where you left off.",
-      },
-      {
-        q: "What happens after the trial?",
-        a: "You keep full access during the trial. Afterwards it's a flat monthly subscription charged by M-Pesa, and you can cancel from Billing at any time.",
       },
     ],
   },

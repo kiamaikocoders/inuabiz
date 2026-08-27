@@ -10,6 +10,8 @@ export type BillingSnapshot = {
   nextBillingDate: string | null;
   amount: number;
   phone: string | null;
+  planCode: string;
+  planName: string;
 };
 
 export type PaymentRow = {
@@ -58,9 +60,13 @@ export async function fetchBillingSnapshot(): Promise<BillingSnapshot | null> {
     .maybeSingle();
   const { data: sub } = await sb
     .from("subscriptions")
-    .select("amount, auto_debit_enabled, next_billing_date, current_period_end")
+    .select("amount, auto_debit_enabled, next_billing_date, current_period_end, plan_code")
     .eq("tenant_id", profile.tenant_id)
     .maybeSingle();
+
+  const planCode = String(sub?.plan_code ?? "SHOP_MONTHLY").toUpperCase();
+  const planName =
+    planCode === "COMPLIANCE" ? "Compliance (ETR)" : "Standard";
 
   return {
     tenantName: (tenant?.name as string | undefined) ?? "Your shop",
@@ -75,6 +81,8 @@ export async function fetchBillingSnapshot(): Promise<BillingSnapshot | null> {
       null,
     amount: Number(sub?.amount ?? 3000),
     phone: (profile.phone as string | null) ?? (tenant?.phone as string | null),
+    planCode: planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY",
+    planName,
   };
 }
 

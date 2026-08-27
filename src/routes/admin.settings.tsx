@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
@@ -11,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { MAPBOX_TOKEN } from "@/lib/mapbox";
-import { COMPLIANCE_PRICE, SETUP_FEE, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { KES, TRIAL_DAYS } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
 import { initials, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +32,18 @@ const OPERATORS = [
 
 function AdminSettings() {
   const identity = useIdentity("admin");
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shop = pricing?.shopMonthly ?? 3000;
+  const compliance = pricing?.compliance ?? 4500;
+  const setup = pricing?.setup ?? 1000;
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
+
   const save = (label: string) =>
-    toast.info(`${label} not persisted`, {
-      description: "Plan amounts are constants in code. Rails and operators are not saved from this form yet.",
+    toast.info(`${label} not persisted here`, {
+      description: "Edit plan amounts on Plans & pricing. Rails and operators are not saved from this form yet.",
     });
 
   return (
@@ -97,44 +108,50 @@ function AdminSettings() {
 
         <SettingsCard
           title="Plan"
-          description="Self-serve Standard is KES 3,000 per shop after a 3-day trial, billed by Daraja STK. Extra shops pay before they go live. Compliance (ETR) at KES 4,500 and setup at KES 1,000 are quoted — not this form."
+          description="Live amounts come from Plans & pricing. SHOP_MONTHLY drives STK and extra shops."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="price" className="text-muted-foreground text-xs">
                 Standard / shop (KES)
               </Label>
-              <Input id="price" type="number" defaultValue={SUBSCRIPTION_PRICE} readOnly />
+              <Input id="price" type="number" value={shop} readOnly />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="trial" className="text-muted-foreground text-xs">
                 Trial length (days)
               </Label>
-              <Input id="trial" type="number" defaultValue={TRIAL_DAYS} readOnly />
+              <Input id="trial" type="number" value={trialDays} readOnly />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="comp" className="text-muted-foreground text-xs">
                 Compliance ETR / shop (KES)
               </Label>
-              <Input id="comp" type="number" defaultValue={COMPLIANCE_PRICE} readOnly />
+              <Input id="comp" type="number" value={compliance} readOnly />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="setup" className="text-muted-foreground text-xs">
                 Assisted setup (KES)
               </Label>
-              <Input id="setup" type="number" defaultValue={SETUP_FEE} readOnly />
+              <Input id="setup" type="number" value={setup} readOnly />
             </div>
           </div>
+          <p className="text-muted-foreground text-xs">
+            Current Standard: {KES(shop)} · Compliance: {KES(compliance)} · Setup: {KES(setup)}
+          </p>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold">Allow self-serve onboarding</p>
               <p className="text-muted-foreground text-xs">
-                Email + password + OTP, then shop setup. First shop is the 3-day trial.
+                Email + password + OTP, then shop setup. First shop is the {trialDays}-day trial.
               </p>
             </div>
             <Switch defaultChecked />
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/admin/plans">Edit plans</Link>
+            </Button>
             <Button onClick={() => save("Plan")}>Save plan</Button>
           </div>
         </SettingsCard>

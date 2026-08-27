@@ -76,7 +76,7 @@ export const ONBOARDING_STEPS = [
   "phone_verification",
   "business_details",
   "payment_destination",
-  "review_and_finish",
+  "plan_choice",
 ] as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];

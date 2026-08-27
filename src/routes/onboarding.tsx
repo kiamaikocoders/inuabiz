@@ -6,7 +6,6 @@ import {
   Loader2,
   Mail,
   MapPin,
-  PartyPopper,
   RotateCcw,
   WifiOff,
 } from "lucide-react";
@@ -23,12 +22,14 @@ import { OnboardingSplit } from "@/components/auth/OnboardingSplit";
 import { CategoryPicker } from "@/components/category/CategoryPicker";
 import { categoryLabel, parseCategory } from "@/lib/category";
 import { cn } from "@/lib/utils";
-import { TRIAL_DAYS } from "@/lib/mock-data";
+import { TRIAL_DAYS, KES } from "@/lib/mock-data";
 import { completeOnboarding, fetchProfile, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { fetchPublicPricing } from "@/lib/plans";
 import { to254 } from "@/lib/phone";
 import { useNetworkOnline } from "@/lib/network";
 import { trackExposure } from "@/lib/experiments";
+import { useQuery } from "@tanstack/react-query";
 import {
   trackConnectivity,
   trackOnboardingAbandoned,
@@ -73,14 +74,14 @@ const stepTips = [
   "Use the number you keep on you all day — the login code and M-Pesa alerts land there.",
   "Name your shop exactly as customers know it; it prints on every receipt.",
   "Not sure? Start with your personal M-Pesa number — you can add a Till later.",
-  "Check the summary once, then we'll load a sample product so you can test a sale.",
+  "Most shops stay on Standard. Pick Compliance only if you need ETR / KRA records.",
 ];
 
 const stepMeta = [
   { title: "M-Pesa number", time: "30 seconds" },
   { title: "Business details", time: "45 seconds" },
   { title: "Payment destination", time: "30 seconds" },
-  { title: "You're ready", time: "15 seconds" },
+  { title: "Choose your plan", time: "20 seconds" },
 ];
 
 const phoneSchema = z
@@ -111,6 +112,7 @@ const tillSchema = z
 const provisioningSteps = [
   "Creating your shop workspace",
   "Linking your M-Pesa destination",
+  "Saving your plan",
   "Loading starter products",
   "Starting your free trial",
 ];
@@ -126,6 +128,7 @@ function Onboarding() {
   const [located, setLocated] = useState(false);
   const [payType, setPayType] = useState("personal");
   const [payValue, setPayValue] = useState("");
+  const [planCode, setPlanCode] = useState<"SHOP_MONTHLY" | "COMPLIANCE">("SHOP_MONTHLY");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -156,6 +159,14 @@ function Onboarding() {
 
   const destType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" =
     payType === "till" ? "TILL" : payType === "paybill" ? "PAYBILL" : "PERSONAL_MPESA";
+
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const standardPrice = pricing?.shopMonthly ?? 3000;
+  const compliancePrice = pricing?.compliance ?? 4500;
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
 
   /* -------- must have a verified account; unfinished onboarding stays here -------- */
   useEffect(() => {
@@ -197,6 +208,7 @@ function Onboarding() {
       setCategory(parseCategory(draft.category));
       setPayType(draft.payType);
       setPayValue(draft.payValue);
+      setPlanCode(draft.planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY");
       setCoords(draft.coords);
       setLocated(draft.coords != null);
       setResumed(true);
@@ -239,10 +251,11 @@ function Onboarding() {
       category,
       payType,
       payValue,
+      planCode,
       coords,
       startedAt: startedAtRef.current,
     });
-  }, [hydrated, step, phone, otpSent, business, category, payType, payValue, coords]);
+  }, [hydrated, step, phone, otpSent, business, category, payType, payValue, planCode, coords]);
 
   /* -------- funnel drop-off -------- */
   useEffect(() => {
@@ -349,6 +362,7 @@ function Onboarding() {
     setCategory("Duka");
     setPayType("personal");
     setPayValue("");
+    setPlanCode("SHOP_MONTHLY");
     setCoords(null);
     setLocated(false);
     setErrors({});
@@ -437,6 +451,7 @@ function Onboarding() {
       destination_type: destType,
       located,
       summary_email: emailCopy,
+      plan_code: planCode,
     });
     if (emailCopy) {
       setEmailSent(true);
@@ -452,6 +467,7 @@ function Onboarding() {
       phone,
       destinationType: destType,
       accountNumber: payValue,
+      planCode,
       ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       ...(ownerName ? { fullName: ownerName } : {}),
     })
@@ -476,6 +492,7 @@ function Onboarding() {
     ownerName,
     payValue,
     phone,
+    planCode,
     summaryEmail,
   ]);
 
@@ -764,64 +781,134 @@ function Onboarding() {
 
           {step === 3 && (
             <div>
-              <span
-                className={cn(
-                  "grid size-14 place-items-center rounded-2xl",
-                  provisioning ? "bg-primary-soft text-primary" : "bg-success/15 text-success",
-                )}
-              >
-                {provisioning ? (
-                  <Loader2 className="size-7 animate-spin" />
-                ) : (
-                  <PartyPopper className="size-7" />
-                )}
-              </span>
-              <h1 ref={headingRef} tabIndex={-1} className="mt-5 text-2xl font-bold outline-none">
-                {provisioning ? "Setting up your shop…" : `${business || "Your shop"} is ready`}
-              </h1>
-              <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-                {provisioning
-                  ? "This takes a few seconds. Keep this page open."
-                  : `Confirm the details below and we'll start your ${TRIAL_DAYS}-day full-access trial with a sample product loaded.`}
-              </p>
-
               {provisioning ? (
-                <ul className="mt-6 grid gap-2 text-sm">
-                  {provisioningSteps.map((label, i) => {
-                    const done = i < provisionIndex;
-                    const active = i === provisionIndex;
-                    return (
-                      <li
-                        key={label}
-                        className={cn(
-                          "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-                          done
-                            ? "border-success/40 bg-success/10"
-                            : active
-                              ? "border-primary bg-primary-soft"
-                              : "border-border bg-card opacity-60",
-                        )}
-                      >
-                        {done ? (
-                          <Check className="text-success size-4 shrink-0" />
-                        ) : active ? (
-                          <Loader2 className="text-primary size-4 shrink-0 animate-spin" />
-                        ) : (
-                          <span className="border-border size-4 shrink-0 rounded-full border" />
-                        )}
-                        <span className={cn(done && "text-success")}>{label}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <>
+                  <span className="bg-primary-soft text-primary grid size-14 place-items-center rounded-2xl">
+                    <Loader2 className="size-7 animate-spin" />
+                  </span>
+                  <h1 ref={headingRef} tabIndex={-1} className="mt-5 text-2xl font-bold outline-none">
+                    Setting up your shop…
+                  </h1>
+                  <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+                    This takes a few seconds. Keep this page open.
+                  </p>
+                  <ul className="mt-6 grid gap-2 text-sm">
+                    {provisioningSteps.map((label, i) => {
+                      const done = i < provisionIndex;
+                      const active = i === provisionIndex;
+                      return (
+                        <li
+                          key={label}
+                          className={cn(
+                            "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                            done
+                              ? "border-success/40 bg-success/10"
+                              : active
+                                ? "border-primary bg-primary-soft"
+                                : "border-border bg-card opacity-60",
+                          )}
+                        >
+                          {done ? (
+                            <Check className="text-success size-4 shrink-0" />
+                          ) : active ? (
+                            <Loader2 className="text-primary size-4 shrink-0 animate-spin" />
+                          ) : (
+                            <span className="border-border size-4 shrink-0 rounded-full border" />
+                          )}
+                          <span className={cn(done && "text-success")}>{label}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               ) : (
                 <>
-                  <div className="bg-muted mt-6 grid gap-2 rounded-xl p-4 text-sm">
+                  <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
+                    Choose your plan
+                  </h1>
+                  <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                    Default is Standard. Pick Compliance if you need ETR / KRA-ready records. Your{" "}
+                    {trialDays}-day trial uses this plan from day one.
+                  </p>
+
+                  <RadioGroup
+                    value={planCode}
+                    onValueChange={(v) =>
+                      setPlanCode(v === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY")
+                    }
+                    className="mt-6 space-y-3"
+                  >
+                    <label
+                      htmlFor="plan-standard"
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
+                        planCode === "SHOP_MONTHLY"
+                          ? "border-primary bg-primary-soft"
+                          : "border-border bg-card",
+                      )}
+                    >
+                      <RadioGroupItem value="SHOP_MONTHLY" id="plan-standard" className="mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold">Standard</p>
+                          <p className="font-display text-sm font-bold">
+                            {KES(standardPrice)}
+                            <span className="text-muted-foreground font-sans text-xs font-normal">
+                              {" "}
+                              / shop / month
+                            </span>
+                          </p>
+                        </div>
+                        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                          POS, M-Pesa match, credit ledger, extra shops. Recommended for most dukas.
+                        </p>
+                        <p className="text-primary mt-2 text-[11px] font-semibold tracking-wide uppercase">
+                          Default
+                        </p>
+                      </div>
+                    </label>
+
+                    <label
+                      htmlFor="plan-compliance"
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
+                        planCode === "COMPLIANCE"
+                          ? "border-primary bg-primary-soft"
+                          : "border-border bg-card",
+                      )}
+                    >
+                      <RadioGroupItem value="COMPLIANCE" id="plan-compliance" className="mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold">Compliance (ETR)</p>
+                          <p className="font-display text-sm font-bold">
+                            {KES(compliancePrice)}
+                            <span className="text-muted-foreground font-sans text-xs font-normal">
+                              {" "}
+                              / shop / month
+                            </span>
+                          </p>
+                        </div>
+                        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                          Everything in Standard plus ETR on paid and credit sales for shops with a
+                          KRA PIN.
+                        </p>
+                      </div>
+                    </label>
+                  </RadioGroup>
+
+                  <div className="bg-muted mt-5 grid gap-2 rounded-xl p-4 text-sm">
                     {[
                       ["Business", business],
                       ["Category", categoryLabel(category)],
                       ["Phone", phone],
                       ["Payments to", `${payType} · ${payValue}`],
+                      [
+                        "Plan",
+                        planCode === "COMPLIANCE"
+                          ? `Compliance · ${KES(compliancePrice)}`
+                          : `Standard · ${KES(standardPrice)}`,
+                      ],
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-4">
                         <span className="text-muted-foreground">{k}</span>
@@ -838,7 +925,7 @@ function Onboarding() {
                         onCheckedChange={(checked) => {
                           const on = checked === true;
                           setEmailCopy(on);
-                          if (on) trackSummaryEmail("requested", { step_id: "review_and_finish" });
+                          if (on) trackSummaryEmail("requested", { step_id: "plan_choice" });
                           else trackSummaryEmail("skipped");
                         }}
                       />
@@ -847,8 +934,8 @@ function Onboarding() {
                           Email me a copy of my setup and next steps
                         </Label>
                         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                          Your shop details, trial end date and a short checklist for your first
-                          sale.
+                          Your shop details, plan, trial end date and a short checklist for your
+                          first sale.
                         </p>
                         {emailCopy && (
                           <div className="mt-3 space-y-2">
@@ -910,7 +997,7 @@ function Onboarding() {
                 ) : !online ? (
                   "Waiting for signal…"
                 ) : (
-                  "Open my till"
+                  "Start my trial"
                 )}
               </Button>
             )}

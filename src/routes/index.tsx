@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   BadgeCheck,
@@ -11,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,6 +42,14 @@ const steps = [
 ];
 
 function Landing() {
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shop = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
+  const compliance = pricing?.compliance ?? COMPLIANCE_PRICE;
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -51,7 +61,7 @@ function Landing() {
           <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
             <div>
               <Badge className="bg-gold text-gold-foreground border-transparent hover:bg-gold">
-                {TRIAL_DAYS}-day free trial · no paperwork
+                {trialDays}-day free trial · no paperwork
               </Badge>
               <h1 className="text-primary-foreground mt-6 text-4xl leading-[1.05] font-bold sm:text-5xl lg:text-6xl">
                 Lift your business
@@ -213,10 +223,10 @@ function Landing() {
             <div className="relative">
               <Wallet className="text-gold mx-auto size-8" />
               <h2 className="text-primary-foreground mt-4 text-3xl font-bold sm:text-4xl">
-                From {KES(SUBSCRIPTION_PRICE)} per shop. More when you need it.
+                From {KES(shop)} per shop. More when you need it.
               </h2>
               <p className="text-primary-foreground/80 mx-auto mt-3 max-w-xl">
-                Standard after a {TRIAL_DAYS}-day trial. Compliance (ETR) at {KES(COMPLIANCE_PRICE)}{" "}
+                Standard after a {trialDays}-day trial. Compliance (ETR) at {KES(compliance)}{" "}
                 when you need the tax pack. Custom licenses for dedicated infrastructure.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">

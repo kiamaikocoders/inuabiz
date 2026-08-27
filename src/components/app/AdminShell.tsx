@@ -5,6 +5,7 @@ import {
   Activity,
   Bell,
   CircleHelp,
+  CreditCard,
   Gauge,
   Inbox,
   LayoutGrid,
@@ -93,6 +94,12 @@ const navGroups: NavGroup[] = [
   {
     label: "REVENUE",
     items: [
+      {
+        to: "/admin/plans",
+        label: "Plans & pricing",
+        icon: CreditCard,
+        well: "bg-primary text-primary-foreground shadow-primary/40",
+      },
       {
         to: "/admin/subscriptions",
         label: "Subscriptions & MRR",
