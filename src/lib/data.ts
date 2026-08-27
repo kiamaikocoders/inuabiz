@@ -480,7 +480,7 @@ export async function startImpersonation(tenant: Tenant): Promise<GhostSession> 
 }
 
 export type PaymentDestination = {
-  destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL";
+  destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI";
   accountNumber: string;
   accountName: string | null;
 };

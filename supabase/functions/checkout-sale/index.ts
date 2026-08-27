@@ -160,8 +160,9 @@ Deno.serve(async (req) => {
       payment_destination: destination ?? null,
       bill_ref: billRef,
       message:
-        destination?.destination_type === "PERSONAL_MPESA"
-          ? "Customer pays your number. Enter the M-Pesa code to confirm."
+        destination?.destination_type === "PERSONAL_MPESA" ||
+          destination?.destination_type === "POCHI"
+          ? "Customer pays your number. Companion SMS or the M-Pesa code confirms the sale."
           : "Customer pays your till/paybill. Waiting for Daraja confirmation…",
     });
   } catch (err) {

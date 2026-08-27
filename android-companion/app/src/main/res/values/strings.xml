@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">InuaBiz Companion</string>
+    <string name="intro">Paste the token from Settings on app.inuabiz.co.ke. This phone must hold the shop M-Pesa SIM.</string>
+    <string name="token_hint">ibc_…</string>
+    <string name="save">Save and listen</string>
+    <string name="unpair">Unpair this phone</string>
+    <string name="not_paired">Not paired</string>
+    <string name="paired">Token saved</string>
+    <string name="listening">Listening for M-Pesa received SMS</string>
+    <string name="listening_title">InuaBiz Companion</string>
+    <string name="listening_body">Forwarding M-Pesa received SMS to your till</string>
+    <string name="channel_name">Companion</string>
+    <string name="sms_permission_needed">SMS permission is required so the till can close itself.</string>
+    <string name="bad_token">That token does not look like an InuaBiz companion key.</string>
+    <string name="sim_mismatch">This SIM does not match the M-Pesa number saved at onboarding.</string>
+</resources>

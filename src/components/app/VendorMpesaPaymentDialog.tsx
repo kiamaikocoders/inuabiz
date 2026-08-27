@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 export type VendorMpesaDialogState = "idle" | "waiting" | "done" | "failed";
 
 export type PaymentDestinationInfo = {
-  destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL";
+  destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI";
   accountNumber: string;
   accountName: string | null;
 };
@@ -57,13 +57,16 @@ export function VendorMpesaPaymentDialog({
   onSms: () => void;
   onNewSale: () => void;
 }) {
-  const isPersonal = destination?.destinationType === "PERSONAL_MPESA";
+  const isPersonal =
+    destination?.destinationType === "PERSONAL_MPESA" || destination?.destinationType === "POCHI";
   const destLabel =
     destination?.destinationType === "TILL"
       ? "Buy Goods Till"
       : destination?.destinationType === "PAYBILL"
         ? "Paybill"
-        : "M-Pesa number";
+        : destination?.destinationType === "POCHI"
+          ? "Pochi la Biashara"
+          : "M-Pesa number";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -125,8 +128,8 @@ export function VendorMpesaPaymentDialog({
                   className="font-mono uppercase"
                 />
                 <p className="text-muted-foreground text-xs">
-                  Customer sends {KES(total)} to your number, then enter the 10-character code
-                  from the SMS.
+                  Customer sends {KES(total)} to your number. The companion phone marks this paid
+                  when the M-Pesa SMS arrives — or enter the 10-character code.
                 </p>
                 <Button
                   className="mt-2 w-full"

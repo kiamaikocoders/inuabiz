@@ -15,6 +15,7 @@ import { Route as R404RouteImport } from './routes/404'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CompanionRouteImport } from './routes/companion'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as ForDukasRouteImport } from './routes/for-dukas'
@@ -95,6 +96,11 @@ const AppRoute = AppRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompanionRoute = CompanionRouteImport.update({
+  id: '/companion',
+  path: '/companion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -360,6 +366,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/companion': typeof CompanionRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
   '/for-dukas': typeof ForDukasRoute
@@ -417,6 +424,7 @@ export interface FileRoutesByTo {
   '/403': typeof R403Route
   '/404': typeof R404Route
   '/auth': typeof AuthRoute
+  '/companion': typeof CompanionRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
   '/for-dukas': typeof ForDukasRoute
@@ -477,6 +485,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/companion': typeof CompanionRoute
   '/contact': typeof ContactRoute
   '/features': typeof FeaturesRoute
   '/for-dukas': typeof ForDukasRoute
@@ -538,6 +547,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/companion'
     | '/contact'
     | '/features'
     | '/for-dukas'
@@ -595,6 +605,7 @@ export interface FileRouteTypes {
     | '/403'
     | '/404'
     | '/auth'
+    | '/companion'
     | '/contact'
     | '/features'
     | '/for-dukas'
@@ -654,6 +665,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/companion'
     | '/contact'
     | '/features'
     | '/for-dukas'
@@ -714,6 +726,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  CompanionRoute: typeof CompanionRoute
   ContactRoute: typeof ContactRoute
   FeaturesRoute: typeof FeaturesRoute
   ForDukasRoute: typeof ForDukasRoute
@@ -771,6 +784,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/companion': {
+      id: '/companion'
+      path: '/companion'
+      fullPath: '/companion'
+      preLoaderRoute: typeof CompanionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -1232,6 +1252,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  CompanionRoute: CompanionRoute,
   ContactRoute: ContactRoute,
   FeaturesRoute: FeaturesRoute,
   ForDukasRoute: ForDukasRoute,

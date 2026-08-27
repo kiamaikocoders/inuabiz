@@ -114,3 +114,9 @@ verify_jwt = true
 
 [functions.dispatch-lifecycle]
 verify_jwt = false
+
+[functions.issue-companion-device]
+verify_jwt = true
+
+[functions.ingest-mpesa-sms]
+verify_jwt = false

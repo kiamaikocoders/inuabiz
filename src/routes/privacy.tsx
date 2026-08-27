@@ -40,6 +40,12 @@ function Privacy() {
           category, GPS pin and where M-Pesa money should land. Using the till also creates sales,
           stock, credit and invoice records tied to that shop.
         </p>
+        <p>
+          If you install the optional InuaBiz Companion APK on the business phone, that app reads
+          inbound M-Pesa SMS on the device so we can match amount and confirmation code to an open
+          sale. The APK is not distributed through Play Store. You can revoke the device token in
+          Settings at any time.
+        </p>
       </LegalSection>
       <LegalSection id="use" title="2. How we use your information">
         <p>

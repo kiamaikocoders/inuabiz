@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   CircleSlash,
@@ -40,7 +40,7 @@ import {
 } from "@/lib/data";
 import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { saveLastSale, type LastSale } from "@/lib/last-sale";
-import { pollSaleStatus } from "@/lib/payments";
+import { waitForSalePaid } from "@/lib/payments";
 import { useIdentity } from "@/lib/identity";
 import {
   Select,
@@ -107,6 +107,9 @@ function POS() {
   const [receiptCode, setReceiptCode] = useState("");
   const [busy, setBusy] = useState(false);
   const mockTimer = useRef<number | null>(null);
+  const payWait = useRef<AbortController | null>(null);
+
+  useEffect(() => () => payWait.current?.abort(), []);
 
   const filtered = useMemo(
     () =>
@@ -218,19 +221,30 @@ function POS() {
     );
     setPayOpen(true);
 
-    const dest = raw?.destination_type ?? raw?.destinationType;
-    if (dest && dest !== "PERSONAL_MPESA") {
-      const result = await pollSaleStatus(data.sale.id);
-      if (result === "PAID") {
-        setMpesaState("done");
-        toast.success("Payment received", { description: `${KES(total)} confirmed via M-Pesa.` });
-      } else if (result === "FAILED") {
-        setMpesaState("failed");
-      } else {
-        toast.info("Waiting for customer payment", {
-          description: data.message ?? "Daraja will mark this sale paid when funds arrive.",
-        });
-      }
+    payWait.current?.abort();
+    const ac = new AbortController();
+    payWait.current = ac;
+    const destType = String(raw?.destination_type ?? raw?.destinationType ?? "PERSONAL_MPESA");
+    const smsDest = destType === "PERSONAL_MPESA" || destType === "POCHI";
+    const result = await waitForSalePaid(data.sale.id, {
+      timeoutMs: smsDest ? 180_000 : 90_000,
+      signal: ac.signal,
+    });
+    if (ac.signal.aborted) return;
+    if (result === "PAID") {
+      setMpesaState("done");
+      toast.success("Payment received", { description: `${KES(total)} confirmed via M-Pesa.` });
+      saveLastSale(buildSale("M-Pesa", destType, data.sale.id));
+    } else if (result === "FAILED") {
+      setMpesaState("failed");
+    } else if (result === "TIMEOUT" && smsDest) {
+      toast.info("Still waiting for M-Pesa SMS", {
+        description: "Keep the companion phone on, or enter the confirmation code.",
+      });
+    } else if (result === "TIMEOUT") {
+      toast.info("Waiting for customer payment", {
+        description: data.message ?? "Daraja will mark this sale paid when funds arrive.",
+      });
     }
   };
 
@@ -492,6 +506,7 @@ function POS() {
         onConfirmManual={() => void confirmManualMpesa()}
         onCancel={() => {
           if (mockTimer.current) window.clearTimeout(mockTimer.current);
+          payWait.current?.abort();
           setMpesaState("failed");
           setPayOpen(false);
         }}

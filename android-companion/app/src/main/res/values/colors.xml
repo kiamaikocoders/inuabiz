@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="forest">#1F6B4A</color>
+    <color name="forest_dark">#154832</color>
+    <color name="on_forest">#FFFFFFFF</color>
+</resources>

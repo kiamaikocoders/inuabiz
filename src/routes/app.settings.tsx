@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { ShopLogoPicker } from "@/components/app/ShopLogoPicker";
+import { CompanionDeviceCard } from "@/components/app/CompanionDeviceCard";
 import { AppShell } from "@/components/app/AppShell";
 import { RoleBadge, SettingsCard } from "@/components/app/SettingsCard";
 import { Button } from "@/components/ui/button";
@@ -273,7 +274,7 @@ function SettingsPage() {
           title="Payment Settings"
           description={
             owner
-              ? "Money from sales lands in these channels. All of them reconcile automatically."
+              ? "Money from sales lands in these channels. Pair a companion phone so personal M-Pesa and Pochi close the till automatically."
               : "Locked. Till and Paybill are owner-only."
           }
           locked={!owner}
@@ -309,6 +310,8 @@ function SettingsPage() {
             </div>
           </div>
         </SettingsCard>
+
+        <CompanionDeviceCard owner={owner} />
 
         <SettingsCard
           title="Staff Management"

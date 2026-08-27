@@ -63,6 +63,11 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link to="/companion" className="hover:text-foreground">
+                Companion APK
+              </Link>
+            </li>
+            <li>
               <Link to="/how-it-works" className="hover:text-foreground">
                 How it works
               </Link>

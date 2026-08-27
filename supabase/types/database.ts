@@ -376,6 +376,131 @@ export type Database = {
         }
         Relationships: []
       }
+      companion_devices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expected_msisdn: string | null
+          id: string
+          label: string
+          last_seen_at: string | null
+          revoked_at: string | null
+          shop_id: string | null
+          tenant_id: string
+          token_hash: string
+          token_prefix: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expected_msisdn?: string | null
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          revoked_at?: string | null
+          shop_id?: string | null
+          tenant_id: string
+          token_hash: string
+          token_prefix: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expected_msisdn?: string | null
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          revoked_at?: string | null
+          shop_id?: string | null
+          tenant_id?: string
+          token_hash?: string
+          token_prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_devices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companion_devices_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companion_devices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companion_sms_events: {
+        Row: {
+          amount: number | null
+          created_at: string
+          device_id: string
+          id: string
+          parse_status: string
+          raw_body: string
+          receipt_code: string | null
+          sale_id: string | null
+          sender_msisdn: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          device_id: string
+          id?: string
+          parse_status: string
+          raw_body: string
+          receipt_code?: string | null
+          sale_id?: string | null
+          sender_msisdn?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          parse_status?: string
+          raw_body?: string
+          receipt_code?: string | null
+          sale_id?: string | null
+          sender_msisdn?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companion_sms_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "companion_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companion_sms_events_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companion_sms_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_entries: {
         Row: {
           amount: number

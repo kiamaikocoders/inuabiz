@@ -160,18 +160,69 @@ export async function fetchBillInvoices(): Promise<BillInvoiceRow[]> {
 export async function pollSaleStatus(
   saleId: string,
   timeoutMs = 90_000,
-): Promise<"PAID" | "FAILED" | "TIMEOUT"> {
+  signal?: AbortSignal,
+): Promise<"PAID" | "FAILED" | "TIMEOUT" | "ABORTED"> {
+  return waitForSalePaid(saleId, { timeoutMs, signal });
+}
+
+/** Poll + Realtime until a pending sale is PAID (companion SMS or Daraja C2B). */
+export async function waitForSalePaid(
+  saleId: string,
+  opts?: { timeoutMs?: number; signal?: AbortSignal },
+): Promise<"PAID" | "FAILED" | "TIMEOUT" | "ABORTED"> {
   const sb = getSupabase();
   if (!sb) return "TIMEOUT";
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  const timeoutMs = opts?.timeoutMs ?? 90_000;
+  const signal = opts?.signal;
+
+  const readStatus = async (): Promise<"PAID" | "FAILED" | null> => {
     const { data } = await sb.from("sales").select("status").eq("id", saleId).maybeSingle();
     const status = String(data?.status ?? "");
     if (status === "PAID") return "PAID";
     if (status === "CANCELLED" || status === "DRAFT") return "FAILED";
-    await new Promise((r) => setTimeout(r, 2500));
-  }
-  return "TIMEOUT";
+    return null;
+  };
+
+  const first = await readStatus();
+  if (first) return first;
+  if (signal?.aborted) return "ABORTED";
+
+  return await new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: "PAID" | "FAILED" | "TIMEOUT" | "ABORTED") => {
+      if (settled) return;
+      settled = true;
+      window.clearInterval(pollTimer);
+      window.clearTimeout(timeoutTimer);
+      signal?.removeEventListener("abort", onAbort);
+      void sb.removeChannel(channel);
+      resolve(value);
+    };
+
+    const onAbort = () => finish("ABORTED");
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    const channel = sb
+      .channel(`sale-paid-${saleId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sales", filter: `id=eq.${saleId}` },
+        (payload) => {
+          const status = String((payload.new as { status?: string } | null)?.status ?? "");
+          if (status === "PAID") finish("PAID");
+          if (status === "CANCELLED" || status === "DRAFT") finish("FAILED");
+        },
+      )
+      .subscribe();
+
+    const pollTimer = window.setInterval(() => {
+      void readStatus().then((status) => {
+        if (status) finish(status);
+      });
+    }, 2500);
+
+    const timeoutTimer = window.setTimeout(() => finish("TIMEOUT"), timeoutMs);
+  });
 }
 
 export async function pollSubscriptionPayment(
