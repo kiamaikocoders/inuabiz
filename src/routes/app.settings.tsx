@@ -100,7 +100,12 @@ function SettingsPage() {
     setPin(header.kra_pin ?? "");
     setEmail(header.email ?? "");
     setPhone(header.phone);
-    setLoc(header.address_text ?? "");
+    const fallbackLoc =
+      header.address_text ||
+      (header.location_lat != null && header.location_lng != null
+        ? `Pin · ${Number(header.location_lat).toFixed(5)}, ${Number(header.location_lng).toFixed(5)}`
+        : "");
+    setLoc(fallbackLoc);
     setCategory(parseCategory(header.category));
   }, [header]);
 
@@ -225,11 +230,30 @@ function SettingsPage() {
                 Changes the till, extra screens and product fields for this shop.
               </p>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="loc" className="text-muted-foreground text-xs">
                 Location
               </Label>
-              <Input id="loc" value={loc} onChange={(e) => setLoc(e.target.value)} disabled={!owner} />
+              <Input
+                id="loc"
+                value={loc}
+                onChange={(e) => setLoc(e.target.value)}
+                disabled={!owner}
+                placeholder="Street, estate, town"
+              />
+              {header?.location_lat != null && header?.location_lng != null && (
+                <p className="text-muted-foreground text-xs">
+                  Map pin from onboarding:{" "}
+                  <a
+                    className="text-primary font-medium underline-offset-4 hover:underline"
+                    href={`https://www.google.com/maps?q=${header.location_lat},${header.location_lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {Number(header.location_lat).toFixed(5)}, {Number(header.location_lng).toFixed(5)}
+                  </a>
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ph" className="text-muted-foreground text-xs">

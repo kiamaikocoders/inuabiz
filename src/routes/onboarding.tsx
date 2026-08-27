@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { TRIAL_DAYS, KES } from "@/lib/mock-data";
 import { completeOnboarding, fetchProfile, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
 import { uploadBusinessLogo } from "@/lib/business-logo";
+import { reverseGeocode } from "@/lib/geo";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchPublicPricing } from "@/lib/plans";
 import { to254 } from "@/lib/phone";
@@ -498,40 +499,48 @@ function Onboarding() {
     finishedRef.current = true;
     clearDraft();
     setAnnouncement("Setting up your shop. This takes a few seconds.");
-    void completeOnboarding({
-      businessName: business,
-      category: parseCategory(category),
-      phone,
-      destinationType: destType,
-      accountNumber: primaryAccount,
-      destinations: enabledDestinations,
-      planCode,
-      ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
-      ...(ownerName ? { fullName: ownerName } : {}),
-    })
-      .then(async () => {
-        if (logoFile) {
-          try {
-            await uploadBusinessLogo(logoFile);
-          } catch (err: unknown) {
-            toast.error("Shop photo skipped", {
-              description:
-                err instanceof Error
-                  ? `${err.message} You can add it later in Settings.`
-                  : "You can add it later in Settings.",
-            });
-          }
+    void (async () => {
+      let addressText: string | undefined;
+      if (coords) {
+        try {
+          addressText = await reverseGeocode(coords);
+        } catch {
+          addressText = undefined;
         }
-        setProvisionIndex(0);
-      })
-      .catch((err: unknown) => {
-        finishedRef.current = false;
-        setBusy(false);
-        setProvisionIndex(-1);
-        toast.error("Could not finish setup", {
-          description: err instanceof Error ? err.message : "Stay on this page and retry.",
-        });
+      }
+      await completeOnboarding({
+        businessName: business,
+        category: parseCategory(category),
+        phone,
+        destinationType: destType,
+        accountNumber: primaryAccount,
+        destinations: enabledDestinations,
+        planCode,
+        ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+        ...(addressText ? { addressText } : {}),
+        ...(ownerName ? { fullName: ownerName } : {}),
       });
+      if (logoFile) {
+        try {
+          await uploadBusinessLogo(logoFile, { alsoSetAvatar: true });
+        } catch (err: unknown) {
+          toast.error("Shop photo skipped", {
+            description:
+              err instanceof Error
+                ? `${err.message} You can add it later in Settings.`
+                : "You can add it later in Settings.",
+          });
+        }
+      }
+      setProvisionIndex(0);
+    })().catch((err: unknown) => {
+      finishedRef.current = false;
+      setBusy(false);
+      setProvisionIndex(-1);
+      toast.error("Could not finish setup", {
+        description: err instanceof Error ? err.message : "Stay on this page and retry.",
+      });
+    });
   }, [
     business,
     category,

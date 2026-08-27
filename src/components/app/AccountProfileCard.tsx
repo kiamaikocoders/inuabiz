@@ -57,7 +57,6 @@ import {
   updateProfile,
   verifyTotpEnrollment,
 } from "@/lib/auth";
-import { uploadBusinessLogo } from "@/lib/business-logo";
 import { uploadProfileAvatar } from "@/lib/profile-avatar";
 import {
   clearStoredIdentity,
@@ -146,7 +145,6 @@ export function AccountProfileCard({
   const [disableMfaCode, setDisableMfaCode] = useState("");
   const [disableMfaBusy, setDisableMfaBusy] = useState(false);
   const [logoutOthersOpen, setLogoutOthersOpen] = useState(false);
-  const [logoBusy, setLogoBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(identity.avatarUrl);
 
@@ -164,10 +162,17 @@ export function AccountProfileCard({
   }, [identity.fullName, identity.phone, identity.avatarUrl]);
 
   useEffect(() => {
-    if (header?.address_text == null) return;
-    setAddress(header.address_text);
-    setSaved((prev) => ({ ...prev, address: header.address_text ?? "" }));
-  }, [header?.address_text]);
+    if (header?.address_text) {
+      setAddress(header.address_text);
+      setSaved((prev) => ({ ...prev, address: header.address_text ?? "" }));
+      return;
+    }
+    if (header?.location_lat != null && header?.location_lng != null) {
+      const pin = `Pin · ${Number(header.location_lat).toFixed(5)}, ${Number(header.location_lng).toFixed(5)}`;
+      setAddress(pin);
+      setSaved((prev) => ({ ...prev, address: pin }));
+    }
+  }, [header?.address_text, header?.location_lat, header?.location_lng]);
 
   useEffect(() => {
     if (!prefs) return;
@@ -319,23 +324,13 @@ export function AccountProfileCard({
           </SectionTitle>
           <div className="space-y-4">
             {kind === "vendor" && owner && (
-              <ShopLogoPicker
-                url={header?.logo_url ?? null}
-                name={identity.shop || fullName}
-                disabled={logoBusy || !live}
-                onFile={(file) => {
-                  setLogoBusy(true);
-                  void uploadBusinessLogo(file)
-                    .then(async () => {
-                      toast.success("Shop photo updated");
-                      await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
-                    })
-                    .catch((error: unknown) => {
-                      toast.error(error instanceof Error ? error.message : "Could not upload photo");
-                    })
-                    .finally(() => setLogoBusy(false));
-                }}
-              />
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Shop photo and trading address live under{" "}
+                <Link to="/app/settings" className="text-primary font-medium underline-offset-4 hover:underline">
+                  Settings
+                </Link>
+                . This page is your personal profile only.
+              </p>
             )}
             <Field label="Full name" htmlFor="full-name">
               <Input

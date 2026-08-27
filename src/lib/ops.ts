@@ -13,6 +13,8 @@ export type ShopRow = {
   address_text: string | null;
   phone: string | null;
   is_default: boolean;
+  location_lat: number | null;
+  location_lng: number | null;
 };
 
 export type TenantHeader = {
@@ -26,6 +28,8 @@ export type TenantHeader = {
   category: string;
   vat_registered: boolean;
   logo_url: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
 };
 
 export type StaffRow = {
@@ -49,7 +53,7 @@ export async function fetchShops(): Promise<ShopRow[]> {
   if (!sb) return [];
   const { data, error } = await sb
     .from("shops")
-    .select("id, name, category, address_text, phone, is_default")
+    .select("id, name, category, address_text, phone, is_default, location_lat, location_lng")
     .order("created_at");
   if (error || !data) return [];
   return data as ShopRow[];
@@ -88,7 +92,9 @@ export async function fetchTenantHeader(): Promise<TenantHeader | null> {
   if (!profile?.tenant_id) return null;
   const { data } = await sb
     .from("tenants")
-    .select("id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url")
+    .select(
+      "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng",
+    )
     .eq("id", profile.tenant_id)
     .maybeSingle();
   return (data as TenantHeader | null) ?? null;
@@ -104,6 +110,8 @@ export async function saveTenantHeader(patch: {
   category?: string;
   vat_registered?: boolean;
   logo_url?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -116,11 +124,18 @@ export async function saveTenantHeader(patch: {
   if (payload.category) payload.category = parseCategory(payload.category);
   const { error } = await sb.from("tenants").update(payload).eq("id", profile.tenant_id);
   if (error) throw new Error(error.message);
-  if (payload.category && profile.active_shop_id) {
+
+  // Keep shop locations/address in sync with the business profile.
+  const shopPatch: Record<string, unknown> = {};
+  if (payload.address_text !== undefined) shopPatch["address_text"] = payload.address_text;
+  if (payload.category) shopPatch["category"] = payload.category;
+  if (payload.location_lat !== undefined) shopPatch["location_lat"] = payload.location_lat;
+  if (payload.location_lng !== undefined) shopPatch["location_lng"] = payload.location_lng;
+  if (Object.keys(shopPatch).length) {
     const { error: shopErr } = await sb
       .from("shops")
-      .update({ category: payload.category })
-      .eq("id", profile.active_shop_id);
+      .update(shopPatch)
+      .eq("tenant_id", profile.tenant_id);
     if (shopErr) throw new Error(shopErr.message);
   }
 }

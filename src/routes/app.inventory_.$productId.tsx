@@ -1,10 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ProductForm, type ProductDraft } from "@/components/app/ProductForm";
 import { Button } from "@/components/ui/button";
-import { fetchProduct, saveProduct } from "@/lib/data";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { deleteProduct, fetchProduct, saveProduct } from "@/lib/data";
 import { fetchShops } from "@/lib/ops";
 import { fetchProfile } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -20,6 +32,8 @@ export const Route = createFileRoute("/app/inventory_/$productId")({
 function EditProduct() {
   const { productId } = Route.useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [deleting, setDeleting] = useState(false);
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", productId],
     queryFn: () => fetchProduct(productId),
@@ -52,15 +66,51 @@ function EditProduct() {
     toast.success("Product updated", {
       description: res.demo ? "Demo mode — sign in to persist to Supabase." : "Inventory saved.",
     });
+    await queryClient.invalidateQueries({ queryKey: ["products"] });
     await navigate({ to: "/app/inventory" });
+  };
+
+  const onDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteProduct(productId);
+      toast.success("Product removed");
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+      await navigate({ to: "/app/inventory" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
     <AppShell
       title={product?.name ?? "Edit product"}
-      description="Name, prices, stock and reorder level"
+      description="Name, prices, stock, SKU, expiry and batch"
       actions={
         <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-destructive border-destructive/40" disabled={!product}>
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remove this product?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  It leaves the till and inventory list. Past sales stay intact.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction disabled={deleting} onClick={() => void onDelete()}>
+                  {deleting ? "Removing…" : "Delete product"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button variant="outline" asChild>
             <Link to="/app/inventory">Cancel</Link>
           </Button>

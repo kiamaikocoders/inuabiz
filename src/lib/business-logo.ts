@@ -14,11 +14,14 @@ function extFor(type: string): "jpg" | "png" | "webp" {
   return "jpg";
 }
 
-export async function uploadBusinessLogo(file: File): Promise<string> {
+export async function uploadBusinessLogo(
+  file: File,
+  opts?: { alsoSetAvatar?: boolean },
+): Promise<string> {
   assertLogoFile(file);
   const sb = getSupabase();
   if (!sb) throw new Error("Sign in is offline in this demo.");
-  const { data: profile } = await sb.from("profiles").select("tenant_id, role").maybeSingle();
+  const { data: profile } = await sb.from("profiles").select("tenant_id, role, id, avatar_url").maybeSingle();
   if (!profile?.tenant_id) throw new Error("Finish shop setup first");
   if (profile.role !== "VENDOR_ADMIN") throw new Error("Only the shop owner can change the photo");
 
@@ -41,5 +44,28 @@ export async function uploadBusinessLogo(file: File): Promise<string> {
   const url = `${data.publicUrl}?v=${Date.now()}`;
   const { error: updateError } = await sb.from("tenants").update({ logo_url: url }).eq("id", tenantId);
   if (updateError) throw new Error(updateError.message);
+
+  // Onboarding only uploads a shop photo — also seed the owner avatar so the header renders it.
+  const seedAvatar = opts?.alsoSetAvatar !== false && !profile.avatar_url;
+  if (seedAvatar || opts?.alsoSetAvatar === true) {
+    const userId = profile.id as string;
+    const avatarPath = `${userId}/avatar.${ext}`;
+    await sb.storage.from("profile-avatars").remove([
+      `${userId}/avatar.jpg`,
+      `${userId}/avatar.png`,
+      `${userId}/avatar.webp`,
+    ]);
+    const { error: avErr } = await sb.storage.from("profile-avatars").upload(avatarPath, file, {
+      upsert: true,
+      contentType: file.type,
+      cacheControl: "3600",
+    });
+    if (!avErr) {
+      const { data: av } = sb.storage.from("profile-avatars").getPublicUrl(avatarPath);
+      const avatarUrl = `${av.publicUrl}?v=${Date.now()}`;
+      await sb.from("profiles").update({ avatar_url: avatarUrl }).eq("id", userId);
+    }
+  }
+
   return url;
 }

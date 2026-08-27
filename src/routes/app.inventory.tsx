@@ -129,6 +129,7 @@ function Inventory() {
                   <TableHead className="text-right">Margin</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-[1%]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -136,7 +137,7 @@ function Inventory() {
                   const margin = ((p.price - p.cost) / p.price) * 100;
                   const low = p.stock <= p.reorderLevel;
                   return (
-                    <TableRow key={p.id} className="cursor-pointer">
+                    <TableRow key={p.id}>
                       <TableCell className="font-medium">
                         <Link
                           to="/app/inventory/$productId"
@@ -168,6 +169,13 @@ function Inventory() {
                         <Badge variant={low ? "destructive" : "secondary"}>
                           {low ? "Reorder" : "Healthy"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link to="/app/inventory/$productId" params={{ productId: p.id }}>
+                            Edit
+                          </Link>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

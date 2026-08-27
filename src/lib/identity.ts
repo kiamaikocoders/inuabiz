@@ -155,6 +155,7 @@ export function useIdentity(kind: "vendor" | "admin"): AppIdentity {
     ...remote,
     ...stored,
     email: account?.email || stored?.email || "",
-    avatarUrl: stored?.avatarUrl || remote.avatarUrl || "",
+    // Fall back to shop logo so onboarding photos show in the header.
+    avatarUrl: stored?.avatarUrl || remote.avatarUrl || header?.logo_url || "",
   };
 }

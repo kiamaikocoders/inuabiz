@@ -40,7 +40,7 @@ export function productToDraft(
 ): ProductDraft {
   return {
     name: p?.name ?? "",
-    sku: p?.sku ?? "",
+    sku: p?.sku && p.sku !== "—" ? p.sku : "",
     category: p?.category ?? "Staples",
     description: "",
     cost: p ? String(p.cost) : "",

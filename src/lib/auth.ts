@@ -140,6 +140,7 @@ export async function completeOnboarding(input: {
   }>;
   lat?: number;
   lng?: number;
+  addressText?: string;
   fullName?: string;
   planCode?: "SHOP_MONTHLY" | "COMPLIANCE";
 }): Promise<void> {
@@ -171,6 +172,7 @@ export async function completeOnboarding(input: {
     p_account_number: String(primary.account_number),
     p_location_lat: input.lat ?? -1.2921,
     p_location_lng: input.lng ?? 36.8219,
+    p_address_text: input.addressText ?? null,
     p_full_name: input.fullName ?? null,
     p_plan_code: input.planCode ?? "SHOP_MONTHLY",
     p_destinations: destinations.length

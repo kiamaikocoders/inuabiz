@@ -44,26 +44,56 @@ export async function fetchProducts(): Promise<Product[]> {
   if (!sb) return [];
   const { data, error } = await sb
     .from("products")
-    .select("id, name, sku, cost_price, selling_price, stock_qty, low_stock_threshold")
+    .select(
+      "id, name, sku, cost_price, selling_price, stock_qty, low_stock_threshold, tax_class, classification_code, attrs",
+    )
     .eq("is_active", true)
     .order("name");
   if (error || !data?.length) return [];
-  return data.map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    sku: (row.sku as string | null) ?? "—",
-    category: "General",
-    cost: Number(row.cost_price),
-    price: Number(row.selling_price),
-    stock: Number(row.stock_qty),
-    reorderLevel: Number(row.low_stock_threshold),
-    emoji: "📦",
-  }));
+  return data.map((row) => mapProductRow(row as Record<string, unknown>));
 }
 
 export async function fetchProduct(id: string): Promise<Product | undefined> {
-  const list = await fetchProducts();
-  return list.find((p) => p.id === id);
+  const sb = getSupabase();
+  if (!sb) return undefined;
+  const { data, error } = await sb
+    .from("products")
+    .select(
+      "id, name, sku, cost_price, selling_price, stock_qty, low_stock_threshold, tax_class, classification_code, attrs",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return undefined;
+  return mapProductRow(data as Record<string, unknown>);
+}
+
+function mapProductRow(row: Record<string, unknown>): Product {
+  const attrs = (row["attrs"] as Product["attrs"] | null) ?? undefined;
+  const department = attrs?.department?.trim();
+  const taxClass = row["tax_class"] as Product["taxClass"] | null;
+  const classificationCode = row["classification_code"] as string | null;
+  const product: Product = {
+    id: String(row["id"]),
+    name: String(row["name"]),
+    sku: String(row["sku"] ?? "").trim() || "—",
+    category: department || "General",
+    cost: Number(row["cost_price"]),
+    price: Number(row["selling_price"]),
+    stock: Number(row["stock_qty"]),
+    reorderLevel: Number(row["low_stock_threshold"]),
+    emoji: "📦",
+  };
+  if (taxClass) product.taxClass = taxClass;
+  if (classificationCode) product.classificationCode = classificationCode;
+  if (attrs) product.attrs = attrs;
+  return product;
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.from("products").update({ is_active: false }).eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function saveProduct(

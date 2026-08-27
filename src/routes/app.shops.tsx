@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Plus } from "lucide-react";
+import { Check, MapPin, Plus, Store } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
@@ -22,14 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createShop, fetchShops, setActiveShop } from "@/lib/ops";
+import { createShop, fetchShops, fetchTenantHeader, setActiveShop } from "@/lib/ops";
 import { fetchProfile } from "@/lib/auth";
 import { isVendorOwner } from "@/lib/identity";
 import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchBillingSnapshot, pollSubscriptionPayment } from "@/lib/payments";
 import { fetchPublicPricing } from "@/lib/plans";
 import { KES } from "@/lib/mock-data";
-import { CATEGORY_LIST, categoryLabel } from "@/lib/category";
+import { CATEGORY_LIST, categoryLabel, parseCategory } from "@/lib/category";
+import { formatCoords, mapsUrl } from "@/lib/geo";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/shops")({
   head: () => ({
@@ -42,6 +44,11 @@ function ShopsPage() {
   const queryClient = useQueryClient();
   const { data: shops = [] } = useQuery({ queryKey: ["shops"], queryFn: fetchShops });
   const { data: profile } = useQuery({ queryKey: ["identity"], queryFn: fetchProfile });
+  const { data: header } = useQuery({
+    queryKey: ["tenant-header"],
+    queryFn: fetchTenantHeader,
+    enabled: isSupabaseConfigured(),
+  });
   const { data: pricing } = useQuery({ queryKey: ["public-pricing"], queryFn: fetchPublicPricing });
   const { data: billing } = useQuery({ queryKey: ["billing"], queryFn: fetchBillingSnapshot });
   const owner = isVendorOwner(profile?.role ?? "VENDOR_ADMIN");
@@ -50,7 +57,6 @@ function ShopsPage() {
   const [category, setCategory] = useState("DUKA");
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
-
   const [payPhone, setPayPhone] = useState("");
   const [stkHint, setStkHint] = useState("");
 
@@ -59,6 +65,9 @@ function ShopsPage() {
     (billing?.amount && shops.length > 0
       ? Math.round(billing.amount / Math.max(shops.length, 1))
       : 3000);
+
+  const activeId = profile?.active_shop_id ?? shops.find((s) => s.is_default)?.id ?? shops[0]?.id;
+  const active = shops.find((s) => s.id === activeId) ?? shops[0];
 
   const addShop = async () => {
     if (!name.trim()) return;
@@ -120,10 +129,21 @@ function ShopsPage() {
     }
   };
 
+  const switchTo = (shopId: string, shopName: string) => {
+    void setActiveShop(shopId)
+      .then(() => {
+        toast.success(`Switched to ${shopName}`);
+        void queryClient.invalidateQueries();
+      })
+      .catch((err: unknown) =>
+        toast.error(err instanceof Error ? err.message : "Could not switch shop"),
+      );
+  };
+
   return (
     <AppShell
       title="Shops"
-      description={`Locations under this business. First shop is in the trial. Extra shops: pay ${KES(shopAddon)} on M-Pesa, then the shop is created.`}
+      description="Every counter under this business. Switch active shop without mixing stock or sales."
       actions={
         owner ? (
           <Button size="sm" onClick={() => setOpen(true)}>
@@ -132,39 +152,110 @@ function ShopsPage() {
         ) : undefined
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2">
-        {shops.map((shop) => (
-          <button
-            key={shop.id}
-            type="button"
-            className="surface-card p-5 text-left"
-            onClick={() => {
-              void setActiveShop(shop.id)
-                .then(() => {
-                  toast.success(`Switched to ${shop.name}`);
-                  void queryClient.invalidateQueries();
-                })
-                .catch((err: unknown) =>
-                  toast.error(err instanceof Error ? err.message : "Could not switch shop"),
-                );
-            }}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="font-display font-semibold">{shop.name}</p>
-              <div className="flex gap-1">
-                {shop.is_default && <Badge variant="secondary">Default</Badge>}
-                {profile?.active_shop_id === shop.id && <Badge>Active</Badge>}
+      {active && (
+        <div className="bg-hero-gradient relative mb-5 overflow-hidden rounded-2xl p-6 shadow-lift">
+          <div className="grid-paper absolute inset-0 opacity-[0.07]" aria-hidden />
+          <div className="relative flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-4">
+              <span className="bg-primary-foreground/15 text-primary-foreground grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl">
+                {header?.logo_url ? (
+                  <img src={header.logo_url} alt="" className="size-full object-cover" />
+                ) : (
+                  <Store className="size-7" />
+                )}
+              </span>
+              <div className="min-w-0">
+                <p className="text-gold text-xs font-semibold tracking-widest uppercase">
+                  Active till
+                </p>
+                <h2 className="text-primary-foreground mt-1 truncate font-display text-2xl font-bold">
+                  {active.name}
+                </h2>
+                <p className="text-primary-foreground/75 mt-1 text-sm">
+                  {categoryLabel(active.category)}
+                  {active.address_text ? ` · ${active.address_text}` : ""}
+                </p>
+                {(active.location_lat != null && active.location_lng != null) ||
+                (header?.location_lat != null && header?.location_lng != null) ? (
+                  <a
+                    className="text-primary-foreground/80 mt-2 inline-flex items-center gap-1 text-xs underline-offset-4 hover:underline"
+                    href={mapsUrl({
+                      lat: Number(active.location_lat ?? header?.location_lat),
+                      lng: Number(active.location_lng ?? header?.location_lng),
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <MapPin className="size-3" />
+                    Open map pin
+                  </a>
+                ) : null}
               </div>
             </div>
-            <p className="text-muted-foreground mt-1 text-sm">{categoryLabel(shop.category)}</p>
-            {shop.address_text && (
-              <p className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
-                <MapPin className="size-3" /> {shop.address_text}
-              </p>
-            )}
-          </button>
-        ))}
+            <Badge className="bg-gold text-gold-foreground border-transparent">Selling here</Badge>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {shops.map((shop) => {
+          const isActive = shop.id === activeId;
+          const cat = CATEGORY_LIST.find((c) => c.id === parseCategory(shop.category));
+          const lat = shop.location_lat ?? header?.location_lat;
+          const lng = shop.location_lng ?? header?.location_lng;
+          const place =
+            shop.address_text ||
+            header?.address_text ||
+            (lat != null && lng != null ? `Pin · ${formatCoords({ lat: Number(lat), lng: Number(lng) })}` : null);
+          return (
+            <button
+              key={shop.id}
+              type="button"
+              onClick={() => switchTo(shop.id, shop.name)}
+              className={cn(
+                "group relative overflow-hidden rounded-2xl border p-5 text-left transition-all",
+                isActive
+                  ? "border-primary/40 bg-primary-soft/40 shadow-sm"
+                  : "border-border bg-card hover:border-primary/25 hover:bg-muted/40",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="bg-muted grid size-11 shrink-0 place-items-center rounded-xl text-lg">
+                    {cat?.emoji ?? "🏪"}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-display text-lg font-semibold">{shop.name}</p>
+                    <p className="text-muted-foreground mt-0.5 text-sm">{categoryLabel(shop.category)}</p>
+                    {place && (
+                      <p className="text-muted-foreground mt-2 flex items-start gap-1 text-xs leading-relaxed">
+                        <MapPin className="mt-0.5 size-3 shrink-0" />
+                        <span className="line-clamp-2">{place}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  {isActive ? (
+                    <Badge className="gap-1">
+                      <Check className="size-3" /> Active
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="opacity-0 transition-opacity group-hover:opacity-100">
+                      Switch
+                    </Badge>
+                  )}
+                  {shop.is_default && <Badge variant="secondary">Default</Badge>}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
+
+      {!shops.length && (
+        <p className="text-muted-foreground mt-6 text-sm">No shops yet. Add your first location.</p>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -196,7 +287,11 @@ function ShopsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+              <Input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder={header?.address_text ?? "Street, estate, town"}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>M-Pesa number</Label>
