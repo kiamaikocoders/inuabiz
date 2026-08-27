@@ -2085,6 +2085,7 @@ export type Database = {
           p_business_name: string
           p_category: Database["public"]["Enums"]["business_category"]
           p_destination_type: Database["public"]["Enums"]["payment_destination_type"]
+          p_destinations?: Json
           p_full_name?: string
           p_location_lat?: number
           p_location_lng?: number

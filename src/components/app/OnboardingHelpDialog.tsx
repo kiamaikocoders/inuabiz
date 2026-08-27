@@ -68,8 +68,12 @@ const HELP: StepHelp[] = [
   },
   {
     title: "Help with payment destination",
-    intro: "This is where customer money lands. Pick what you already use today.",
+    intro: "Add every channel customers already pay into. Mark one as primary for checkout prompts.",
     faqs: [
+      {
+        q: "Can I add Till and personal M-Pesa together?",
+        a: "Yes. Tick every channel you use today and enter each account number. Sales to any of them can reconcile — primary only controls the default checkout prompt.",
+      },
       {
         q: "Personal number, Till or Paybill?",
         a: "Use your personal M-Pesa number to start selling immediately with no paperwork. Choose Till for a busy counter, or Paybill when customers pay against an account number.",

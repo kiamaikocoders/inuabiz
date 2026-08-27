@@ -18,8 +18,19 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["https://inuabiz.co.ke", "https://www.inuabiz.co.ke"]
+site_url = "http://localhost:8080"
+additional_redirect_urls = [
+  "http://localhost:8080",
+  "http://localhost:8080/**",
+  "https://inuabiz.co.ke",
+  "https://inuabiz.co.ke/**",
+  "https://www.inuabiz.co.ke",
+  "https://www.inuabiz.co.ke/**",
+  "https://app.inuabiz.co.ke",
+  "https://app.inuabiz.co.ke/**",
+  "https://admin.inuabiz.co.ke",
+  "https://admin.inuabiz.co.ke/**",
+]
 enable_signup = true
 
 [auth.sms]

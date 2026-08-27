@@ -22,7 +22,7 @@ async function resolveTenantByShortCode(
     .from("tenant_payment_destinations")
     .select("tenant_id")
     .eq("account_number", shortCode)
-    .eq("is_primary", true)
+    .limit(1)
     .maybeSingle();
   return (data?.tenant_id as string | undefined) ?? null;
 }

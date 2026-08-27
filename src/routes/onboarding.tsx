@@ -42,7 +42,7 @@ import {
   trackSummaryEmail,
   trackValidationFailed,
 } from "@/lib/analytics";
-import { clearDraft, hasMeaningfulProgress, loadDraft, saveDraft } from "@/lib/onboarding-progress";
+import { clearDraft, defaultPayChannels, hasMeaningfulProgress, loadDraft, saveDraft, type OnboardingPayChannelId, type OnboardingPayChannels } from "@/lib/onboarding-progress";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -64,23 +64,23 @@ export const Route = createFileRoute("/onboarding")({
 });
 
 const payTypes = [
-  { id: "personal", label: "Personal M-Pesa number", hint: "Fastest to start — no registration" },
-  { id: "till", label: "Buy Goods Till number", hint: "Best for busy counters" },
-  { id: "paybill", label: "Paybill number", hint: "Best for account-based payments" },
+  { id: "personal" as const, label: "Personal M-Pesa number", hint: "Fastest to start — no registration", dest: "PERSONAL_MPESA" as const },
+  { id: "till" as const, label: "Buy Goods Till number", hint: "Best for busy counters", dest: "TILL" as const },
+  { id: "paybill" as const, label: "Paybill number", hint: "Best for account-based payments", dest: "PAYBILL" as const },
 ];
 
 /** Guided A/B variant: one concrete tip per step. */
 const stepTips = [
   "Use the number you keep on you all day — the login code and M-Pesa alerts land there.",
   "Name your shop exactly as customers know it; it prints on every receipt.",
-  "Not sure? Start with your personal M-Pesa number — you can add a Till later.",
+  "Tick every channel you already use — Till, Paybill and personal can all be on.",
   "Most shops stay on Standard. Pick Compliance only if you need ETR / KRA records.",
 ];
 
 const stepMeta = [
   { title: "M-Pesa number", time: "30 seconds" },
   { title: "Business details", time: "45 seconds" },
-  { title: "Payment destination", time: "30 seconds" },
+  { title: "Payment channels", time: "45 seconds" },
   { title: "Choose your plan", time: "20 seconds" },
 ];
 
@@ -126,8 +126,8 @@ function Onboarding() {
   const [business, setBusiness] = useState("");
   const [category, setCategory] = useState("DUKA");
   const [located, setLocated] = useState(false);
-  const [payType, setPayType] = useState("personal");
-  const [payValue, setPayValue] = useState("");
+  const [payChannels, setPayChannels] = useState<OnboardingPayChannels>(() => defaultPayChannels());
+  const [primaryPayChannel, setPrimaryPayChannel] = useState<OnboardingPayChannelId>("personal");
   const [planCode, setPlanCode] = useState<"SHOP_MONTHLY" | "COMPLIANCE">("SHOP_MONTHLY");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -157,8 +157,16 @@ function Onboarding() {
 
   const provisioning = provisionIndex >= 0;
 
-  const destType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" =
-    payType === "till" ? "TILL" : payType === "paybill" ? "PAYBILL" : "PERSONAL_MPESA";
+  const enabledDestinations = payTypes
+    .filter((p) => payChannels[p.id].enabled)
+    .map((p) => ({
+      type: p.dest,
+      accountNumber: payChannels[p.id].value,
+      isPrimary: primaryPayChannel === p.id,
+    }));
+  const primaryMeta = payTypes.find((p) => p.id === primaryPayChannel) ?? payTypes[0]!;
+  const destType = primaryMeta.dest;
+  const primaryAccount = payChannels[primaryPayChannel]?.value ?? "";
 
   const { data: pricing } = useQuery({
     queryKey: ["public-pricing"],
@@ -206,8 +214,8 @@ function Onboarding() {
       setOtpSent(draft.otpSent);
       setBusiness(draft.business);
       setCategory(parseCategory(draft.category));
-      setPayType(draft.payType);
-      setPayValue(draft.payValue);
+      setPayChannels(draft.payChannels);
+      setPrimaryPayChannel(draft.primaryPayChannel);
       setPlanCode(draft.planCode === "COMPLIANCE" ? "COMPLIANCE" : "SHOP_MONTHLY");
       setCoords(draft.coords);
       setLocated(draft.coords != null);
@@ -249,13 +257,13 @@ function Onboarding() {
       otpSent,
       business,
       category,
-      payType,
-      payValue,
+      payChannels,
+      primaryPayChannel,
       planCode,
       coords,
       startedAt: startedAtRef.current,
     });
-  }, [hydrated, step, phone, otpSent, business, category, payType, payValue, planCode, coords]);
+  }, [hydrated, step, phone, otpSent, business, category, payChannels, primaryPayChannel, planCode, coords]);
 
   /* -------- funnel drop-off -------- */
   useEffect(() => {
@@ -316,12 +324,23 @@ function Onboarding() {
       if (!located) found["location"] = "Pin your store location to continue";
     }
     if (target === 2) {
-      if (payType === "personal") {
-        const p = phoneSchema.safeParse(payValue);
-        if (!p.success) found["payValue"] = p.error.issues[0]!.message;
+      const enabled = payTypes.filter((p) => payChannels[p.id].enabled);
+      if (enabled.length === 0) {
+        found["payChannels"] = "Add at least one payment channel";
       } else {
-        const t = tillSchema.safeParse(payValue);
-        if (!t.success) found["payValue"] = t.error.issues[0]!.message;
+        for (const p of enabled) {
+          const value = payChannels[p.id].value;
+          if (p.id === "personal") {
+            const parsed = phoneSchema.safeParse(value);
+            if (!parsed.success) found[`pay_${p.id}`] = parsed.error.issues[0]!.message;
+          } else {
+            const parsed = tillSchema.safeParse(value);
+            if (!parsed.success) found[`pay_${p.id}`] = parsed.error.issues[0]!.message;
+          }
+        }
+        if (!payChannels[primaryPayChannel].enabled) {
+          found["primaryPay"] = "Pick a primary channel from the ones you enabled";
+        }
       }
     }
     setErrors(found);
@@ -360,8 +379,8 @@ function Onboarding() {
     setOtpSent(false);
     setBusiness("");
     setCategory("Duka");
-    setPayType("personal");
-    setPayValue("");
+    setPayChannels(defaultPayChannels());
+    setPrimaryPayChannel("personal");
     setPlanCode("SHOP_MONTHLY");
     setCoords(null);
     setLocated(false);
@@ -449,6 +468,7 @@ function Onboarding() {
     trackOnboardingCompleted(Date.now() - startedAtRef.current, {
       category,
       destination_type: destType,
+      destinations: enabledDestinations.map((d) => d.type),
       located,
       summary_email: emailCopy,
       plan_code: planCode,
@@ -466,7 +486,8 @@ function Onboarding() {
       category: parseCategory(category),
       phone,
       destinationType: destType,
-      accountNumber: payValue,
+      accountNumber: primaryAccount,
+      destinations: enabledDestinations,
       planCode,
       ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       ...(ownerName ? { fullName: ownerName } : {}),
@@ -488,11 +509,12 @@ function Onboarding() {
     coords,
     destType,
     emailCopy,
+    enabledDestinations,
     located,
     ownerName,
-    payValue,
     phone,
     planCode,
+    primaryAccount,
     summaryEmail,
   ]);
 
@@ -727,55 +749,104 @@ function Onboarding() {
                 Where should money land?
               </h1>
               <p className="text-muted-foreground mt-2 text-sm">
-                Pick whatever you already use today. You can add more channels later.
+                Tick every channel you already use. Mark one as primary for checkout prompts — the
+                rest still reconcile when customers pay there.
               </p>
+              <FieldError message={errors["payChannels"] || errors["primaryPay"]} />
               <RadioGroup
-                value={payType}
+                value={primaryPayChannel}
                 onValueChange={(v) => {
-                  setPayType(v);
-                  setError("payValue");
+                  setPrimaryPayChannel(v as OnboardingPayChannelId);
+                  setError("primaryPay");
                 }}
                 className="mt-7 space-y-3"
               >
-                {payTypes.map((p) => (
-                  <label
-                    key={p.id}
-                    htmlFor={p.id}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
-                      payType === p.id ? "border-primary bg-primary-soft" : "border-border bg-card",
-                    )}
-                  >
-                    <RadioGroupItem value={p.id} id={p.id} className="mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold">{p.label}</p>
-                      <p className="text-muted-foreground text-xs">{p.hint}</p>
+                {payTypes.map((p) => {
+                  const row = payChannels[p.id];
+                  const fieldError = errors[`pay_${p.id}`];
+                  return (
+                    <div
+                      key={p.id}
+                      className={cn(
+                        "rounded-xl border p-4 transition-colors",
+                        row.enabled ? "border-primary bg-primary-soft/40" : "border-border bg-card",
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id={`pay-enable-${p.id}`}
+                          checked={row.enabled}
+                          className="mt-0.5"
+                          onCheckedChange={(checked) => {
+                            const on = checked === true;
+                            setPayChannels((prev) => {
+                              const next = {
+                                ...prev,
+                                [p.id]: { ...prev[p.id], enabled: on },
+                              };
+                              if (!on && primaryPayChannel === p.id) {
+                                const fallback = payTypes.find(
+                                  (x) => x.id !== p.id && next[x.id].enabled,
+                                );
+                                if (fallback) setPrimaryPayChannel(fallback.id);
+                              }
+                              if (on && !payTypes.some((x) => x.id !== p.id && prev[x.id].enabled)) {
+                                setPrimaryPayChannel(p.id);
+                              }
+                              return next;
+                            });
+                            setError("payChannels");
+                            setError(`pay_${p.id}`);
+                            setError("primaryPay");
+                          }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <Label htmlFor={`pay-enable-${p.id}`} className="text-sm font-semibold">
+                            {p.label}
+                          </Label>
+                          <p className="text-muted-foreground text-xs">{p.hint}</p>
+                          {row.enabled && (
+                            <div className="mt-3 space-y-3">
+                              <div className="space-y-1.5">
+                                <Label htmlFor={`pay-value-${p.id}`} className="text-xs">
+                                  {p.id === "personal"
+                                    ? "M-Pesa number"
+                                    : p.id === "till"
+                                      ? "Till number"
+                                      : "Paybill number"}
+                                </Label>
+                                <Input
+                                  id={`pay-value-${p.id}`}
+                                  inputMode="numeric"
+                                  aria-invalid={Boolean(fieldError)}
+                                  placeholder={p.id === "personal" ? "0712 345 678" : "123456"}
+                                  value={row.value}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setPayChannels((prev) => ({
+                                      ...prev,
+                                      [p.id]: { ...prev[p.id], value },
+                                    }));
+                                    setError(`pay_${p.id}`);
+                                  }}
+                                />
+                                <FieldError message={fieldError} />
+                              </div>
+                              <label
+                                htmlFor={`pay-primary-${p.id}`}
+                                className="flex cursor-pointer items-center gap-2 text-xs font-medium"
+                              >
+                                <RadioGroupItem value={p.id} id={`pay-primary-${p.id}`} />
+                                Use as primary for checkout
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </label>
-                ))}
+                  );
+                })}
               </RadioGroup>
-              <div className="mt-5 space-y-2">
-                <Label htmlFor="pv">
-                  {payType === "personal"
-                    ? "M-Pesa number"
-                    : payType === "till"
-                      ? "Till number"
-                      : "Paybill number"}
-                </Label>
-                <Input
-                  id="pv"
-                  inputMode="numeric"
-                  aria-invalid={Boolean(errors["payValue"])}
-                  aria-describedby={errors["payValue"] ? "pv-error" : undefined}
-                  placeholder={payType === "personal" ? "0712 345 678" : "123456"}
-                  value={payValue}
-                  onChange={(e) => {
-                    setPayValue(e.target.value);
-                    setError("payValue");
-                  }}
-                />
-                <FieldError id="pv-error" message={errors["payValue"]} />
-              </div>
             </div>
           )}
 
@@ -902,7 +973,20 @@ function Onboarding() {
                       ["Business", business],
                       ["Category", categoryLabel(category)],
                       ["Phone", phone],
-                      ["Payments to", `${payType} · ${payValue}`],
+                      [
+                        "Payments",
+                        enabledDestinations
+                          .map((d) => {
+                            const label =
+                              d.type === "TILL"
+                                ? "Till"
+                                : d.type === "PAYBILL"
+                                  ? "Paybill"
+                                  : "Personal";
+                            return `${label} ${d.accountNumber}${d.isPrimary ? " · primary" : ""}`;
+                          })
+                          .join(" · "),
+                      ],
                       [
                         "Plan",
                         planCode === "COMPLIANCE"
@@ -912,7 +996,7 @@ function Onboarding() {
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-4">
                         <span className="text-muted-foreground">{k}</span>
-                        <span className="truncate font-medium">{v}</span>
+                        <span className="max-w-[60%] text-right font-medium break-words">{v}</span>
                       </div>
                     ))}
                   </div>

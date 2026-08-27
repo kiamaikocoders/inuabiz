@@ -54,7 +54,7 @@ export const ONBOARDING_STEPS = [
     label: "Pay",
     image: "/images/onboarding/pay-boutique.jpg",
     imageAlt: "Clothing boutique in the evening, garments on racks beside the counter",
-    caption: "Personal M-Pesa, Till or Paybill — pick what you already use today.",
+    caption: "Add every Till, Paybill or personal number you already use — pick one as primary.",
   },
   {
     id: "plan",

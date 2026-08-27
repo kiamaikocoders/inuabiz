@@ -2,7 +2,7 @@ import { getServiceClient, getUserClient, handleOptions, jsonResponse } from "..
 import { resolveSecret } from "../_shared/daraja.ts";
 
 const DEFAULT_FROM = "InuaBiz <support@mail.inuabiz.co.ke>";
-const DEFAULT_SITE = "https://www.inuabiz.co.ke";
+const DEFAULT_SITE = "https://inuabiz.co.ke";
 const APP_URL = "https://app.inuabiz.co.ke";
 
 type Body = {

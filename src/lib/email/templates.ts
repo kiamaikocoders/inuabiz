@@ -454,7 +454,7 @@ const SPECS: Spec[] = [
     greeting: "Hello,",
     body: "Asante. We will send till notes, pricing changes and Nairobi shop stories to this address. You can leave the list any time — write hello@inuabiz.co.ke.",
     ctaLabel: "Open InuaBiz",
-    ctaUrl: "https://www.inuabiz.co.ke",
+    ctaUrl: "https://inuabiz.co.ke",
     noticeTitle: "NOT YOU?",
     noticeBody: "If you did not subscribe, ignore this email or write hello@inuabiz.co.ke.",
   },

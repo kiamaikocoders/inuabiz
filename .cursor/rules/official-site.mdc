@@ -1,0 +1,13 @@
+---
+description: Official public site is inuabiz.co.ke — not previews or www
+alwaysApply: true
+---
+
+# Official site
+
+The official InuaBiz public website is **https://inuabiz.co.ke** (apex). Use that origin in copy, canonicals, emails, OG/SEO, and outbound links to the marketing site.
+
+- Do not treat Lovable/Vercel preview URLs as the official site.
+- Prefer the apex (`inuabiz.co.ke`) over `www.inuabiz.co.ke` unless an existing redirect already requires www.
+- Product hosts stay separate: shop app `https://app.inuabiz.co.ke`, admin `https://admin.inuabiz.co.ke`.
+- Default public contact is `hello@inuabiz.co.ke`.

@@ -131,6 +131,12 @@ export async function completeOnboarding(input: {
   phone: string;
   destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL";
   accountNumber: string;
+  destinations?: Array<{
+    type: "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI";
+    accountNumber: string;
+    accountName?: string | null;
+    isPrimary?: boolean;
+  }>;
   lat?: number;
   lng?: number;
   fullName?: string;
@@ -138,19 +144,47 @@ export async function completeOnboarding(input: {
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
+  const destinations = (input.destinations ?? []).map((d) => ({
+    type: d.type,
+    account_number: d.accountNumber,
+    account_name: d.accountName ?? null,
+    is_primary: Boolean(d.isPrimary),
+  }));
+  const primary =
+    destinations.find((d) => d.is_primary) ??
+    destinations[0] ?? {
+      type: input.destinationType,
+      account_number:
+        input.destinationType === "PERSONAL_MPESA"
+          ? to254(input.accountNumber)
+          : input.accountNumber.replace(/\s/g, ""),
+      account_name: null,
+      is_primary: true,
+    };
+
   const { error } = await sb.rpc("complete_vendor_onboarding", {
     p_business_name: input.businessName,
     p_category: input.category.toUpperCase(),
     p_phone: to254(input.phone),
-    p_destination_type: input.destinationType,
-    p_account_number:
-      input.destinationType === "PERSONAL_MPESA"
-        ? to254(input.accountNumber)
-        : input.accountNumber.replace(/\s/g, ""),
+    p_destination_type: primary.type as "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI",
+    p_account_number: String(primary.account_number),
     p_location_lat: input.lat ?? -1.2921,
     p_location_lng: input.lng ?? 36.8219,
     p_full_name: input.fullName ?? null,
     p_plan_code: input.planCode ?? "SHOP_MONTHLY",
+    p_destinations: destinations.length
+      ? destinations
+      : [
+          {
+            type: input.destinationType,
+            account_number:
+              input.destinationType === "PERSONAL_MPESA"
+                ? to254(input.accountNumber)
+                : input.accountNumber.replace(/\s/g, ""),
+            account_name: null,
+            is_primary: true,
+          },
+        ],
   });
   if (error) throw new Error(error.message);
   const profile = await fetchProfile();
