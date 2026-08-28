@@ -30,6 +30,7 @@ import { useIdentity } from "@/lib/identity";
 import { UserMenu } from "@/components/app/UserMenu";
 import { useQuery } from "@tanstack/react-query";
 import {
+  fetchNotificationPrefs,
   fetchNotifications,
   fetchShops,
   fetchTenantAccess,
@@ -39,6 +40,8 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { fetchProfile } from "@/lib/auth";
 import { useShopCategory } from "@/hooks/use-shop-category";
 import type { FeatureModule } from "@/lib/category";
+import { NotificationLive } from "@/components/app/NotificationLive";
+import { BroadcastBanner } from "@/components/app/BroadcastBanner";
 import { fetchBillingSnapshot, vendorPlanBadge } from "@/lib/payments";
 import { KES } from "@/lib/mock-data";
 
@@ -204,7 +207,13 @@ export function AppShell({
     queryFn: fetchNotifications,
     enabled: isSupabaseConfigured(),
   });
-  const unread = (liveNotes ?? []).filter((n) => !n.read).length;
+  const { data: prefs } = useQuery({
+    queryKey: ["notification-prefs"],
+    queryFn: fetchNotificationPrefs,
+    enabled: isSupabaseConfigured(),
+  });
+  const unread =
+    prefs?.channel_in_app === false ? 0 : (liveNotes ?? []).filter((n) => !n.read).length;
   const { data: access = true } = useQuery({
     queryKey: ["tenant-access"],
     queryFn: fetchTenantAccess,
@@ -276,6 +285,8 @@ export function AppShell({
         </header>
 
         <main className="flex-1 p-4 sm:p-6">
+          <NotificationLive kind="vendor" />
+          <BroadcastBanner />
           {!access && (
             <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
               Subscription expired.{" "}

@@ -25,6 +25,8 @@ export type PlatformBroadcast = {
   recipient_count: number;
   created_at: string;
   published_at?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
 };
 
 export type EmailSendLogRow = {
@@ -42,6 +44,7 @@ export type EmailProviderSettings = {
   fromName: string;
   notificationsEnabled: boolean;
   opsInbox: string;
+  opsDigest: string;
 };
 
 const TPL_OVERRIDE_KEY = "inuabiz-email-template-overrides";
@@ -120,6 +123,8 @@ function mapBroadcastRow(row: Record<string, unknown>): PlatformBroadcast {
     recipient_count: Number(row["recipient_count"] ?? 0),
     created_at: String(row["created_at"] ?? new Date().toISOString()),
     published_at: (row["published_at"] as string | null) ?? null,
+    starts_at: (row["starts_at"] as string | null) ?? null,
+    ends_at: (row["ends_at"] as string | null) ?? null,
   };
 }
 
@@ -282,6 +287,23 @@ export async function listBroadcasts(): Promise<PlatformBroadcast[]> {
 }
 
 /**
+ * Active vendor banners (published + in window).
+ */
+export async function fetchActiveBroadcasts(): Promise<PlatformBroadcast[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("platform_broadcasts")
+    .select("*")
+    .eq("is_active", true)
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .limit(8);
+  if (error || !data) return [];
+  return data.map((row) => mapBroadcastRow(row as Record<string, unknown>));
+}
+
+/**
  * Save a draft or publish a vendor broadcast.
  */
 export async function saveBroadcast(input: {
@@ -347,6 +369,7 @@ const DEFAULT_PROVIDER: EmailProviderSettings = {
   fromName: "InuaBiz",
   notificationsEnabled: true,
   opsInbox: "hello@inuabiz.co.ke",
+  opsDigest: "komuzack@gmail.com",
 };
 
 /**
@@ -367,10 +390,11 @@ export async function getEmailProviderSettings(): Promise<EmailProviderSettings>
             ? false
             : Boolean(map["email.notifications_enabled"] ?? DEFAULT_PROVIDER.notificationsEnabled),
         opsInbox: String(map["email.ops_inbox"] ?? "hello@inuabiz.co.ke").replace(/^"|"$/g, ""),
+        opsDigest: String(map["email.ops_digest"] ?? "komuzack@gmail.com").replace(/^"|"$/g, ""),
       };
     }
   }
-  return readJson(SETTINGS_KEY, DEFAULT_PROVIDER);
+  return { ...DEFAULT_PROVIDER, ...readJson(SETTINGS_KEY, DEFAULT_PROVIDER) };
 }
 
 /**
@@ -387,7 +411,9 @@ export async function saveEmailProviderSetting(
         ? "email.from_name"
         : key === "opsInbox"
           ? "email.ops_inbox"
-          : "email.notifications_enabled";
+          : key === "opsDigest"
+            ? "email.ops_digest"
+            : "email.notifications_enabled";
   const sb = getSupabase();
   if (sb) {
     const { error } = await sb.from("platform_settings").upsert(

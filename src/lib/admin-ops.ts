@@ -1,4 +1,4 @@
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, invokeFunction } from "@/lib/supabase";
 
 export type OpsCronJob = {
   jobid: number;
@@ -207,6 +207,18 @@ export async function retryCronJob(jobname: string): Promise<void> {
 
 export async function retryFailedEmail(logId: number): Promise<void> {
   await rpcOk("admin_retry_email", { p_log_id: logId });
+}
+
+export async function sendOpsDigestNow(): Promise<{ sent: number; items: string[] }> {
+  const { data, error } = await invokeFunction<{
+    ok?: boolean;
+    sent?: number;
+    items?: string[];
+    error?: string;
+  }>("dispatch-lifecycle", { job: "ops-digest" });
+  if (error) throw new Error(error);
+  if (!data?.ok) throw new Error(data?.error || "Could not send ops digest");
+  return { sent: data.sent ?? 0, items: data.items ?? [] };
 }
 
 export async function extendTrial(tenantId: string, days: number, reason: string): Promise<void> {

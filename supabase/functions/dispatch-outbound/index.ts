@@ -154,14 +154,12 @@ Deno.serve(async (req) => {
     const { data: prefs } = profileId
       ? await service
           .from("notification_preferences")
-          .select("channel_email, channel_sms, channel_whatsapp")
+          .select("channel_email")
           .eq("profile_id", profileId)
           .maybeSingle()
       : { data: null };
 
     const emailOn = body.to ? true : prefs?.channel_email !== false;
-    const smsOn = Boolean(prefs?.channel_sms);
-    const waOn = Boolean(prefs?.channel_whatsapp);
 
     let invoice: {
       invoice_number?: string;
@@ -181,8 +179,6 @@ Deno.serve(async (req) => {
     }
 
     const skipped: string[] = [];
-    if (smsOn) skipped.push("sms_no_gateway");
-    if (waOn) skipped.push("whatsapp_no_gateway");
 
     const { data: settingsRows } = await service
       .from("platform_settings")
@@ -402,6 +398,11 @@ function subjectFor(
     return vars.customer_name ? `New contact: ${vars.customer_name}` : "New website contact";
   }
   if (templateId === "newsletter-welcome") return "You're on the InuaBiz list";
+  if (templateId === "ops-digest") {
+    return vars.day && vars.mrr
+      ? `Ops digest · ${vars.day} · ${vars.mrr} MRR`
+      : "InuaBiz ops digest";
+  }
   return fallback;
 }
 

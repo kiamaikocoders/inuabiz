@@ -38,7 +38,7 @@ export function VendorMpesaPaymentDialog({
   onConfirmManual,
   onCancel,
   onPrint,
-  onSms,
+  onShare,
   onNewSale,
 }: {
   open: boolean;
@@ -54,7 +54,7 @@ export function VendorMpesaPaymentDialog({
   onConfirmManual: () => void;
   onCancel: () => void;
   onPrint: () => void;
-  onSms: () => void;
+  onShare: () => void;
   onNewSale: () => void;
 }) {
   const isPersonal =
@@ -179,8 +179,8 @@ export function VendorMpesaPaymentDialog({
               <Button className="h-11 rounded-[10px]" onClick={onPrint}>
                 Print receipt
               </Button>
-              <Button className="h-11 rounded-[10px]" onClick={onSms}>
-                SMS receipt
+              <Button className="h-11 rounded-[10px]" onClick={onShare}>
+                Share receipt
               </Button>
             </div>
             <Button className="mt-2 h-11 w-full rounded-[10px]" onClick={onNewSale}>

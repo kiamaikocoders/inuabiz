@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CheckCheck, CreditCard, Package, Receipt, Settings2, Wallet } from "lucide-react";
+import { Bell, CheckCheck, CreditCard, Package, Receipt, Settings2, Smartphone, Volume2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
@@ -16,9 +15,11 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  playPosChime,
   saveNotificationPrefs,
 } from "@/lib/ops";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { disableDevicePush, enableDevicePush, fetchPushStatus } from "@/lib/push";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { useState } from "react";
 import { useGhost } from "@/lib/ghost";
 
@@ -43,6 +44,7 @@ function Notifications() {
   const queryClient = useQueryClient();
   const ghost = useGhost();
   const [tab, setTab] = useState("all");
+  const [pushBusy, setPushBusy] = useState(false);
   const { data: live } = useQuery({
     queryKey: ["notifications", ghost?.tenantId ?? "self"],
     queryFn: fetchNotifications,
@@ -53,34 +55,51 @@ function Notifications() {
     queryFn: fetchNotificationPrefs,
     enabled: isSupabaseConfigured(),
   });
+  const { data: push } = useQuery({
+    queryKey: ["push-status"],
+    queryFn: fetchPushStatus,
+  });
   const items = live ?? [];
   const rows = items.filter((n) => (tab === "unread" ? !n.read : true));
 
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-    const sb = getSupabase();
-    if (!sb) return;
-    const channel = sb
-      .channel("notifications-live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, () => {
-        void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      })
-      .subscribe();
-    return () => {
-      void sb.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-  const togglePref = (key: "channel_in_app" | "channel_email" | "channel_sms" | "channel_whatsapp" | "channel_sound", value: boolean) => {
+  const togglePref = (
+    key: "channel_in_app" | "channel_email" | "channel_sound" | "channel_push",
+    value: boolean,
+  ) => {
     void saveNotificationPrefs({ [key]: value })
       .then(() => queryClient.invalidateQueries({ queryKey: ["notification-prefs"] }))
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Could not save"));
   };
 
+  const toggleDevice = async (on: boolean) => {
+    setPushBusy(true);
+    try {
+      if (on) {
+        await enableDevicePush();
+        await saveNotificationPrefs({ channel_push: true });
+        toast.success("Device notifications on", {
+          description: "Sales and stock alerts will appear even when InuaBiz is in the background.",
+        });
+      } else {
+        await disableDevicePush();
+        await saveNotificationPrefs({ channel_push: false });
+        toast.success("Device notifications off");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["notification-prefs"] });
+      await queryClient.invalidateQueries({ queryKey: ["push-status"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update device notifications");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const deviceOn = (prefs?.channel_push ?? true) && push?.permission === "granted";
+
   return (
     <AppShell
       title="Notifications"
-      description="Everything happening in your shop, in real time"
+      description="Till bell, email, and this phone — no SMS yet"
       actions={
         <Button
           size="sm"
@@ -143,20 +162,61 @@ function Notifications() {
             <Settings2 className="text-primary size-4" /> Preferences
           </p>
           <div className="mt-5 space-y-4">
-            {(
-              [
-                ["channel_in_app", "In-app bell", prefs?.channel_in_app ?? true],
-                ["channel_sound", "Sound at POS", prefs?.channel_sound ?? true],
-                ["channel_email", "Email", prefs?.channel_email ?? true],
-                ["channel_sms", "SMS alerts", prefs?.channel_sms ?? false],
-                ["channel_whatsapp", "WhatsApp", prefs?.channel_whatsapp ?? true],
-              ] as const
-            ).map(([key, label, on]) => (
-              <div key={key} className="flex items-start justify-between gap-4">
-                <Label className="text-sm">{label}</Label>
-                <Switch checked={on} onCheckedChange={(v) => togglePref(key, v)} />
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-sm">In-app bell</Label>
+                <p className="text-muted-foreground text-xs">Toasts and the unread badge while you're in the till</p>
               </div>
-            ))}
+              <Switch
+                checked={prefs?.channel_in_app ?? true}
+                onCheckedChange={(v) => togglePref("channel_in_app", v)}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-sm inline-flex items-center gap-1.5">
+                  <Volume2 className="size-3.5" /> Sound at POS
+                </Label>
+                <p className="text-muted-foreground text-xs">Cash-register ding on sales and low stock</p>
+              </div>
+              <Switch
+                checked={prefs?.channel_sound ?? true}
+                onCheckedChange={(v) => {
+                  togglePref("channel_sound", v);
+                  if (v) playPosChime();
+                }}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-sm">Email</Label>
+                <p className="text-muted-foreground text-xs">Trial, stock, receipts and daily till summary</p>
+              </div>
+              <Switch
+                checked={prefs?.channel_email ?? true}
+                onCheckedChange={(v) => togglePref("channel_email", v)}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-sm inline-flex items-center gap-1.5">
+                  <Smartphone className="size-3.5" /> This device
+                </Label>
+                <p className="text-muted-foreground text-xs">
+                  {push?.permission === "unsupported"
+                    ? "This browser cannot show lock-screen alerts"
+                    : "Alerts when InuaBiz is in the background or closed"}
+                </p>
+              </div>
+              <Switch
+                checked={deviceOn}
+                disabled={pushBusy || push?.permission === "unsupported"}
+                onCheckedChange={(v) => void toggleDevice(v)}
+              />
+            </div>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              SMS and WhatsApp are not on this till yet. Share a receipt from the sale screen instead.
+            </p>
           </div>
         </div>
       </div>

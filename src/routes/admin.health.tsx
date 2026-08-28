@@ -39,6 +39,7 @@ import {
   formatWhen,
   retryCronJob,
   retryFailedEmail,
+  sendOpsDigestNow,
   setFeatureFlag,
   type OpsPulse,
 } from "@/lib/admin-ops";
@@ -98,6 +99,17 @@ function Health() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+  const sendDigest = useMutation({
+    mutationFn: sendOpsDigestNow,
+    onSuccess: (res) => {
+      toast.success(
+        res.sent
+          ? `Ops digest sent (${res.sent})`
+          : "Digest already sent today — check komuzack@gmail.com",
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const cronAlert = (pulse?.cron ?? []).some((j) => cronTone(j) !== "Healthy");
   const dlqCount =
@@ -115,6 +127,15 @@ function Health() {
             <Link to="/admin/ai">
               <Sparkles className="size-3.5" /> Copilot
             </Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-[10px]"
+            disabled={sendDigest.isPending}
+            onClick={() => sendDigest.mutate()}
+          >
+            <MailWarning className="size-3.5" /> Email digest
           </Button>
           <Button
             size="sm"
@@ -231,8 +252,8 @@ function PulseBody({
             <div className="surface-card p-5">
               <h2 className="font-semibold">Trials ending in 48h</h2>
               <p className="text-muted-foreground mt-1 text-xs">
-                Retention mail already runs from dispatch-lifecycle. Extend or impersonate from the
-                vendor record.
+                Vendors get trial-ending mail from the 3-minute lifecycle job. You get a command-center
+                digest at 06:00 EAT on komuzack@gmail.com — use Email digest to send today.
               </p>
               {pulse.trials_ending.length === 0 ? (
                 <p className="text-muted-foreground mt-4 text-sm">No trials that close in two days.</p>

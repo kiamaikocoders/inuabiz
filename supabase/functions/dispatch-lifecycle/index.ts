@@ -4,7 +4,7 @@ import { resolveSecret } from "../_shared/daraja.ts";
 
 /**
  * Lifecycle mail: trial, onboarding drop-off, low-stock follow-up, credit,
- * overdue invoices, broadcasts, daily till summary.
+ * overdue invoices, broadcasts, daily till summary, super-admin ops digest.
  * Cron: x-cron-secret / service role. Super-admin JWT may trigger a broadcast.
  */
 Deno.serve(async (req) => {
@@ -51,6 +51,12 @@ Deno.serve(async (req) => {
 
     if (body.job === "daily") {
       sent.push(...await sendDailySummaries(service, today));
+      sent.push(...await sendOpsDigest(service, today, false));
+      return jsonResponse({ ok: true, sent: sent.length, items: sent });
+    }
+
+    if (body.job === "ops-digest") {
+      sent.push(...await sendOpsDigest(service, today, true));
       return jsonResponse({ ok: true, sent: sent.length, items: sent });
     }
 
@@ -341,6 +347,139 @@ async function sendDailySummaries(service: Service, today: string): Promise<stri
       },
     });
     sent.push(`daily-summary:${tenant.id}`);
+  }
+  return sent;
+}
+
+const DEFAULT_OPS_DIGEST = "komuzack@gmail.com";
+
+type DigestSnap = {
+  mrr_kes?: number;
+  arpu_kes?: number;
+  active_tenants?: number;
+  trial_tenants?: number;
+  past_due_tenants?: number;
+  email_sent_24h?: number;
+  email_failed_24h?: number;
+  pending_payments?: number;
+  unclaimed?: number;
+  cron?: Array<{ jobname?: string; last_status?: string | null; fail_24h?: number }>;
+  trials_ending?: Array<{ name?: string; hours_left?: number }>;
+};
+
+function stripJson(value: unknown): string {
+  if (typeof value === "string") return value.replace(/^"|"$/g, "");
+  if (value == null) return "";
+  return String(value).replace(/^"|"$/g, "");
+}
+
+async function collectOpsDigestEmails(service: Service): Promise<string[]> {
+  const emails = new Set<string>([DEFAULT_OPS_DIGEST]);
+  const { data: settings } = await service
+    .from("platform_settings")
+    .select("key, value")
+    .eq("key", "email.ops_digest")
+    .maybeSingle();
+  const inbox = stripJson(settings?.value).trim().toLowerCase();
+  if (inbox.includes("@")) emails.add(inbox);
+
+  const { data: admins } = await service
+    .from("profiles")
+    .select("id")
+    .eq("role", "SUPER_ADMIN")
+    .limit(20);
+  for (const admin of admins ?? []) {
+    const { data } = await service.auth.admin.getUserById(admin.id);
+    const em = data.user?.email?.trim().toLowerCase();
+    if (em?.includes("@")) emails.add(em);
+  }
+  return [...emails];
+}
+
+async function loadDigestSnap(service: Service): Promise<DigestSnap> {
+  const { data, error } = await service.rpc("admin_ops_digest_snapshot");
+  if (!error && data && typeof data === "object") return data as DigestSnap;
+
+  const { data: mrr } = await service.from("admin_mrr_snapshot").select("*").maybeSingle();
+  const active = Number(mrr?.active_tenants ?? 0);
+  const mrrKes = Number(mrr?.mrr_kes ?? 0);
+  return {
+    mrr_kes: mrrKes,
+    arpu_kes: active > 0 ? Math.round((mrrKes / active) * 100) / 100 : 0,
+    active_tenants: active,
+    trial_tenants: Number(mrr?.trial_tenants ?? 0),
+    past_due_tenants: Number(mrr?.past_due_tenants ?? 0),
+  };
+}
+
+async function sendOpsDigest(
+  service: Service,
+  today: string,
+  force: boolean,
+): Promise<string[]> {
+  const sent: string[] = [];
+  const snap = await loadDigestSnap(service);
+  const cron = snap.cron ?? [];
+  const failing = cron.filter(
+    (j) =>
+      (j.fail_24h ?? 0) > 0 ||
+      (j.last_status && j.last_status !== "succeeded" && j.last_status !== "running"),
+  );
+  const cronLine = failing.length
+    ? failing
+      .map((j) => `${j.jobname ?? "job"}: ${j.last_status ?? "never"} (${j.fail_24h ?? 0} fails)`)
+      .join("; ")
+    : cron.length
+      ? "All jobs succeeded in the last 24h"
+      : "Cron details unavailable";
+  const trials = snap.trials_ending ?? [];
+  const trialsLine = trials.length
+    ? trials.slice(0, 8).map((t) => `${t.name ?? "Shop"} (${t.hours_left ?? 0}h)`).join("; ")
+    : "None in the next 48 hours";
+  const unclaimed = Number(snap.unclaimed ?? 0);
+  const failedMail = Number(snap.email_failed_24h ?? 0);
+  const pending = Number(snap.pending_payments ?? 0);
+  const dlqLine = `${unclaimed} unclaimed · ${failedMail} mail fails · ${pending} pending STK`;
+  const dayLabel = new Date().toLocaleDateString("en-KE", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "Africa/Nairobi",
+  });
+  const vars = {
+    day: dayLabel,
+    mrr: kes(Number(snap.mrr_kes ?? 0)),
+    arpu: kes(Number(snap.arpu_kes ?? 0)),
+    active: String(snap.active_tenants ?? 0),
+    trials: String(snap.trial_tenants ?? 0),
+    past_due: String(snap.past_due_tenants ?? 0),
+    emails_24h: `${Number(snap.email_sent_24h ?? 0)} sent / ${failedMail} failed`,
+    unclaimed: String(unclaimed),
+    cron_line: cronLine,
+    dlq_line: dlqLine,
+    trials_line: trialsLine,
+  };
+
+  for (const to of await collectOpsDigestEmails(service)) {
+    const key = `ops-digest/${today}/${to}`;
+    if (!force) {
+      const { data: already } = await service
+        .from("email_send_log")
+        .select("id")
+        .eq("template_id", "ops-digest")
+        .eq("to_email", to)
+        .gte("created_at", `${today}T00:00:00.000Z`)
+        .limit(1)
+        .maybeSingle();
+      if (already) continue;
+    }
+    await dispatchOutbound({
+      template_id: "ops-digest",
+      to,
+      idempotency_key: force ? `${key}/manual/${Date.now()}` : key,
+      vars,
+    });
+    sent.push(`ops-digest:${to}`);
   }
   return sent;
 }

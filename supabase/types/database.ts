@@ -894,6 +894,7 @@ export type Database = {
           channel_sms: boolean
           channel_sound: boolean
           channel_whatsapp: boolean
+          channel_push: boolean
           created_at: string
           id: string
           profile_id: string
@@ -905,6 +906,7 @@ export type Database = {
           channel_sms?: boolean
           channel_sound?: boolean
           channel_whatsapp?: boolean
+          channel_push?: boolean
           created_at?: string
           id?: string
           profile_id: string
@@ -916,6 +918,7 @@ export type Database = {
           channel_sms?: boolean
           channel_sound?: boolean
           channel_whatsapp?: boolean
+          channel_push?: boolean
           created_at?: string
           id?: string
           profile_id?: string
@@ -1334,6 +1337,47 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          profile_id: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          profile_id: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          profile_id?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2036,6 +2080,7 @@ export type Database = {
           trial_ends_at: string
           updated_at: string
           vat_registered: boolean
+          email_receipt_enabled: boolean
         }
         Insert: {
           access_until?: string
@@ -2054,6 +2099,7 @@ export type Database = {
           trial_ends_at?: string
           updated_at?: string
           vat_registered?: boolean
+          email_receipt_enabled?: boolean
         }
         Update: {
           access_until?: string
@@ -2072,6 +2118,7 @@ export type Database = {
           trial_ends_at?: string
           updated_at?: string
           vat_registered?: boolean
+          email_receipt_enabled?: boolean
         }
         Relationships: []
       }
@@ -2239,6 +2286,7 @@ export type Database = {
         Args: { p_code: string }
         Returns: number
       }
+      push_vapid_public: { Args: Record<PropertyKey, never>; Returns: string }
       sync_billing_settings_from_plans: {
         Args: Record<PropertyKey, never>
         Returns: undefined

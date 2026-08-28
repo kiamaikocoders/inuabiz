@@ -109,6 +109,7 @@ export function CommunicationsPanel() {
   const [fromEmail, setFromEmail] = useState("support@mail.inuabiz.co.ke");
   const [fromName, setFromName] = useState("InuaBiz");
   const [opsInbox, setOpsInbox] = useState("hello@inuabiz.co.ke");
+  const [opsDigest, setOpsDigest] = useState("komuzack@gmail.com");
   const [testProviderTo, setTestProviderTo] = useState(identity.email);
 
   const broadcastsQuery = useQuery({
@@ -147,6 +148,7 @@ export function CommunicationsPanel() {
     setFromEmail(providerQuery.data.fromEmail);
     setFromName(providerQuery.data.fromName);
     setOpsInbox(providerQuery.data.opsInbox);
+    setOpsDigest(providerQuery.data.opsDigest);
   }, [providerQuery.data]);
 
   const filteredTemplates = useMemo(() => {
@@ -290,9 +292,9 @@ export function CommunicationsPanel() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="banner">In-app banner only</SelectItem>
-                      <SelectItem value="banner_email">Banner + email</SelectItem>
-                      <SelectItem value="all">Banner + email + SMS</SelectItem>
+                      <SelectItem value="banner">In-app banner & device</SelectItem>
+                      <SelectItem value="banner_email">Banner, email & device</SelectItem>
+                      <SelectItem value="all">Banner, email & device (all shops)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -735,6 +737,29 @@ export function CommunicationsPanel() {
                 </Button>
                 <p className="text-muted-foreground text-xs">
                   Contact form emails this address plus every SUPER_ADMIN account.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ops-digest">Ops digest inbox</Label>
+                <Input
+                  id="ops-digest"
+                  type="email"
+                  value={opsDigest}
+                  onChange={(e) => setOpsDigest(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void saveEmailProviderSetting("opsDigest", opsDigest.trim()).then(() =>
+                      queryClient.invalidateQueries({ queryKey: ["admin-email-provider"] }),
+                    )
+                  }
+                >
+                  Save digest inbox
+                </Button>
+                <p className="text-muted-foreground text-xs">
+                  Daily command-center email at 06:00 EAT, plus every SUPER_ADMIN Auth email.
                 </p>
               </div>
             </div>

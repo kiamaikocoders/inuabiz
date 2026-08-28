@@ -92,7 +92,7 @@ function SettingsPage() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteShop, setInviteShop] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [emailReceipt, setEmailReceipt] = useState(() => emailReceiptEnabled());
+  const [emailReceipt, setEmailReceipt] = useState(false);
 
   useEffect(() => {
     if (!header) return;
@@ -108,6 +108,7 @@ function SettingsPage() {
         : "");
     setLoc(fallbackLoc);
     setCategory(parseCategory(header.category));
+    setEmailReceipt(emailReceiptEnabled(header));
   }, [header]);
 
   const save = async () => {
@@ -126,6 +127,7 @@ function SettingsPage() {
         phone,
         address_text: loc || null,
         category,
+        email_receipt_enabled: emailReceipt,
       });
       toast.success("Settings saved");
       await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
@@ -401,23 +403,12 @@ function SettingsPage() {
               </Label>
               <Input id="rf" defaultValue="Asante sana! Karibu tena." />
             </div>
-            {[
-              ["Send SMS receipt", "Costs are covered by your subscription", true],
-              ["Show margins on receipt", "Never share this with customers", false],
-            ].map(([l, h, on]) => (
-              <div key={l as string} className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold">{l as string}</p>
-                  <p className="text-muted-foreground text-xs">{h as string}</p>
-                </div>
-                <Switch defaultChecked={on as boolean} />
-              </div>
-            ))}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold">Send email receipt</p>
                 <p className="text-muted-foreground text-xs">
-                  Off by default. Turn on to email a shop copy after cash, credit, or paid M-Pesa sales.
+                  Off by default. Emails a shop copy after cash, credit, or paid M-Pesa sales.
+                  Customer SMS receipts are not available yet — share from the sale screen.
                 </p>
               </div>
               <Switch

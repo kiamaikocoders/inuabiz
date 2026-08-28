@@ -41,13 +41,12 @@ const SEVERITY: Record<AdminNotificationItem["priority"], { label: string; class
 };
 
 const RULES = [
-  ["Unclaimed M-Pesa", "Always — in-app + email to ops"],
-  ["New vendor", "In-app; email digest at 18:00 EAT"],
-  ["Subscription paid", "In-app only"],
-  ["Webhook / STK failures", "In-app + email after 3 consecutive"],
-  ["Trial ending", "In-app 72h and 24h before expiry"],
-  ["Admin AI briefing", "In-app when a run completes"],
-  ["Broadcasts", "Log only — no extra ping"],
+  ["Unclaimed M-Pesa", "In-app + device; ops digest covers the rest"],
+  ["New vendor", "In-app + device; counted in the daily ops digest"],
+  ["Subscription paid", "In-app + device + PayHero email"],
+  ["Sale / low stock", "Vendor till bell, in-app, device, optional email"],
+  ["Broadcasts", "In-app banner + feed + device; email when that channel is on"],
+  ["Contact form", "In-app + inbound email to ops"],
 ];
 
 function inferDomain(n: NotificationItem): AdminNotificationDomain {

@@ -39,9 +39,10 @@ import {
   fetchShopCustomers,
 } from "@/lib/data";
 import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
-import { saveLastSale, type LastSale } from "@/lib/last-sale";
+import { saveLastSale, readLastSale, type LastSale } from "@/lib/last-sale";
 import { waitForSalePaid } from "@/lib/payments";
 import { useIdentity } from "@/lib/identity";
+import { shareReceiptText } from "@/components/app/ReceiptCard";
 import {
   Select,
   SelectContent,
@@ -516,7 +517,13 @@ function POS() {
           setDiscount(0);
           void navigate({ to: "/app/pos/success" });
         }}
-        onSms={() => toast.success("SMS receipt queued")}
+        onShare={() => {
+          void shareReceiptText(readLastSale())
+            .then(() => {
+              if (!navigator.share) toast.success("Receipt copied");
+            })
+            .catch(() => toast.error("Could not share the receipt"));
+        }}
         onNewSale={() => {
           setPayOpen(false);
           setCart([]);

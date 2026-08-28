@@ -30,6 +30,7 @@ export type TenantHeader = {
   logo_url: string | null;
   location_lat: number | null;
   location_lng: number | null;
+  email_receipt_enabled?: boolean;
 };
 
 export type StaffRow = {
@@ -93,7 +94,7 @@ export async function fetchTenantHeader(): Promise<TenantHeader | null> {
   const { data } = await sb
     .from("tenants")
     .select(
-      "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng",
+      "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng, email_receipt_enabled",
     )
     .eq("id", profile.tenant_id)
     .maybeSingle();
@@ -112,6 +113,7 @@ export async function saveTenantHeader(patch: {
   logo_url?: string | null;
   location_lat?: number | null;
   location_lng?: number | null;
+  email_receipt_enabled?: boolean;
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -165,7 +167,10 @@ export async function fetchStaff(): Promise<StaffRow[]> {
 export const EMAIL_RECEIPT_KEY = "inuabiz:email-receipt";
 
 /** Shop-copy receipts stay off until Settings → Send email receipt is turned on. */
-export function emailReceiptEnabled(): boolean {
+export function emailReceiptEnabled(header?: TenantHeader | null): boolean {
+  if (header && typeof header.email_receipt_enabled === "boolean") {
+    return header.email_receipt_enabled;
+  }
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(EMAIL_RECEIPT_KEY) === "true";
 }
@@ -258,16 +263,26 @@ export type Prefs = {
   channel_sms: boolean;
   channel_whatsapp: boolean;
   channel_sound: boolean;
+  channel_push: boolean;
 };
 
 export async function fetchNotificationPrefs(): Promise<Prefs | null> {
   const sb = getSupabase();
   if (!sb) return null;
-  const { data } = await sb
+  const { data, error } = await sb
     .from("notification_preferences")
-    .select("channel_in_app, channel_email, channel_sms, channel_whatsapp, channel_sound")
+    .select("channel_in_app, channel_email, channel_sms, channel_whatsapp, channel_sound, channel_push")
     .maybeSingle();
-  return (data as Prefs | null) ?? null;
+  if (error || !data) {
+    const fallback = await sb
+      .from("notification_preferences")
+      .select("channel_in_app, channel_email, channel_sms, channel_whatsapp, channel_sound")
+      .maybeSingle();
+    if (!fallback.data) return null;
+    return { ...(fallback.data as Omit<Prefs, "channel_push">), channel_push: true };
+  }
+  const row = data as Prefs;
+  return { ...row, channel_push: row.channel_push !== false };
 }
 
 export async function saveNotificationPrefs(patch: Partial<Prefs>): Promise<void> {
@@ -511,19 +526,58 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
   return receipt;
 }
 
+let lastChimeAt = 0;
+let chimeAudio: HTMLAudioElement | null = null;
+
+function unlockChime(): void {
+  if (typeof window === "undefined") return;
+  if (!chimeAudio) {
+    chimeAudio = new Audio("/sounds/till-chime.mp3");
+    chimeAudio.preload = "auto";
+  }
+  const play = () => {
+    void chimeAudio?.play().then(() => {
+      chimeAudio?.pause();
+      if (chimeAudio) chimeAudio.currentTime = 0;
+    }).catch(() => undefined);
+    window.removeEventListener("pointerdown", play);
+  };
+  window.addEventListener("pointerdown", play, { once: true });
+}
+
+if (typeof window !== "undefined") unlockChime();
+
 export function playPosChime(): void {
   if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (now - lastChimeAt < 1200) return;
+  lastChimeAt = now;
+  try {
+    if (!chimeAudio) {
+      chimeAudio = new Audio("/sounds/till-chime.mp3");
+      chimeAudio.preload = "auto";
+    }
+    chimeAudio.currentTime = 0;
+    const played = chimeAudio.play();
+    if (played) void played.catch(() => playOscillatorFallback());
+  } catch {
+    playOscillatorFallback();
+  }
+}
+
+function playOscillatorFallback(): void {
   try {
     const ctx = new AudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.value = 880;
+    osc.frequency.value = 1318;
     gain.gain.value = 0.08;
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 0.12);
+    osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.09);
+    osc.stop(ctx.currentTime + 0.22);
   } catch {
     /* ignore */
   }

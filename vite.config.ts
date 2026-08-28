@@ -16,7 +16,7 @@ export default defineConfig({
     plugins: [
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.svg", "pwa/apple-touch-icon.png"],
+        includeAssets: ["favicon.svg", "pwa/apple-touch-icon.png", "sounds/till-chime.mp3"],
         manifest: {
           name: "InuaBiz — Micro-POS for Kenyan vendors",
           short_name: "InuaBiz",
@@ -48,10 +48,11 @@ export default defineConfig({
             },
           ],
         },
-        workbox: {
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
-          // TanStack Start SSR: do not rewrite HTML navigations to `/`.
-          navigateFallbackDenylist: [/.*/],
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
+        injectManifest: {
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,mp3,woff2,webmanifest}"],
         },
         // SW in Vite dev breaks Start SSR hydration + HMR; enable only for production builds.
         devOptions: {

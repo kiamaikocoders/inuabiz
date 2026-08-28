@@ -119,7 +119,6 @@ export function AccountProfileCard({
   const [address, setAddress] = useState("");
   const [locale, setLocale] = useState<AppLocale>("en-KE");
   const [emailAlerts, setEmailAlerts] = useState(true);
-  const [smsAlerts, setSmsAlerts] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState({
     fullName: identity.fullName,
@@ -127,7 +126,6 @@ export function AccountProfileCard({
     address: "",
     locale: "en-KE" as AppLocale,
     emailAlerts: true,
-    smsAlerts: true,
   });
 
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -177,11 +175,9 @@ export function AccountProfileCard({
   useEffect(() => {
     if (!prefs) return;
     setEmailAlerts(prefs.channel_email);
-    setSmsAlerts(prefs.channel_sms);
     setSaved((prev) => ({
       ...prev,
       emailAlerts: prefs.channel_email,
-      smsAlerts: prefs.channel_sms,
     }));
   }, [prefs]);
 
@@ -190,8 +186,7 @@ export function AccountProfileCard({
     phone !== saved.phone ||
     address !== saved.address ||
     locale !== saved.locale ||
-    emailAlerts !== saved.emailAlerts ||
-    smsAlerts !== saved.smsAlerts;
+    emailAlerts !== saved.emailAlerts;
 
   const discard = () => {
     setFullName(saved.fullName);
@@ -199,7 +194,6 @@ export function AccountProfileCard({
     setAddress(saved.address);
     setLocale(saved.locale);
     setEmailAlerts(saved.emailAlerts);
-    setSmsAlerts(saved.smsAlerts);
   };
 
   const onSave = async (event: FormEvent) => {
@@ -213,17 +207,16 @@ export function AccountProfileCard({
         if (kind === "vendor" && owner && address !== saved.address) {
           await saveTenantHeader({ address_text: address.trim() || null });
         }
-        if (emailAlerts !== saved.emailAlerts || smsAlerts !== saved.smsAlerts) {
+        if (emailAlerts !== saved.emailAlerts) {
           await saveNotificationPrefs({
             channel_email: emailAlerts,
-            channel_sms: smsAlerts,
           });
         }
         await queryClient.invalidateQueries({ queryKey: ["identity"] });
         await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
         await queryClient.invalidateQueries({ queryKey: ["notification-prefs"] });
       }
-      setSaved({ fullName, phone, address, locale, emailAlerts, smsAlerts });
+      setSaved({ fullName, phone, address, locale, emailAlerts });
       toast.success("Profile saved", {
         description:
           kind === "admin"
@@ -452,13 +445,13 @@ export function AccountProfileCard({
                   Email updates
                 </label>
                 {kind === "vendor" && (
-                  <label className="flex items-center gap-3 text-sm">
-                    <Checkbox
-                      checked={smsAlerts}
-                      onCheckedChange={(value) => setSmsAlerts(value === true)}
-                    />
-                    SMS alerts for sales
-                  </label>
+                  <p className="text-muted-foreground text-xs">
+                    Till bell, sound and this-device alerts live on{" "}
+                    <Link to="/app/notifications" className="text-primary font-medium underline">
+                      Notifications
+                    </Link>
+                    .
+                  </p>
                 )}
               </div>
             </div>

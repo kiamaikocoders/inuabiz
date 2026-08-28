@@ -28,6 +28,7 @@ import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { useIdentity } from "@/lib/identity";
 import { UserMenu } from "@/components/app/UserMenu";
+import { NotificationLive } from "@/components/app/NotificationLive";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTenants } from "@/lib/data";
 import { fetchNotifications, fetchUnclaimedPayments } from "@/lib/ops";
@@ -431,7 +432,10 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className={cn("flex-1 p-4 sm:p-7", contentClassName)}>{children}</main>
+        <main className={cn("flex-1 p-4 sm:p-7", contentClassName)}>
+          <NotificationLive kind="admin" />
+          {children}
+        </main>
       </div>
     </div>
   );
