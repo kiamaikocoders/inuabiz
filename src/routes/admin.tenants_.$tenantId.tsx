@@ -10,6 +10,7 @@ import { KES } from "@/lib/mock-data";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { fetchTenant, startImpersonation } from "@/lib/data";
 import { briefTenant } from "@/lib/admin-ai";
+import { TenantOpsCard } from "@/components/admin/TenantOpsCard";
 import {
   fetchAdminCategoryDesk,
   shopCategoriesLabel,
@@ -243,6 +244,12 @@ function TenantDetail() {
           </p>
         )}
       </section>
+
+      <TenantOpsCard
+        tenantId={tenantId}
+        business={tenant.business}
+        onPurged={() => void navigate({ to: "/admin/vendors" })}
+      />
     </AdminShell>
   );
 }

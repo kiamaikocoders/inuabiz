@@ -110,7 +110,7 @@ const navGroups: NavGroup[] = [
     items: [
       {
         to: "/admin/health",
-        label: "Platform health",
+        label: "Ops command center",
         icon: Activity,
         well: "bg-teal-500 text-white shadow-teal-500/40",
       },

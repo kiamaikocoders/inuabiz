@@ -38,6 +38,7 @@ import { KES } from "@/lib/mock-data";
 import { fetchTenants, mrrTrendFromTenants } from "@/lib/data";
 import { fetchAiSpendThisMonth } from "@/lib/admin-ai";
 import { fetchMrrSnapshot, fetchUnclaimedPayments } from "@/lib/ops";
+import { cronTone, fetchOpsPulse } from "@/lib/admin-ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { categoryMix, fetchAdminShops, shopCategoriesLabel, shopsForTenant } from "@/lib/admin-category";
 import { CATEGORY_CATALOG } from "@/lib/category";
@@ -122,6 +123,12 @@ function AdminOverview() {
     queryFn: fetchAiSpendThisMonth,
     enabled: live,
   });
+  const { data: ops } = useQuery({
+    queryKey: ["admin-ops-pulse"],
+    queryFn: fetchOpsPulse,
+    enabled: live,
+    refetchInterval: 60_000,
+  });
   const mix = categoryMix(shops);
   const active = tenants.filter((t) => t.status === "Active");
   const trials = tenants.filter((t) => t.status === "Trial");
@@ -156,6 +163,45 @@ function AdminOverview() {
           <Link to="/admin/ai">Open copilot</Link>
         </Button>
       </div>
+
+      {ops && (
+        <div className="mb-4 grid gap-2 sm:grid-cols-3">
+          <Link
+            to="/admin/health"
+            className="rounded-2xl border border-border bg-card px-4 py-3 text-sm hover:border-primary/40"
+          >
+            <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+              Cron
+            </p>
+            <p className="mt-0.5 font-semibold">
+              {ops.cron.some((j) => cronTone(j) !== "Healthy") ? "Needs review" : "All jobs healthy"}
+            </p>
+          </Link>
+          <Link
+            to="/admin/health"
+            className="rounded-2xl border border-border bg-card px-4 py-3 text-sm hover:border-primary/40"
+          >
+            <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+              Dead letters
+            </p>
+            <p className="mt-0.5 font-semibold">
+              {ops.usage.unclaimed + ops.usage.email_failed_24h} open · {ops.usage.pending_payments}{" "}
+              pending pay
+            </p>
+          </Link>
+          <Link
+            to="/admin/health"
+            className="rounded-2xl border border-border bg-card px-4 py-3 text-sm hover:border-primary/40"
+          >
+            <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+              Trials ending
+            </p>
+            <p className="mt-0.5 font-semibold">
+              {ops.trials_ending.length} in 48h · ARPU {KES(ops.revenue.arpu_kes)}
+            </p>
+          </Link>
+        </div>
+      )}
 
       {unclaimedCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3.5">
