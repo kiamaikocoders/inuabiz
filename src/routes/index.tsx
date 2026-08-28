@@ -21,13 +21,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Mobile-first POS, M-Pesa reconciliation, digital credit ledger, extra shops and AI restock advice for Kenyan dukas, chemists and boutiques. KES 3,000 per shop / month.",
+          "Mobile-first POS, M-Pesa reconciliation, digital credit ledger, extra shops and AI restock advice for Kenyan dukas, chemists and boutiques. One price per shop / month.",
       },
       { property: "og:title", content: "InuaBiz — Lift Your Business" },
       {
         property: "og:description",
         content:
-          "Sell, track credit and reconcile M-Pesa from your phone. 3-day free trial, no paperwork.",
+          "Sell, track credit and reconcile M-Pesa from your phone. Short free trial, no paperwork.",
       },
     ],
   }),
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/")({
 const steps = [
   { time: "30s", title: "Create your account", body: "Name, shop name, email and password — then confirm the email OTP." },
   { time: "45s", title: "Business & GPS pin", body: "Finish shop setup: category and one-tap location detection." },
-  { time: "30s", title: "Payment destination", body: "Add your M-Pesa number, Till or Paybill. The 3-day trial starts when you finish." },
+  { time: "30s", title: "Payment destination", body: "Add your M-Pesa number, Till or Paybill. Your free trial starts when you finish." },
   { time: "15s", title: "First sale", body: "Add a product on inventory, then ring it up on the till." },
 ];
 
@@ -143,8 +143,8 @@ function Landing() {
             {[
               { k: "< 2 min", v: "Sign-up to first sale" },
               { k: "STK · Till · Paybill", v: "M-Pesa on the till" },
-              { k: "KES 3,000", v: "Per shop / month" },
-              { k: "3 days", v: "Free on the first shop" },
+              { k: KES(shop), v: "Per shop / month" },
+              { k: `${trialDays} days`, v: "Free on the first shop" },
             ].map((s) => (
               <div key={s.k}>
                 <p className="font-display text-2xl font-bold">{s.k}</p>
@@ -201,7 +201,7 @@ function Landing() {
                 who: "Two counters, one owner",
                 what: "Hardware + duka",
                 pain: "Two tills, two books, one head — and a second shop that should not mix stock.",
-                fix: "Each location is its own shop at KES 3,000. Pay on M-Pesa, then switch counters.",
+                fix: `Each location is its own shop at ${KES(shop)}. Pay on M-Pesa, then switch counters.`,
               },
             ].map((p) => (
               <div key={p.who} className="surface-card p-6">

@@ -12,7 +12,7 @@ import {
 } from "../_shared/daraja.ts";
 
 /**
- * Vendor opts into M-Pesa Ratiba monthly auto-debit for SaaS (KES 3,000).
+ * Vendor opts into M-Pesa Ratiba monthly auto-debit for SaaS (plan amount from DB).
  * Triggers Daraja standing-order auth STK; callback finalises registration.
  */
 Deno.serve(async (req) => {
@@ -32,7 +32,6 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const service = getServiceClient();
-    const AMOUNT = await subscriptionAmountKes();
 
     const { data: profile } = await service
       .from("profiles")
@@ -43,6 +42,8 @@ Deno.serve(async (req) => {
     if (!profile?.tenant_id) {
       return jsonResponse({ error: "Complete onboarding first" }, 400);
     }
+
+    const AMOUNT = await subscriptionAmountKes(profile.tenant_id);
 
     const { data: tenant } = await service
       .from("tenants")

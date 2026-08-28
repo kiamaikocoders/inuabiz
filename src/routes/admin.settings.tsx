@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { MAPBOX_TOKEN } from "@/lib/mapbox";
-import { KES, TRIAL_DAYS } from "@/lib/mock-data";
+import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
 import { initials, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
@@ -36,8 +36,8 @@ function AdminSettings() {
     queryKey: ["public-pricing"],
     queryFn: fetchPublicPricing,
   });
-  const shop = pricing?.shopMonthly ?? 3000;
-  const compliance = pricing?.compliance ?? 4500;
+  const shop = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
+  const compliance = pricing?.compliance ?? COMPLIANCE_PRICE;
   const setup = pricing?.setup ?? 1000;
   const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
 

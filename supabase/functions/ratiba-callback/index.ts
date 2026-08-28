@@ -53,7 +53,6 @@ Deno.serve(async (req) => {
   try {
     const payload = (await req.json()) as RatibaCallback;
     const service = getServiceClient();
-    const AMOUNT = await subscriptionAmountKes();
     const params = flattenParams(payload);
 
     const customStoId =
@@ -88,6 +87,7 @@ Deno.serve(async (req) => {
 
     const success = isSuccess(payload);
     const tenantId = sub.tenant_id as string;
+    const AMOUNT = await subscriptionAmountKes(tenantId);
 
     if (success) {
       const periodEnd = new Date();
@@ -215,8 +215,7 @@ Deno.serve(async (req) => {
               recipient_id: v.id,
               recipient_role: "VENDOR_ADMIN",
               title: "Subscription payment failed",
-              message:
-                "M-Pesa Ratiba could not collect KES 3,000 after 3 retries. Access is paused until you renew.",
+              message: `M-Pesa Ratiba could not collect KES ${AMOUNT.toLocaleString("en-KE")} after 3 retries. Access is paused until you renew.`,
               type: "SUBSCRIPTION",
               priority: "CRITICAL",
               metadata: { retries, channel: "RATIBA" },

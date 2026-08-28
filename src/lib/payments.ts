@@ -1,5 +1,6 @@
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 import { prettyKePhone } from "@/lib/phone";
+import { SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 
 export type BillingSnapshot = {
   tenantName: string;
@@ -81,7 +82,7 @@ export async function fetchBillingSnapshot(): Promise<BillingSnapshot | null> {
   const amount =
     liveAmount != null && Number.isFinite(Number(liveAmount))
       ? Number(liveAmount)
-      : Number(sub?.amount ?? planRow?.amount_kes ?? 3000);
+      : Number(sub?.amount ?? planRow?.amount_kes ?? SUBSCRIPTION_PRICE);
 
   const planName =
     (planRow?.name as string | undefined) ??

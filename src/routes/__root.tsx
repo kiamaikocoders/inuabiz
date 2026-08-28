@@ -59,7 +59,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Sell, track credit and reconcile M-Pesa from your phone. From KES 3,000 per shop / month. Compliance and enterprise options.",
+          "Sell, track credit and reconcile M-Pesa from your phone. One price per shop / month. Compliance and enterprise options.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

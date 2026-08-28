@@ -212,9 +212,9 @@ export async function fetchNotifications(): Promise<NotificationItem[]> {
   const ghostTenantId = getGhost()?.tenantId ?? null;
   let query = sb
     .from("notifications")
-    .select("id, title, message, type, priority, is_read, created_at")
+    .select("id, title, message, type, priority, is_read, created_at, tenant_id, metadata")
     .order("created_at", { ascending: false })
-    .limit(80);
+    .limit(ghostTenantId ? 80 : 250);
   if (ghostTenantId) {
     query = query.eq("tenant_id", ghostTenantId).neq("recipient_role", "SUPER_ADMIN");
   } else {
@@ -226,19 +226,26 @@ export async function fetchNotifications(): Promise<NotificationItem[]> {
   }
   const { data, error } = await query;
   if (error || !data) return [];
-  return data.map((row) => ({
-    id: row.id as string,
-    title: row.title as string,
-    message: row.message as string,
-    type: (String(row.type) === "PAYMENT" ? "SYSTEM" : String(row.type)) as NotificationItem["type"],
-    priority: String(row.priority) as NotificationItem["priority"],
-    read: Boolean(row.is_read),
-    time: new Date(row.created_at as string).toLocaleTimeString("en-KE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    createdAt: row.created_at as string,
-  }));
+  return data.map((row) => {
+    const meta = (row.metadata as Record<string, unknown> | null) ?? null;
+    const metaTenant =
+      meta && typeof meta["tenant_id"] === "string" ? (meta["tenant_id"] as string) : null;
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      message: row.message as string,
+      type: (String(row.type) === "PAYMENT" ? "SYSTEM" : String(row.type)) as NotificationItem["type"],
+      priority: String(row.priority) as NotificationItem["priority"],
+      read: Boolean(row.is_read),
+      time: new Date(row.created_at as string).toLocaleTimeString("en-KE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      createdAt: row.created_at as string,
+      tenantId: (row.tenant_id as string | null) ?? metaTenant,
+      metadata: meta,
+    };
+  });
 }
 
 export async function markNotificationRead(id: string): Promise<void> {

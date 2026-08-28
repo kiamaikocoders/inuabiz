@@ -4,6 +4,7 @@ import {
   jsonResponse,
   mapIntaSendState,
 } from "../_shared/cors.ts";
+import { subscriptionAmountKes } from "../_shared/daraja.ts";
 
 type WebhookPayload = {
   invoice_id?: string;
@@ -78,6 +79,7 @@ async function applyCompleteSubscription(
 ) {
   const periodEnd = new Date();
   periodEnd.setDate(periodEnd.getDate() + 30);
+  const amountKes = await subscriptionAmountKes(tenantId);
 
   await service
     .from("tenants")
@@ -100,7 +102,7 @@ async function applyCompleteSubscription(
   await notifyAdmins(
     service,
     "SaaS subscription paid",
-    `Tenant ${tenantId} paid KES 3,000. Access extended 30 days.`,
+    `Tenant ${tenantId} paid KES ${amountKes.toLocaleString("en-KE")}. Access extended 30 days.`,
     "SUBSCRIPTION",
     "NORMAL",
     { tenant_id: tenantId, invoice_id: invoiceId },

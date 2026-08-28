@@ -15,6 +15,9 @@ import {
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { invokePublicFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { COMPLIANCE_PRICE, KES } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
+import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -36,6 +39,11 @@ export const Route = createFileRoute("/contact")({
 });
 
 function Contact() {
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const compliance = pricing?.compliance ?? COMPLIANCE_PRICE;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -146,7 +154,9 @@ function Contact() {
                     <SelectItem value="demo">Book a demo</SelectItem>
                     <SelectItem value="onboarding">Onboarding / setup fee</SelectItem>
                     <SelectItem value="mpesa">M-Pesa / payment setup</SelectItem>
-                    <SelectItem value="compliance">Compliance / ETR (KES 4,500)</SelectItem>
+                    <SelectItem value="compliance">
+                      Compliance / ETR ({KES(compliance)})
+                    </SelectItem>
                     <SelectItem value="enterprise">Enterprise license or custom build</SelectItem>
                     <SelectItem value="billing">Billing question</SelectItem>
                     <SelectItem value="other">Something else</SelectItem>

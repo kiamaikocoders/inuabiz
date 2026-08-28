@@ -70,6 +70,8 @@ import {
   setNewsletterUnsubscribed,
   type NewsletterSubscriber,
 } from "@/lib/inbox";
+import { KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
 
 type Tab = "broadcast" | "templates" | "delivery" | "provider" | "subscribers";
 
@@ -111,6 +113,12 @@ export function CommunicationsPanel() {
   const [opsInbox, setOpsInbox] = useState("hello@inuabiz.co.ke");
   const [opsDigest, setOpsDigest] = useState("komuzack@gmail.com");
   const [testProviderTo, setTestProviderTo] = useState(identity.email);
+
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shopPriceLabel = KES(pricing?.shopMonthly ?? SUBSCRIPTION_PRICE);
 
   const broadcastsQuery = useQuery({
     queryKey: ["admin-broadcasts"],
@@ -318,7 +326,8 @@ export function CommunicationsPanel() {
                       setDrafting(true);
                       void draftBroadcast(
                         audience,
-                        message || "Remind vendors about trial ending and KES 3,000 STK renewal",
+                        message ||
+                          `Remind vendors about trial ending and ${shopPriceLabel} STK renewal`,
                       )
                         .then((text) => {
                           setMessage(text);

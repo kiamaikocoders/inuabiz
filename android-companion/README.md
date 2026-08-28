@@ -19,6 +19,6 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 ./gradlew assembleRelease
 ```
 
-Copy `app/build/outputs/apk/release/app-release.apk` to `public/downloads/inuabiz-companion.apk` so https://inuabiz.co.ke/companion can serve it.
+Copy `app/build/outputs/apk/release/app-release.apk` to `public/downloads/inuabiz-companion.apk` so Settings can serve it.
 
 The ingest URL and publishable anon key are baked into the APK (same as the website). The device token is not.

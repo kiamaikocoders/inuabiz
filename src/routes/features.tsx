@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
   Brain,
@@ -17,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
+import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
 
 export const Route = createFileRoute("/features")({
   head: () => ({
@@ -39,82 +41,90 @@ export const Route = createFileRoute("/features")({
   component: Features,
 });
 
-const vendorFeatures = [
-  {
-    icon: Store,
-    title: "Mobile POS & checkout",
-    body: "A fast product grid with search, instant cart totals and discounts — built for a counter, not a desktop. Cash, credit or M-Pesa STK from the same cart.",
-    points: ["Grid + search checkout", "Cash, credit or STK", "Install on the home screen"],
-  },
-  {
-    icon: ScanBarcode,
-    title: "Camera barcode scanning",
-    body: "Use the phone camera as a scanner. No extra hardware, no extra cost.",
-    points: ["Scan to add to cart", "Scan to receive stock", "Works on a regular smartphone"],
-  },
-  {
-    icon: Smartphone,
-    title: "M-Pesa that matches the sale",
-    body: "STK push at checkout. Till and Paybill land on the same sale. If a PIN times out, we re-check automatically after a few minutes.",
-    points: ["STK from the cart", "Till & Paybill", "Auto retry on stuck PIN"],
-  },
-  {
-    icon: BookOpen,
-    title: "Duka debt / credit ledger",
-    body: "Digitise kukopesha. Record credit in two taps, see who is overdue, and email yourself a reminder when it is time to follow up.",
-    points: ["Per-customer balances", "Due dates", "Email reminders"],
-  },
-  {
-    icon: Package,
-    title: "Inventory & stock alerts",
-    body: "Live stock, reorder levels and a low-stock ping in the app and by email when a SKU crosses the line.",
-    points: ["Reorder levels", "Margin per product", "Low-stock email"],
-  },
-  {
-    icon: Users,
-    title: "Customers, quietly",
-    body: "Frequent buyers are recognised by phone number. No loyalty cards, no app for your customers to download.",
-    points: ["Visit and spend history", "Credit on the same phone", "Quiet regulars"],
-  },
-  {
-    icon: FileText,
-    title: "Receipts & wholesale invoices",
-    body: "Every paid sale can get a fiscal invoice number. Wholesale bills go to the buyer's M-Pesa Bill Manager menu, with an email copy and an overdue nudge.",
-    points: ["Shop-copy email receipts", "Bill Manager invoices", "Overdue follow-up"],
-  },
-  {
-    icon: Building2,
-    title: "Extra shops",
-    body: "First shop is in the 3-day trial. Each extra location is KES 3,000 on M-Pesa before it is created. Switch counters without mixing the books.",
-    points: ["Pay then create", "KES 3,000 per shop", "Separate stock per shop"],
-  },
-  {
-    icon: UserPlus,
-    title: "Staff on the till",
-    body: "Invite a cashier by phone. They sell on your shop; you keep owner settings, billing and the books.",
-    points: ["Phone invite", "Optional email invite", "Owner-only shop settings"],
-  },
-  {
-    icon: Wallet,
-    title: "Subscription on M-Pesa",
-    body: "After trial, renew with one PIN — KES 3,000 per shop. Optional M-Pesa Ratiba standing order so the month renews without chasing a prompt.",
-    points: ["STK renewal", "Ratiba auto-debit", "Access pauses, data stays"],
-  },
-  {
-    icon: Mail,
-    title: "Emails that match the till",
-    body: "Welcome, trial ending, paid or failed STK, daily till summary, low stock, credit reminders and contact-form replies — branded, from InuaBiz.",
-    points: ["Daily till summary", "Trial & billing mail", "Optional sale receipts"],
-  },
-  {
-    icon: Brain,
-    title: "AI restock advice",
-    body: "Cash-flow, bestsellers and reorder notes in plain language — written for the person at the counter, not a finance team.",
-    points: ["7-day till read", "Reorder advice", "Margin tips"],
-  },
-];
-
 function Features() {
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shop = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
+  const priceLabel = KES(shop);
+
+  const vendorFeatures = [
+    {
+      icon: Store,
+      title: "Mobile POS & checkout",
+      body: "A fast product grid with search, instant cart totals and discounts — built for a counter, not a desktop. Cash, credit or M-Pesa STK from the same cart.",
+      points: ["Grid + search checkout", "Cash, credit or STK", "Install on the home screen"],
+    },
+    {
+      icon: ScanBarcode,
+      title: "Camera barcode scanning",
+      body: "Use the phone camera as a scanner. No extra hardware, no extra cost.",
+      points: ["Scan to add to cart", "Scan to receive stock", "Works on a regular smartphone"],
+    },
+    {
+      icon: Smartphone,
+      title: "M-Pesa that matches the sale",
+      body: "STK push at checkout. Till and Paybill land on the same sale. If a PIN times out, we re-check automatically after a few minutes.",
+      points: ["STK from the cart", "Till & Paybill", "Auto retry on stuck PIN"],
+    },
+    {
+      icon: BookOpen,
+      title: "Duka debt / credit ledger",
+      body: "Digitise kukopesha. Record credit in two taps, see who is overdue, and email yourself a reminder when it is time to follow up.",
+      points: ["Per-customer balances", "Due dates", "Email reminders"],
+    },
+    {
+      icon: Package,
+      title: "Inventory & stock alerts",
+      body: "Live stock, reorder levels and a low-stock ping in the app and by email when a SKU crosses the line.",
+      points: ["Reorder levels", "Margin per product", "Low-stock email"],
+    },
+    {
+      icon: Users,
+      title: "Customers, quietly",
+      body: "Frequent buyers are recognised by phone number. No loyalty cards, no app for your customers to download.",
+      points: ["Visit and spend history", "Credit on the same phone", "Quiet regulars"],
+    },
+    {
+      icon: FileText,
+      title: "Receipts & wholesale invoices",
+      body: "Every paid sale can get a fiscal invoice number. Wholesale bills go to the buyer's M-Pesa Bill Manager menu, with an email copy and an overdue nudge.",
+      points: ["Shop-copy email receipts", "Bill Manager invoices", "Overdue follow-up"],
+    },
+    {
+      icon: Building2,
+      title: "Extra shops",
+      body: `First shop is in the ${trialDays}-day trial. Each extra location is ${priceLabel} on M-Pesa before it is created. Switch counters without mixing the books.`,
+      points: ["Pay then create", `${priceLabel} per shop`, "Separate stock per shop"],
+    },
+    {
+      icon: UserPlus,
+      title: "Staff on the till",
+      body: "Invite a cashier by phone. They sell on your shop; you keep owner settings, billing and the books.",
+      points: ["Phone invite", "Optional email invite", "Owner-only shop settings"],
+    },
+    {
+      icon: Wallet,
+      title: "Subscription on M-Pesa",
+      body: `After trial, renew with one PIN — ${priceLabel} per shop. Optional M-Pesa Ratiba standing order so the month renews without chasing a prompt.`,
+      points: ["STK renewal", "Ratiba auto-debit", "Access pauses, data stays"],
+    },
+    {
+      icon: Mail,
+      title: "Emails that match the till",
+      body: "Welcome, trial ending, paid or failed STK, daily till summary, low stock, credit reminders and contact-form replies — branded, from InuaBiz.",
+      points: ["Daily till summary", "Trial & billing mail", "Optional sale receipts"],
+    },
+    {
+      icon: Brain,
+      title: "AI restock advice",
+      body: "Cash-flow, bestsellers and reorder notes in plain language — written for the person at the counter, not a finance team.",
+      points: ["7-day till read", "Reorder advice", "Margin tips"],
+    },
+  ];
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -159,7 +169,7 @@ function Features() {
             <div>
               <h2 className="text-2xl font-bold">Ready for your counter?</h2>
               <p className="text-muted-foreground mt-2 max-w-xl text-sm leading-relaxed">
-                3-day trial on Standard ({KES(SUBSCRIPTION_PRICE)} / shop). Compliance and custom
+                {trialDays}-day trial on Standard ({priceLabel} / shop). Compliance and custom
                 licenses are on pricing.
               </p>
             </div>

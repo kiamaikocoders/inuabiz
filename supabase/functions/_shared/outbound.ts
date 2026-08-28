@@ -41,7 +41,7 @@ export function paymentEmailPayload(
   const amount =
     tx.amount != null && !Number.isNaN(Number(tx.amount))
       ? `KES ${Number(tx.amount).toLocaleString("en-KE")}`
-      : "KES 3,000";
+      : "";
   const txId = tx.id ?? tx.api_ref ?? "tx";
 
   if (tx.purpose === "SAAS_SUBSCRIPTION" && meta.kind === "SHOP_ADDON") {

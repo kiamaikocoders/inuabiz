@@ -9,7 +9,7 @@ Live sandbox rail: **Daraja Lipa Na M-Pesa Express** for POS + SaaS. Ratiba is l
 
 | Piece | Detail |
 |-------|--------|
-| SaaS | `create-subscription-charge` → **PayHero** STK (KES 3,000+) |
+| SaaS | `create-subscription-charge` → **PayHero** STK (plan amount from DB) |
 | Extra shop | `provision-shop` → PayHero STK |
 | Callback | `payhero-webhook` → `subscription_payments` + tenant ACTIVE |
 | Poll | `poll-pending-payments` → PayHero `/transaction-status` |

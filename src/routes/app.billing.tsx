@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES } from "@/lib/mock-data";
+import { KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 import { prettyKePhone } from "@/lib/phone";
 import { invokeFunction } from "@/lib/supabase";
 import {
@@ -77,7 +77,7 @@ function Billing() {
   const [busy, setBusy] = useState(false);
 
   const trialDays = pricing?.trialDays ?? 3;
-  const amount = snap?.amount ?? pricing?.shopMonthly ?? 3000;
+  const amount = snap?.amount ?? pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
   const daysLeft = daysBetween(null, snap?.trialEndsAt ?? snap?.accessUntil, trialDays);
   const used = Math.min(trialDays, trialDays - daysLeft);
   const statusLabel =

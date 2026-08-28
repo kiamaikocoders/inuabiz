@@ -12,6 +12,8 @@ import { PasswordInput } from "@/components/auth/PasswordInput";
 import { AUTH_SCENES } from "@/lib/auth-scenes";
 import { resendSignupOtp, signUpWithEmail, verifyEmailOtp } from "@/lib/auth";
 import { TRIAL_DAYS } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
+import { useQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -19,7 +21,8 @@ export const Route = createFileRoute("/signup")({
       { title: "Create account — InuaBiz" },
       {
         name: "description",
-        content: `Sign up with your name, shop, email and password. Verify by email OTP, then finish shop onboarding. ${TRIAL_DAYS}-day trial.`,
+        content:
+          "Sign up with your name, shop, email and password. Verify by email OTP, then finish shop onboarding. Free trial on your first shop.",
       },
     ],
   }),
@@ -28,6 +31,11 @@ export const Route = createFileRoute("/signup")({
 
 function Signup() {
   const navigate = useNavigate();
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
   const [fullName, setFullName] = useState("");
   const [shopName, setShopName] = useState("");
   const [email, setEmail] = useState("");
@@ -116,7 +124,7 @@ function Signup() {
           <>
             <h1 className="text-2xl font-bold">Create your account</h1>
             <p className="text-muted-foreground mt-2 text-sm">
-              Then we email you a code. Your first shop starts a {TRIAL_DAYS}-day trial — extra shops
+              Then we email you a code. Your first shop starts a {trialDays}-day trial — extra shops
               are paid before they go live.
             </p>
             <form

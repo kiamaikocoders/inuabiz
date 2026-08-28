@@ -16,10 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES } from "@/lib/mock-data";
+import { KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 import { fetchTenants, mrrTrendFromTenants } from "@/lib/data";
 import { fetchMrrSnapshot } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { fetchPublicPricing } from "@/lib/plans";
 
 export const Route = createFileRoute("/admin/subscriptions")({
   head: () => ({
@@ -49,6 +50,11 @@ function Subscriptions() {
     queryFn: fetchMrrSnapshot,
     enabled: live,
   });
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shopPrice = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
   const active = tenants.filter((t) => t.status === "Active");
   const mrr = snap?.mrr_kes ?? active.reduce((s, t) => s + t.mrr, 0);
   const trials = snap?.trial_tenants ?? tenants.filter((t) => t.status === "Trial").length;
@@ -160,8 +166,9 @@ function Subscriptions() {
           <div className="bg-muted mt-6 rounded-xl p-3.5">
             <p className="text-xs font-semibold">M-Pesa Ratiba</p>
             <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-              Optional standing orders auto-debit KES 3,000 per shop, with up to 3 retries over 72
-              hours before write access is locked. Vendors opt in from Subscription in the till.
+              Optional standing orders auto-debit {KES(shopPrice)} per shop, with up to 3 retries
+              over 72 hours before write access is locked. Vendors opt in from Subscription in the
+              till.
             </p>
           </div>
         </div>

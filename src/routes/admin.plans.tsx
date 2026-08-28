@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KES } from "@/lib/mock-data";
+import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 import {
   createSubscriptionPlan,
   deleteSubscriptionPlan,
@@ -66,7 +66,7 @@ const emptyForm = (): PlanUpsertInput => ({
   code: "",
   name: "",
   description: "",
-  amountKes: 3000,
+  amountKes: SUBSCRIPTION_PRICE,
   billingInterval: "month",
   isActive: true,
   isPublic: true,
@@ -185,12 +185,12 @@ function AdminPlans() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Shop / month"
-          value={KES(shopPlan?.amountKes ?? pricing?.shopMonthly ?? 3000)}
+          value={KES(shopPlan?.amountKes ?? pricing?.shopMonthly ?? SUBSCRIPTION_PRICE)}
           icon={CreditCard}
         />
         <StatCard
           label="Compliance"
-          value={KES(pricing?.compliance ?? 4500)}
+          value={KES(pricing?.compliance ?? COMPLIANCE_PRICE)}
           icon={CreditCard}
           tone="violet"
         />

@@ -90,6 +90,8 @@ export type NotificationItem = {
   read: boolean;
   time: string;
   createdAt?: string;
+  tenantId?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type Invoice = {
@@ -141,7 +143,8 @@ export type AdminNotificationDomain =
 export type AdminNotificationItem = NotificationItem & {
   domain: AdminNotificationDomain;
   domainLabel: string;
-  day: "today" | "yesterday";
+  day: "today" | "yesterday" | "earlier";
+  dayLabel: string;
   clock: string;
   occurredAt: string;
   receivedDetail: string;
@@ -151,10 +154,17 @@ export type AdminNotificationItem = NotificationItem & {
   owner: string;
   tenant: string;
   shop: string;
+  phone: string;
+  plan: string;
+  invoice: string;
+  amount: string;
+  email: string;
+  contactId: string;
   primaryHref: string;
   primaryLabel: string;
   secondaryHref?: string;
   secondaryLabel?: string;
+  detailRows: Array<[string, string]>;
 };
 
 export const statusColor: Record<string, string> = {

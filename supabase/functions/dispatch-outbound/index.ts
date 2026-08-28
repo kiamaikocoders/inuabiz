@@ -246,12 +246,15 @@ Deno.serve(async (req) => {
         }
 
         const html = personalizeHtml(templateId, fillTemplate(tpl.html as string, fillVars), fillVars);
-        const subject = subjectFor(
-          templateId,
-          (tpl.subject as string | undefined) ?? `InuaBiz — ${shop}`,
+        const subject = fillTemplate(
+          subjectFor(
+            templateId,
+            (tpl.subject as string | undefined) ?? `InuaBiz — ${shop}`,
+            fillVars,
+            invoice?.invoice_number,
+            shop,
+          ),
           fillVars,
-          invoice?.invoice_number,
-          shop,
         );
 
         const idempotencyKey = (
@@ -380,6 +383,21 @@ function subjectFor(
   if (templateId === "credit-reminder" && vars.customer_name && vars.amount) {
     return `${vars.customer_name} still owes ${vars.amount}`;
   }
+  if (templateId === "subscription-paid" && vars.amount) {
+    return `You're covered this month — ${vars.amount}`;
+  }
+  if (templateId === "payment-stk-failed" && vars.amount) {
+    return `STK did not go through — ${vars.amount}`;
+  }
+  if (templateId === "extra-shop-paid" && vars.amount) {
+    return `New shop is paid for — ${vars.amount}`;
+  }
+  if (templateId === "extra-shop-failed" && vars.amount) {
+    return `Extra shop PIN did not go through — ${vars.amount}`;
+  }
+  if (templateId === "trial-ending" && vars.amount && /KES [\d,]+/.test(fallback)) {
+    return fallback.replace(/KES [\d,]+/g, vars.amount);
+  }
   if (templateId === "daily-summary" && vars.amount) {
     return `${vars.day || "Yesterday"} till: ${vars.amount} · ${vars.count || "0"} sales`;
   }
@@ -422,6 +440,9 @@ function personalizeHtml(templateId: string, html: string, vars: Record<string, 
     swaps.push(["KES 1,200", vars.amount]);
     swaps.push(["KES 905", vars.amount]);
     swaps.push(["KES 760", vars.amount]);
+    swaps.push(["KES 3,000", vars.amount]);
+    swaps.push(["KES 4,500", vars.amount]);
+    swaps.push(["KES 1,000", vars.amount]);
   }
   if (vars.invoice_number) {
     swaps.push(["INV-2041", vars.invoice_number]);

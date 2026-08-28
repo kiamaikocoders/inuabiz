@@ -23,7 +23,7 @@ import { OnboardingSplit } from "@/components/auth/OnboardingSplit";
 import { CategoryPicker } from "@/components/category/CategoryPicker";
 import { categoryLabel, parseCategory } from "@/lib/category";
 import { cn } from "@/lib/utils";
-import { TRIAL_DAYS, KES } from "@/lib/mock-data";
+import { TRIAL_DAYS, KES, SUBSCRIPTION_PRICE, COMPLIANCE_PRICE } from "@/lib/mock-data";
 import { completeOnboarding, fetchProfile, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
 import { uploadBusinessLogo } from "@/lib/business-logo";
 import { reverseGeocode } from "@/lib/geo";
@@ -188,8 +188,8 @@ function Onboarding() {
     queryKey: ["public-pricing"],
     queryFn: fetchPublicPricing,
   });
-  const standardPrice = pricing?.shopMonthly ?? 3000;
-  const compliancePrice = pricing?.compliance ?? 4500;
+  const standardPrice = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
+  const compliancePrice = pricing?.compliance ?? COMPLIANCE_PRICE;
   const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
 
   /* -------- must have a verified account; unfinished onboarding stays here -------- */
@@ -578,7 +578,7 @@ function Onboarding() {
 
       <div className="mb-6 hidden items-center justify-between text-xs font-medium lg:flex">
         <span className="text-muted-foreground">{stepMeta[step]!.time}</span>
-        <span className="text-primary">{TRIAL_DAYS}-day free trial</span>
+        <span className="text-primary">{trialDays}-day free trial</span>
       </div>
 
       {!online && (

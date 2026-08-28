@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -8,6 +9,8 @@ import {
   type JourneySlide,
 } from "@/components/site/HowItWorksCarousel";
 import { cn } from "@/lib/utils";
+import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { fetchPublicPricing } from "@/lib/plans";
 
 export const Route = createFileRoute("/how-it-works")({
   head: () => ({
@@ -28,100 +31,113 @@ export const Route = createFileRoute("/how-it-works")({
   component: HowItWorks,
 });
 
-const steps = [
-  {
-    n: "1",
-    stage: "Day 0",
-    title: "Quick setup",
-    sub: "Start in minutes",
-    body: "Sign up with your name, shop, email and password. Verify the email OTP, then finish shop setup: category, GPS pin and where money should land. Your 3-day trial starts when onboarding completes.",
-    image: "/images/how-it-works/step-salon.jpg",
-    imageAlt: "Salon attendant filling shop details on a phone at the reception desk",
-    photoLeft: false,
-  },
-  {
-    n: "2",
-    stage: "Day 0",
-    title: "Load your products",
-    sub: "Scan, price, reorder",
-    body: "Add products by name or scan barcodes with the phone camera. Set cost price, selling price and a reorder level so InuaBiz can warn you — in the app and by email — before you run out.",
-    image: "/images/how-it-works/step-maize-scan.jpg",
-    imageAlt: "Hands scanning a maize flour barcode with a phone camera in a grocery",
-    photoLeft: true,
-  },
-  {
-    n: "3",
-    stage: "Every day",
-    title: "Sell at the counter",
-    sub: "Fast checkout, cash or STK",
-    body: "Tap products into the cart, apply a discount if you want, then choose cash, credit or M-Pesa. For M-Pesa, enter the customer number and an STK prompt appears on their handset.",
-    image: "/images/how-it-works/step-eatery.jpg",
-    imageAlt: "Nyama choma attendant taking an order on a phone at lunch rush",
-    photoLeft: false,
-  },
-  {
-    n: "4",
-    stage: "Instantly",
-    title: "Payment confirms itself",
-    sub: "Matched to the sale",
-    body: "When the customer enters their PIN, the confirmation is matched to the sale. Stock decrements and a fiscal invoice number is issued. Turn on Settings → Send email receipt if you want a shop copy.",
-    image: "/images/how-it-works/step-butcher.jpg",
-    imageAlt: "Customer at a butcher counter looking at a phone while waiting for a parcel",
-    photoLeft: true,
-  },
-];
+function buildSteps(trialDays: number) {
+  return [
+    {
+      n: "1",
+      stage: "Day 0",
+      title: "Quick setup",
+      sub: "Start in minutes",
+      body: `Sign up with your name, shop, email and password. Verify the email OTP, then finish shop setup: category, GPS pin and where money should land. Your ${trialDays}-day trial starts when onboarding completes.`,
+      image: "/images/how-it-works/step-salon.jpg",
+      imageAlt: "Salon attendant filling shop details on a phone at the reception desk",
+      photoLeft: false,
+    },
+    {
+      n: "2",
+      stage: "Day 0",
+      title: "Load your products",
+      sub: "Scan, price, reorder",
+      body: "Add products by name or scan barcodes with the phone camera. Set cost price, selling price and a reorder level so InuaBiz can warn you — in the app and by email — before you run out.",
+      image: "/images/how-it-works/step-maize-scan.jpg",
+      imageAlt: "Hands scanning a maize flour barcode with a phone camera in a grocery",
+      photoLeft: true,
+    },
+    {
+      n: "3",
+      stage: "Every day",
+      title: "Sell at the counter",
+      sub: "Fast checkout, cash or STK",
+      body: "Tap products into the cart, apply a discount if you want, then choose cash, credit or M-Pesa. For M-Pesa, enter the customer number and an STK prompt appears on their handset.",
+      image: "/images/how-it-works/step-eatery.jpg",
+      imageAlt: "Nyama choma attendant taking an order on a phone at lunch rush",
+      photoLeft: false,
+    },
+    {
+      n: "4",
+      stage: "Instantly",
+      title: "Payment confirms itself",
+      sub: "Matched to the sale",
+      body: "When the customer enters their PIN, the confirmation is matched to the sale. Stock decrements and a fiscal invoice number is issued. Turn on Settings → Send email receipt if you want a shop copy.",
+      image: "/images/how-it-works/step-butcher.jpg",
+      imageAlt: "Customer at a butcher counter looking at a phone while waiting for a parcel",
+      photoLeft: true,
+    },
+  ];
+}
 
-const loopSlides: JourneySlide[] = [
-  {
-    n: "05",
-    stage: "WHEN IT FAILS",
-    title: "Clear fallbacks, never a lost sale",
-    body: "Wrong PIN, timeout or cancellation shows a retry and your Till or Paybill as backup. Stuck payments re-check after three minutes.",
-    image: "/images/how-it-works/card-fallback.jpg",
-    imageAlt: "Vendor showing a failed payment on a phone next to a handwritten till number",
-    href: "/features",
-  },
-  {
-    n: "06",
-    stage: "ON CREDIT",
-    title: "Record kukopesha properly",
-    body: "Give credit in two taps against a customer's phone. Balances and due dates live on the ledger. Email yourself when someone is overdue.",
-    image: "/images/how-it-works/card-kukopesha.jpg",
-    imageAlt: "Open kukopesha debt ledger with names, dates and shilling amounts",
-    href: "/features",
-  },
-  {
-    n: "07",
-    stage: "WHOLESALE",
-    title: "Invoice the buyer on M-Pesa",
-    body: "Create a bill with name, phone and optional email. It can land in Bill Manager. Unpaid past due date gets an overdue note.",
-    image: "/images/how-it-works/card-invoice.jpg",
-    imageAlt: "Wholesale counter handing a printed invoice to a buyer",
-    imageClassName: "object-[center_62%]",
-    href: "/features",
-  },
-  {
-    n: "08",
-    stage: "NEXT MORNING",
-    title: "Yesterday's till, in your inbox",
-    body: "A daily summary of sales and M-Pesa lands at 6am EAT. Low stock and trial-ending notes arrive when they matter.",
-    image: "/images/how-it-works/card-morning.jpg",
-    imageAlt: "Shopkeeper reading yesterday's till summary on a phone with morning chai",
-    href: "/features",
-  },
-  {
-    n: "09",
-    stage: "DAY 3",
-    title: "Subscribe with one PIN",
-    body: "An STK prompt for KES 3,000 per shop arrives on your number. Approve it and access extends 30 days.",
-    image: "/images/how-it-works/card-pin.jpg",
-    imageAlt: "Hands entering a PIN on a phone to renew a shop subscription",
-    imageClassName: "object-[center_78%]",
-    href: "/pricing",
-  },
-];
+function buildLoopSlides(shopPrice: number, trialDays: number): JourneySlide[] {
+  return [
+    {
+      n: "05",
+      stage: "WHEN IT FAILS",
+      title: "Clear fallbacks, never a lost sale",
+      body: "Wrong PIN, timeout or cancellation shows a retry and your Till or Paybill as backup. Stuck payments re-check after three minutes.",
+      image: "/images/how-it-works/card-fallback.jpg",
+      imageAlt: "Vendor showing a failed payment on a phone next to a handwritten till number",
+      href: "/features",
+    },
+    {
+      n: "06",
+      stage: "ON CREDIT",
+      title: "Record kukopesha properly",
+      body: "Give credit in two taps against a customer's phone. Balances and due dates live on the ledger. Email yourself when someone is overdue.",
+      image: "/images/how-it-works/card-kukopesha.jpg",
+      imageAlt: "Open kukopesha debt ledger with names, dates and shilling amounts",
+      href: "/features",
+    },
+    {
+      n: "07",
+      stage: "WHOLESALE",
+      title: "Invoice the buyer on M-Pesa",
+      body: "Create a bill with name, phone and optional email. It can land in Bill Manager. Unpaid past due date gets an overdue note.",
+      image: "/images/how-it-works/card-invoice.jpg",
+      imageAlt: "Wholesale counter handing a printed invoice to a buyer",
+      imageClassName: "object-[center_62%]",
+      href: "/features",
+    },
+    {
+      n: "08",
+      stage: "NEXT MORNING",
+      title: "Yesterday's till, in your inbox",
+      body: "A daily summary of sales and M-Pesa lands at 6am EAT. Low stock and trial-ending notes arrive when they matter.",
+      image: "/images/how-it-works/card-morning.jpg",
+      imageAlt: "Shopkeeper reading yesterday's till summary on a phone with morning chai",
+      href: "/features",
+    },
+    {
+      n: "09",
+      stage: `DAY ${trialDays}`,
+      title: "Subscribe with one PIN",
+      body: `An STK prompt for ${KES(shopPrice)} per shop arrives on your number. Approve it and access extends 30 days.`,
+      image: "/images/how-it-works/card-pin.jpg",
+      imageAlt: "Hands entering a PIN on a phone to renew a shop subscription",
+      imageClassName: "object-[center_78%]",
+      href: "/pricing",
+    },
+  ];
+}
 
 function HowItWorks() {
+  const { data: pricing } = useQuery({
+    queryKey: ["public-pricing"],
+    queryFn: fetchPublicPricing,
+  });
+  const shopPrice = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
+  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
+  const steps = buildSteps(trialDays);
+  const loopSlides = buildLoopSlides(shopPrice, trialDays);
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -205,7 +221,7 @@ function HowItWorks() {
                 Ready to try it on your own counter?
               </h2>
               <p className="text-primary-foreground/80 mt-2 text-sm">
-                3 days, full access, nothing to pay upfront.
+                {trialDays} days, full access, nothing to pay upfront.
               </p>
             </div>
             <Button size="lg" variant="gold" asChild>

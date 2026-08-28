@@ -23,6 +23,7 @@ export async function notifyAdmins(
     admins.map((a) => ({
       recipient_id: a.id,
       recipient_role: "SUPER_ADMIN",
+      tenant_id: metadata["tenant_id"] ?? null,
       title,
       message,
       type,

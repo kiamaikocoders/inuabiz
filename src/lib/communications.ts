@@ -107,7 +107,7 @@ export function withPreviewVars(html: string): string {
     [/\{\{\s*\.SiteURL\s*\}\}/g, origin],
     [/\{\{\s*userName\s*\}\}/g, "Mama Njoroge"],
     [/\{\{\s*shop\s*\}\}/g, "Mama Njoroge's Duka"],
-    [/\{\{\s*amount\s*\}\}/g, "KES 905"],
+    [/\{\{\s*amount\s*\}\}/g, "KES 3,000"],
   ];
   return pairs.reduce((acc, [re, v]) => acc.replace(re, v), html);
 }

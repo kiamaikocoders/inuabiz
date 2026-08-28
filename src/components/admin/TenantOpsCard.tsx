@@ -34,6 +34,7 @@ import {
   setFeatureFlag,
 } from "@/lib/admin-ops";
 import { fetchSubscriptionPlans } from "@/lib/plans";
+import { SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 
 const STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELLED"] as const;
 
@@ -178,7 +179,7 @@ export function TenantOpsCard({
                 type="number"
                 min={0}
                 value={amount}
-                placeholder={String(billing?.amount ?? 3000)}
+                placeholder={String(billing?.amount ?? SUBSCRIPTION_PRICE)}
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>

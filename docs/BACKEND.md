@@ -31,7 +31,7 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 | `confirm-sale-mpesa` | yes | Manual M-Pesa code confirm for personal/Pochi vendors |
 | `create-subscription-charge` | yes | **PayHero** STK Push — vendor pays InuaBiz subscription |
 | `payhero-webhook` | **no** | PayHero callback → activate subscription / extra shop |
-| `provision-shop` | yes | Extra shop via **PayHero** STK (KES 3,000) |
+| `provision-shop` | yes | Extra shop via **PayHero** STK (plan amount from DB) |
 | `create-sale-charge` | yes | **Deprecated** — returns 410 (vendor sales use checkout-sale MPESA) |
 | `daraja-stk-callback` | **no** | Legacy Safaricom STK (pre-PayHero subscription rows only) |
 | `daraja-c2b-confirmation` | **no** | Till/Paybill C2B → match `tenant_payment_destinations` + open sale |
@@ -41,7 +41,7 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 | `poll-pending-payments` | **no** | Cron: PayHero status (+ legacy Daraja STK) for PENDING > 3 min |
 | `assign-unclaimed-payment` | yes | Super-admin maps orphan payment to tenant |
 | `generate-ai-insights` | yes | Weekly cash-flow / bestsellers / reorder (heuristic + optional OpenAI) |
-| `create-ratiba-standing-order` | yes | Opt vendor into M-Pesa Ratiba monthly KES 3,000 auto-debit |
+| `create-ratiba-standing-order` | yes | Opt vendor into M-Pesa Ratiba monthly auto-debit (plan amount from DB) |
 | `ratiba-callback` | **no** | Daraja standing-order / debit callbacks → renew or PAST_DUE lock |
 | `process-ratiba-retries` | **no** | Cron: after 3 failures / 72h, soft-lock tenant writes |
 | `create-bill-invoice` | yes | Push Bill Manager e-invoice to buyer M-Pesa menu |

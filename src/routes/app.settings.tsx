@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import { Smartphone } from "lucide-react";
 import { ShopLogoPicker } from "@/components/app/ShopLogoPicker";
 import { CompanionDeviceCard } from "@/components/app/CompanionDeviceCard";
 import { AppShell } from "@/components/app/AppShell";
@@ -39,9 +39,10 @@ import {
   EMAIL_RECEIPT_KEY,
   emailReceiptEnabled,
 } from "@/lib/ops";
+import { fetchPaymentDestinations, type PaymentDestination } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { uploadBusinessLogo } from "@/lib/business-logo";
-import { CATEGORY_LIST, parseCategory, readDemoCategory, writeDemoCategory } from "@/lib/category";
+import { CATEGORY_LIST, parseCategory, readDemoCategory } from "@/lib/category";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -79,14 +80,15 @@ function SettingsPage() {
     queryFn: fetchShops,
     enabled: isSupabaseConfigured(),
   });
+  const { data: destinations = [] } = useQuery({
+    queryKey: ["payment-destinations", ghost?.tenantId ?? "self"],
+    queryFn: fetchPaymentDestinations,
+    enabled: isSupabaseConfigured(),
+  });
 
   const [name, setName] = useState("");
   const [legal, setLegal] = useState("");
-  const [pin, setPin] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [loc, setLoc] = useState("");
-  const [category, setCategory] = useState(() => readDemoCategory());
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
@@ -98,45 +100,39 @@ function SettingsPage() {
     if (!header) return;
     setName(header.name);
     setLegal(header.legal_name ?? header.name);
-    setPin(header.kra_pin ?? "");
-    setEmail(header.email ?? "");
     setPhone(header.phone);
-    const fallbackLoc =
-      header.address_text ||
-      (header.location_lat != null && header.location_lng != null
-        ? `Pin · ${Number(header.location_lat).toFixed(5)}, ${Number(header.location_lng).toFixed(5)}`
-        : "");
-    setLoc(fallbackLoc);
-    setCategory(parseCategory(header.category));
     setEmailReceipt(emailReceiptEnabled(header));
   }, [header]);
 
   const save = async () => {
     try {
       if (!isSupabaseConfigured()) {
-        writeDemoCategory(parseCategory(category));
-        toast.success("Category saved for this demo till");
-        window.location.reload();
+        toast.success("Saved for this demo till");
         return;
       }
       await saveTenantHeader({
         name,
         legal_name: legal,
-        kra_pin: pin.trim() ? pin.trim().toUpperCase() : null,
-        email: email || null,
         phone,
-        address_text: loc || null,
-        category,
         email_receipt_enabled: emailReceipt,
       });
       toast.success("Settings saved");
       await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
     } catch (err) {
       toast.error("Could not save", {
-        description: err instanceof Error ? err.message : "Check KRA PIN format (A123456789Z).",
+        description: err instanceof Error ? err.message : "Try again.",
       });
     }
   };
+
+  const categoryDef = CATEGORY_LIST.find(
+    (c) => c.id === parseCategory(header?.category ?? readDemoCategory()),
+  );
+  const locationText =
+    header?.address_text ||
+    (header?.location_lat != null && header?.location_lng != null
+      ? `${Number(header.location_lat).toFixed(5)}, ${Number(header.location_lng).toFixed(5)}`
+      : "");
 
   return (
     <AppShell
@@ -148,20 +144,20 @@ function SettingsPage() {
         </div>
       }
     >
-      <p className="text-muted-foreground mb-4 max-w-3xl text-sm">
-        These are shop settings.{" "}
+      <p className="text-muted-foreground mb-4 text-sm">
+        Shop details for the till. Your own name and photo live on{" "}
         <Link to="/app/profile" className="text-primary font-medium underline-offset-4 hover:underline">
-          Edit your personal profile
+          Profile
         </Link>
         .
       </p>
 
-      <div className="grid max-w-5xl gap-5">
+      <div className="grid w-full gap-5">
         <SettingsCard
           title="Business Profile"
           description={
             owner
-              ? "Manage your shop's public information."
+              ? "Shop name and contact. Identity fields from sign-up stay locked."
               : "Locked. Only the owner can change shop details."
           }
           locked={!owner}
@@ -182,68 +178,47 @@ function SettingsPage() {
                 });
             }}
           />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="bn" className="text-muted-foreground text-xs">
-                Trading name
+                Shop name
               </Label>
               <Input id="bn" value={name} onChange={(e) => setName(e.target.value)} disabled={!owner} />
+              <p className="text-muted-foreground text-xs">
+                From sign-up. Shown on the till, receipts and the sidebar.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ln" className="text-muted-foreground text-xs">
                 Legal name
               </Label>
               <Input id="ln" value={legal} onChange={(e) => setLegal(e.target.value)} disabled={!owner} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pin" className="text-muted-foreground text-xs">
-                KRA PIN
-              </Label>
-              <Input
-                id="pin"
-                value={pin}
-                onChange={(e) => setPin(e.target.value.toUpperCase())}
-                placeholder="A123456789Z"
-                disabled={!owner}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="em" className="text-muted-foreground text-xs">
-                Email
-              </Label>
-              <Input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!owner} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cat" className="text-muted-foreground text-xs">
-                Business Category
-              </Label>
-              <Select value={parseCategory(category)} onValueChange={(v) => setCategory(parseCategory(v))} disabled={!owner && isSupabaseConfigured()}>
-                <SelectTrigger id="cat">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_LIST.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.emoji} {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <p className="text-muted-foreground text-xs">
-                Changes the till, extra screens and product fields for this shop.
+                On tax invoices if the registered name differs. Often the same as the shop name.
               </p>
             </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="loc" className="text-muted-foreground text-xs">
-                Location
+            <div className="space-y-1.5">
+              <Label htmlFor="ph" className="text-muted-foreground text-xs">
+                Contact Phone
               </Label>
-              <Input
-                id="loc"
-                value={loc}
-                onChange={(e) => setLoc(e.target.value)}
-                disabled={!owner}
-                placeholder="Street, estate, town"
-              />
+              <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!owner} />
+            </div>
+            <LockedField label="KRA PIN" value={header?.kra_pin ?? ""} hint="On invoices. Email hello@inuabiz.co.ke if this is wrong." />
+            <LockedField
+              label="Email"
+              value={header?.email ?? ""}
+              hint="Shop email from sign-up. Change your login from Profile."
+            />
+            <LockedField
+              label="Business category"
+              value={categoryDef ? `${categoryDef.emoji} ${categoryDef.label}` : ""}
+              hint="Sets till screens and product fields. Email hello@inuabiz.co.ke to change it."
+            />
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+              <Label className="text-muted-foreground text-xs">Location</Label>
+              <p className="border-input bg-muted/50 min-h-9 rounded-md border px-3 py-2 text-sm">
+                {locationText || "—"}
+              </p>
               {header?.location_lat != null && header?.location_lng != null && (
                 <p className="text-muted-foreground text-xs">
                   Map pin from onboarding:{" "}
@@ -255,14 +230,9 @@ function SettingsPage() {
                   >
                     {Number(header.location_lat).toFixed(5)}, {Number(header.location_lng).toFixed(5)}
                   </a>
+                  . Email hello@inuabiz.co.ke to move it.
                 </p>
               )}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ph" className="text-muted-foreground text-xs">
-                Contact Phone
-              </Label>
-              <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!owner} />
             </div>
           </div>
           <div className="flex justify-end">
@@ -272,45 +242,18 @@ function SettingsPage() {
           </div>
         </SettingsCard>
 
+        <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
         <SettingsCard
+          className="h-full"
           title="Payment Settings"
           description={
             owner
               ? "Money from sales lands in these channels. Pair a companion phone so personal M-Pesa and Pochi close the till automatically."
-              : "Locked. Till and Paybill are owner-only."
+              : "Locked. Payment channels are owner-only."
           }
           locked={!owner}
         >
-          <div className="bg-muted/60 space-y-4 rounded-xl px-4 py-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="bg-primary grid size-7 place-items-center rounded-lg">
-                  <Smartphone className="text-primary-foreground size-3.5" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">M-Pesa Integration</p>
-                  <p className="text-primary text-xs">Status: Connected</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" disabled={!owner}>
-                {owner ? "Disconnect" : "Owner only"}
-              </Button>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="till" className="text-muted-foreground text-xs">
-                  Buy Goods Till
-                </Label>
-                <Input id="till" defaultValue="889 201" disabled={!owner} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mpesa" className="text-muted-foreground text-xs">
-                  Personal M-Pesa
-                </Label>
-                <Input id="mpesa" defaultValue="0722 431 002" disabled={!owner} />
-              </div>
-            </div>
-          </div>
+          <PaymentChannelsPanel owner={owner} destinations={destinations} />
         </SettingsCard>
 
         <CompanionDeviceCard owner={owner} />
@@ -391,6 +334,7 @@ function SettingsPage() {
             <Switch defaultChecked />
           </div>
         </SettingsCard>
+        </div>
 
         {owner && (
           <SettingsCard
@@ -517,5 +461,152 @@ function SettingsPage() {
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+function destOf(
+  destinations: PaymentDestination[],
+  type: PaymentDestination["destinationType"],
+) {
+  return destinations.find((d) => d.destinationType === type);
+}
+
+function destDisplay(d: PaymentDestination | undefined) {
+  if (!d) return "";
+  if (d.destinationType === "TILL" || d.destinationType === "PAYBILL") return d.accountNumber;
+  return prettyKePhone(d.accountNumber);
+}
+
+function PaymentChannelsPanel({
+  owner,
+  destinations,
+}: {
+  owner: boolean;
+  destinations: PaymentDestination[];
+}) {
+  const connected = destinations.length > 0;
+  const till = destOf(destinations, "TILL");
+  const personal = destOf(destinations, "PERSONAL_MPESA");
+  const paybill = destOf(destinations, "PAYBILL");
+  const pochi = destOf(destinations, "POCHI");
+
+  return (
+    <div className="bg-muted/60 space-y-4 rounded-xl px-4 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="bg-primary grid size-7 shrink-0 place-items-center rounded-lg">
+            <Smartphone className="text-primary-foreground size-3.5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold">M-Pesa Integration</p>
+            <p className={connected ? "text-primary text-xs" : "text-muted-foreground text-xs"}>
+              Status: {connected ? "Connected" : "Not connected"}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!owner}
+          onClick={() =>
+            toast.info(
+              connected ? "Channels stay on file" : "No channel on file",
+              {
+                description: connected
+                  ? "Email hello@inuabiz.co.ke to change where customer money lands."
+                  : "Finish onboarding or email hello@inuabiz.co.ke to add a till or personal number.",
+              },
+            )
+          }
+        >
+          {connected ? "Disconnect" : "Connect"}
+        </Button>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChannelField
+          id="buy-goods-till"
+          label="Buy Goods Till"
+          value={destDisplay(till)}
+          primary={till?.isPrimary}
+          accountName={till?.accountName}
+        />
+        <ChannelField
+          id="personal-mpesa"
+          label="Personal M-Pesa"
+          value={destDisplay(personal)}
+          primary={personal?.isPrimary}
+          accountName={personal?.accountName}
+        />
+        {paybill ? (
+          <ChannelField
+            id="paybill"
+            label="Paybill"
+            value={destDisplay(paybill)}
+            primary={paybill.isPrimary}
+            accountName={paybill.accountName}
+          />
+        ) : null}
+        {pochi ? (
+          <ChannelField
+            id="pochi"
+            label="Pochi la Biashara"
+            value={destDisplay(pochi)}
+            primary={pochi.isPrimary}
+            accountName={pochi.accountName}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ChannelField({
+  id,
+  label,
+  value,
+  primary,
+  accountName,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  primary?: boolean;
+  accountName?: string | null;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id} className="text-muted-foreground text-xs">
+          {label}
+        </Label>
+        {primary ? (
+          <Badge variant="outline" className="text-[10px] font-semibold">
+            Primary
+          </Badge>
+        ) : null}
+      </div>
+      <Input id={id} value={value} placeholder="Not set" readOnly />
+      {accountName ? <p className="text-muted-foreground text-xs">{accountName}</p> : null}
+    </div>
+  );
+}
+
+function LockedField({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-muted-foreground text-xs">{label}</Label>
+      <p className="border-input bg-muted/50 min-h-9 rounded-md border px-3 py-2 text-sm">
+        {value.trim() ? value : "—"}
+      </p>
+      {hint ? <p className="text-muted-foreground text-xs">{hint}</p> : null}
+    </div>
   );
 }

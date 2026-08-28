@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { Copy, Smartphone } from "lucide-react";
+import { Copy, Download, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { SettingsCard } from "@/components/app/SettingsCard";
 import { Button } from "@/components/ui/button";
@@ -23,6 +22,8 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { prettyKePhone } from "@/lib/phone";
 
+const APK_HREF = "/downloads/inuabiz-companion.apk";
+
 export function CompanionDeviceCard({ owner }: { owner: boolean }) {
   const queryClient = useQueryClient();
   const { data: devices = [] } = useQuery({
@@ -42,7 +43,7 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
     try {
       const issued = await issueCompanionDevice(label.trim() || "Business phone");
       setIssuedToken(issued.token);
-      toast.success("Phone paired", { description: "Paste this token into the companion app once." });
+      toast.success("Phone paired", { description: "Install the APK on the shop SIM, then paste this token." });
       void queryClient.invalidateQueries({ queryKey: ["companion-devices"] });
     } catch (err: unknown) {
       toast.error("Could not pair", {
@@ -54,83 +55,99 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
   };
 
   return (
-    <>
+    <div className="min-w-0">
       <SettingsCard
+        className="h-full"
         title="Companion phone"
         description={
           owner
-            ? "Sideload the APK on the handset that receives M-Pesa SMS. Desktop POS goes green when that SMS arrives."
+            ? "Install this APK on the handset that receives M-Pesa SMS. Pair it here so desktop POS goes green when the SMS arrives."
             : "Locked. Only the owner can pair a companion phone."
         }
         locked={!owner}
-        action={
+      >
+        <ol className="text-muted-foreground space-y-2 text-sm leading-relaxed">
+          <li>
+            <span className="text-foreground font-medium">1.</span> Download the APK onto the phone
+            with the shop M-Pesa SIM. Allow install from this source.
+          </li>
+          <li>
+            <span className="text-foreground font-medium">2.</span> Tap Pair phone, copy the token
+            (shown once), paste it in the companion app, and allow SMS.
+          </li>
+          <li>
+            <span className="text-foreground font-medium">3.</span> Leave the quiet notification
+            running. Sell on this till as usual — you can still type the M-Pesa code by hand.
+          </li>
+        </ol>
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          Not on Play Store. We only receive amount, sender and the confirmation code from inbound
+          M-Pesa messages.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={APK_HREF} download>
+              <Download />
+              Download APK
+            </a>
+          </Button>
           <Button size="sm" disabled={!owner || busy} onClick={() => void pair()}>
             {busy ? "Pairing…" : "Pair phone"}
           </Button>
-        }
-      >
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="companion-label" className="text-muted-foreground text-xs">
-              Device name
-            </Label>
-            <Input
-              id="companion-label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              disabled={!owner}
-              placeholder="Till SIM — Mama's phone"
-            />
-          </div>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Install from{" "}
-            <Link to="/companion" className="text-primary font-medium underline-offset-4 hover:underline">
-              inuabiz.co.ke/companion
-            </Link>
-            . SMS stay on that phone — we only receive amount, sender and the confirmation code.
-          </p>
-          <ul className="divide-y divide-border">
-            {active.map((d) => (
-              <li key={d.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="bg-primary grid size-8 place-items-center rounded-lg">
-                    <Smartphone className="text-primary-foreground size-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{d.label}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {d.token_prefix}… ·{" "}
-                      {d.last_seen_at
-                        ? `Last SMS ${new Date(d.last_seen_at).toLocaleString("en-KE")}`
-                        : "Not seen yet"}
-                      {d.expected_msisdn ? ` · ${prettyKePhone(d.expected_msisdn)}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!owner}
-                  onClick={() => {
-                    void revokeCompanionDevice(d.id)
-                      .then(() => {
-                        toast.success("Phone unpaired");
-                        void queryClient.invalidateQueries({ queryKey: ["companion-devices"] });
-                      })
-                      .catch((err: unknown) =>
-                        toast.error(err instanceof Error ? err.message : "Could not revoke"),
-                      );
-                  }}
-                >
-                  Revoke
-                </Button>
-              </li>
-            ))}
-            {!active.length && (
-              <li className="text-muted-foreground py-3 text-sm">No companion phone paired yet.</li>
-            )}
-          </ul>
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="companion-label" className="text-muted-foreground text-xs">
+            Device name
+          </Label>
+          <Input
+            id="companion-label"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            disabled={!owner}
+            placeholder="Till SIM — Mama's phone"
+          />
+        </div>
+        <ul className="divide-y divide-border">
+          {active.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-3 py-2.5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="bg-primary grid size-8 place-items-center rounded-lg">
+                  <Smartphone className="text-primary-foreground size-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{d.label}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {d.token_prefix}… ·{" "}
+                    {d.last_seen_at
+                      ? `Last SMS ${new Date(d.last_seen_at).toLocaleString("en-KE")}`
+                      : "Not seen yet"}
+                    {d.expected_msisdn ? ` · ${prettyKePhone(d.expected_msisdn)}` : ""}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!owner}
+                onClick={() => {
+                  void revokeCompanionDevice(d.id)
+                    .then(() => {
+                      toast.success("Phone unpaired");
+                      void queryClient.invalidateQueries({ queryKey: ["companion-devices"] });
+                    })
+                    .catch((err: unknown) =>
+                      toast.error(err instanceof Error ? err.message : "Could not revoke"),
+                    );
+                }}
+              >
+                Revoke
+              </Button>
+            </li>
+          ))}
+          {!active.length && (
+            <li className="text-muted-foreground py-3 text-sm">No companion phone paired yet.</li>
+          )}
+        </ul>
       </SettingsCard>
 
       <Dialog open={Boolean(issuedToken)} onOpenChange={(open) => !open && setIssuedToken(null)}>
@@ -138,11 +155,17 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
           <DialogHeader>
             <DialogTitle>Paste this token in the companion app</DialogTitle>
             <DialogDescription>
-              It is shown once. If you lose it, revoke the device and pair again.
+              Download the APK on the shop SIM if you have not already. This token is shown once.
             </DialogDescription>
           </DialogHeader>
           <div className="bg-muted rounded-lg px-3 py-2 font-mono text-xs break-all">{issuedToken}</div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" asChild>
+              <a href={APK_HREF} download>
+                <Download />
+                Download APK
+              </a>
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
@@ -153,13 +176,13 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
                 );
               }}
             >
-              <Copy className="mr-2 size-4" />
+              <Copy />
               Copy token
             </Button>
             <Button onClick={() => setIssuedToken(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

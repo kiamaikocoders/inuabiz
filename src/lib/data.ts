@@ -483,7 +483,27 @@ export type PaymentDestination = {
   destinationType: "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI";
   accountNumber: string;
   accountName: string | null;
+  isPrimary: boolean;
 };
+
+export async function fetchPaymentDestinations(): Promise<PaymentDestination[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+  if (!profile?.tenant_id) return [];
+  const { data, error } = await sb
+    .from("tenant_payment_destinations")
+    .select("destination_type, account_number, account_name, is_primary")
+    .eq("tenant_id", profile.tenant_id)
+    .order("is_primary", { ascending: false });
+  if (error || !data) return [];
+  return data.map((row) => ({
+    destinationType: row.destination_type as PaymentDestination["destinationType"],
+    accountNumber: String(row.account_number),
+    accountName: (row.account_name as string | null) ?? null,
+    isPrimary: Boolean(row.is_primary),
+  }));
+}
 
 export async function fetchPrimaryPaymentDestination(): Promise<PaymentDestination | null> {
   const sb = getSupabase();
@@ -501,6 +521,7 @@ export async function fetchPrimaryPaymentDestination(): Promise<PaymentDestinati
     destinationType: data.destination_type as PaymentDestination["destinationType"],
     accountNumber: String(data.account_number),
     accountName: (data.account_name as string | null) ?? null,
+    isPrimary: true,
   };
 }
 

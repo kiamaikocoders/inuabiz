@@ -28,7 +28,7 @@ import { isVendorOwner } from "@/lib/identity";
 import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchBillingSnapshot, pollSubscriptionPayment } from "@/lib/payments";
 import { fetchPublicPricing } from "@/lib/plans";
-import { KES } from "@/lib/mock-data";
+import { KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 import { CATEGORY_LIST, categoryLabel, parseCategory } from "@/lib/category";
 import { formatCoords, mapsUrl } from "@/lib/geo";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ function ShopsPage() {
     pricing?.shopMonthly ??
     (billing?.amount && shops.length > 0
       ? Math.round(billing.amount / Math.max(shops.length, 1))
-      : 3000);
+      : SUBSCRIPTION_PRICE);
 
   const activeId = profile?.active_shop_id ?? shops.find((s) => s.is_default)?.id ?? shops[0]?.id;
   const active = shops.find((s) => s.id === activeId) ?? shops[0];
