@@ -42,9 +42,9 @@ function Privacy() {
         </p>
         <p>
           If you install the optional InuaBiz Companion APK on the business phone, that app reads
-          inbound M-Pesa SMS on the device so we can match amount and confirmation code to an open
-          sale. The APK is not distributed through Play Store. You can revoke the device token in
-          Settings at any time.
+          inbound M-Pesa received SMS (personal, Pochi, till, or paybill) so we can match amount
+          and confirmation code to an open sale. The APK is not distributed through Play Store. You
+          can revoke the device token in Settings at any time.
         </p>
       </LegalSection>
       <LegalSection id="use" title="2. How we use your information">

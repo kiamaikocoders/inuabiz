@@ -6,8 +6,19 @@ type C2bPayload = {
   BillRefNumber?: string;
   MSISDN?: string;
   BusinessShortCode?: string;
+  FirstName?: string;
+  MiddleName?: string;
+  LastName?: string;
   [k: string]: unknown;
 };
+
+function c2bPayerName(payload: C2bPayload): string | null {
+  const name = [payload.FirstName, payload.MiddleName, payload.LastName]
+    .map((p) => String(p ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return name || null;
+}
 
 function normalizeShortCode(value: string | undefined): string {
   return String(value ?? "").replace(/\D/g, "");
@@ -136,14 +147,18 @@ Deno.serve(async (req) => {
       .single();
 
     if (saleId) {
+      const payer = c2bPayerName(payload);
+      const patch: Record<string, unknown> = {
+        status: "PAID",
+        paid_at: new Date().toISOString(),
+        payment_channel: "PAYBILL",
+        mpesa_receipt_code: invoiceId.slice(0, 32),
+      };
+      if (payer) patch.mpesa_payer_name = payer;
+      if (payload.MSISDN) patch.customer_phone = String(payload.MSISDN);
       await service
         .from("sales")
-        .update({
-          status: "PAID",
-          paid_at: new Date().toISOString(),
-          payment_channel: "PAYBILL",
-          mpesa_receipt_code: invoiceId.slice(0, 32),
-        })
+        .update(patch)
         .eq("id", saleId)
         .eq("status", "PENDING_PAYMENT");
     }

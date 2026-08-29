@@ -1,6 +1,8 @@
 import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { toE164Ke, to254 } from "@/lib/phone";
 import { redirect } from "@tanstack/react-router";
+import { cacheProfile, readCachedProfile } from "@/lib/offline/db";
+import { isBrowserOffline, probeOnline } from "@/lib/offline/connectivity";
 
 export type VendorProfile = {
   id: string;
@@ -39,7 +41,7 @@ export async function signUpWithEmail(input: {
     email: input.email.trim(),
     password: input.password,
     options: {
-      emailRedirectTo: emailRedirectTo("/signup"),
+      emailRedirectTo: emailRedirectTo("/onboarding"),
       data: {
         full_name: input.fullName.trim(),
         shop_name: input.shopName.trim(),
@@ -56,7 +58,7 @@ export async function resendSignupOtp(email: string): Promise<{ demo: boolean }>
   const { error } = await sb.auth.resend({
     type: "signup",
     email: email.trim(),
-    options: { emailRedirectTo: emailRedirectTo("/signup") },
+    options: { emailRedirectTo: emailRedirectTo("/onboarding") },
   });
   if (error) throw new Error(error.message);
   return { demo: false };
@@ -113,17 +115,47 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<{ de
 
 export async function fetchProfile(): Promise<VendorProfile | null> {
   const sb = getSupabase();
-  if (!sb) return null;
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
-  if (!user) return null;
-  const { data } = await sb
-    .from("profiles")
-    .select("id, tenant_id, role, full_name, phone, avatar_url, active_shop_id, pending_shop_name, onboarding_completed_at")
-    .eq("id", user.id)
-    .maybeSingle();
-  return (data as VendorProfile | null) ?? null;
+  if (!sb) return readCachedProfile();
+
+  // Offline / flaky network: never call getUser() (hits Auth server).
+  if (isBrowserOffline()) {
+    const online = await probeOnline();
+    if (!online) return readCachedProfile();
+  }
+
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const userId = sessionData.session?.user?.id;
+    if (!userId) {
+      // Last resort online validation — only when we have no local session.
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) return readCachedProfile();
+      const { data } = await sb
+        .from("profiles")
+        .select(
+          "id, tenant_id, role, full_name, phone, avatar_url, active_shop_id, pending_shop_name, onboarding_completed_at",
+        )
+        .eq("id", user.id)
+        .maybeSingle();
+      if (data) await cacheProfile(data as VendorProfile);
+      return (data as VendorProfile | null) ?? (await readCachedProfile());
+    }
+
+    const { data, error } = await sb
+      .from("profiles")
+      .select(
+        "id, tenant_id, role, full_name, phone, avatar_url, active_shop_id, pending_shop_name, onboarding_completed_at",
+      )
+      .eq("id", userId)
+      .maybeSingle();
+    if (error || !data) return readCachedProfile();
+    await cacheProfile(data as VendorProfile);
+    return data as VendorProfile;
+  } catch {
+    return readCachedProfile();
+  }
 }
 
 export async function completeOnboarding(input: {
@@ -152,8 +184,7 @@ export async function completeOnboarding(input: {
     account_name: d.accountName ?? null,
     is_primary: Boolean(d.isPrimary),
   }));
-  const primary =
-    destinations.find((d) => d.is_primary) ??
+  const primary = destinations.find((d) => d.is_primary) ??
     destinations[0] ?? {
       type: input.destinationType,
       account_number:
@@ -246,7 +277,11 @@ export function friendlyMfaError(message: string): string {
 }
 
 /** Re-auth with the current password, then set a new one. TOTP is required if MFA is enrolled. */
-export async function changePassword(current: string, next: string, totpCode?: string): Promise<void> {
+export async function changePassword(
+  current: string,
+  next: string,
+  totpCode?: string,
+): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
   const { data } = await sb.auth.getUser();
@@ -300,7 +335,8 @@ export async function enrollTotp(): Promise<{ factorId: string; qr: string; secr
     factorType: "totp",
     friendlyName: "InuaBiz",
   });
-  if (error || !data) throw new Error(friendlyMfaError(error?.message ?? "Could not start two-factor setup"));
+  if (error || !data)
+    throw new Error(friendlyMfaError(error?.message ?? "Could not start two-factor setup"));
   if (data.type !== "totp" || !data.totp) throw new Error("Authenticator setup is not available");
   return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret };
 }
@@ -407,6 +443,9 @@ export async function requireAuthSession(): Promise<void> {
   if (!sb) return;
   const { data } = await sb.auth.getSession();
   if (!data.session) {
+    // Offline with a previously hydrated profile: stay in the shop.
+    const cached = await readCachedProfile();
+    if (cached && isBrowserOffline()) return;
     throw redirect({ to: "/login" });
   }
 }
@@ -416,9 +455,18 @@ export async function requireVendorWorkspace(): Promise<void> {
   await requireAuthSession();
   if (!isSupabaseConfigured()) return;
   const profile = await fetchProfile();
-  if (!profile) throw redirect({ to: "/login" });
+  if (!profile) {
+    const cached = await readCachedProfile();
+    if (cached?.tenant_id && cached.onboarding_completed_at) return;
+    throw redirect({ to: "/login" });
+  }
   if (profile.role === "SUPER_ADMIN") return;
   if (!profile.tenant_id || !profile.onboarding_completed_at) {
+    // Do not bounce to onboarding when offline with a known completed shop.
+    if (isBrowserOffline()) {
+      const cached = await readCachedProfile();
+      if (cached?.tenant_id && cached.onboarding_completed_at) return;
+    }
     throw redirect({ to: "/onboarding" });
   }
 }

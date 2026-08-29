@@ -28,7 +28,7 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 | Function | JWT | Purpose |
 |----------|-----|---------|
 | `checkout-sale` | yes | POS cart → sale + cash/credit/**vendor M-Pesa wait** (no platform STK) |
-| `confirm-sale-mpesa` | yes | Manual M-Pesa code confirm for personal/Pochi vendors |
+| `confirm-sale-mpesa` | yes | Manual M-Pesa code confirm (personal, Pochi, till, paybill) |
 | `create-subscription-charge` | yes | **PayHero** STK Push — vendor pays InuaBiz subscription |
 | `payhero-webhook` | **no** | PayHero callback → activate subscription / extra shop |
 | `provision-shop` | yes | Extra shop via **PayHero** STK (plan amount from DB) |
@@ -51,6 +51,7 @@ Backend is ready for wiring once UI/UX ships. Frontend should stay on React + Ta
 | `submit-contact` | **no** | Website `/contact` → `contact_messages` + Resend to ops/SUPER_ADMIN (`contact-inbound`, Reply-To = visitor) + visitor `contact-ack` |
 | `subscribe-newsletter` | **no** | Footer subscribe → `newsletter_subscribers` upsert + `newsletter-welcome` |
 | `dispatch-outbound` | yes | Branded Resend send (service_role from other functions) |
+| `sync-offline-batch` | yes | Replay offline outbox with `client_op_id` idempotency |
 
 ### Admin AI (operator copilot)
 
@@ -234,7 +235,14 @@ where phone = '2547XXXXXXXX';
 - Mapbox GIS UI
 - Resend / SMS / WhatsApp fan-out beyond in-app inserts
 - Impersonation session Edge Function (audit table ready)
-- Offline POS sync
+
+## Offline shop sync
+
+PWA shell + IndexedDB replica + outbox. Edge Function `sync-offline-batch` applies queued ops idempotently via `offline_client_ops.client_op_id`.
+
+- Offline: cash / credit / park / M-Pesa open + code queue, inventory & customer edits
+- Online-only: billing STK, live M-Pesa match, AI, staff invite, first login
+- Stock conflicts return `stock_conflict` for review on Sales
 
 ## Source docs
 

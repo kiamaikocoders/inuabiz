@@ -3,6 +3,10 @@
     <style name="Theme.InuaBizCompanion" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/forest</item>
         <item name="colorOnPrimary">@color/on_forest</item>
+        <item name="colorSecondary">@color/gold</item>
         <item name="android:statusBarColor">@color/forest_dark</item>
+        <item name="android:navigationBarColor">@color/paper</item>
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:textColorPrimary">@color/ink</item>
     </style>
 </resources>

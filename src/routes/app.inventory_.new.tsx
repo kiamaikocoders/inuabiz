@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { ProductForm, type ProductDraft } from "@/components/app/ProductForm";
 import { Button } from "@/components/ui/button";
 import { saveProduct } from "@/lib/data";
+import { uploadProductImage } from "@/lib/product-image";
 import { fetchShops } from "@/lib/ops";
 import { fetchProfile } from "@/lib/auth";
 import { defaultTaxClassForCategory } from "@/lib/tax";
@@ -33,7 +34,7 @@ function NewProduct() {
   const defaultTaxClass = defaultTaxClassForCategory(shop?.category);
   const chemist = categoryHasModule(shop?.category, "tax_rate_bc");
 
-  const onSubmit = async (draft: ProductDraft) => {
+  const onSubmit = async (draft: ProductDraft, imageFile?: File | null) => {
     const res = await saveProduct({
       name: draft.name,
       sku: draft.sku,
@@ -45,6 +46,9 @@ function NewProduct() {
       classificationCode: draft.classificationCode,
       attrs: { ...draft.attrs, department: draft.category },
     });
+    if (imageFile && !res.demo) {
+      await uploadProductImage(res.id, imageFile);
+    }
     toast.success("Product saved", {
       description: res.demo ? "Demo mode — sign in to persist to Supabase." : "Added to inventory.",
     });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, Smartphone } from "lucide-react";
+import { Copy, Download, ExternalLink, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { SettingsCard } from "@/components/app/SettingsCard";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,24 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { prettyKePhone } from "@/lib/phone";
 
 const APK_HREF = "/downloads/inuabiz-companion.apk";
+/** Deep link into the Companion APK (see android-companion AndroidManifest). */
+const COMPANION_APP_HREF = "inuabiz://companion";
+
+function openCompanionApp() {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const android = /Android/i.test(ua);
+  if (!android) {
+    toast.info("Open Companion on the shop Android", {
+      description: "Install the APK on the phone with the M-Pesa SIM, then pair with the token.",
+    });
+    return;
+  }
+  // Intent URL: open the app if installed, otherwise fall back to APK download.
+  const intent =
+    "intent://companion#Intent;scheme=inuabiz;package=ke.co.inuabiz.companion;" +
+    `S.browser_fallback_url=${encodeURIComponent(window.location.origin + APK_HREF)};end`;
+  window.location.href = intent;
+}
 
 export function CompanionDeviceCard({ owner }: { owner: boolean }) {
   const queryClient = useQueryClient();
@@ -61,7 +79,7 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
         title="Companion phone"
         description={
           owner
-            ? "Install this APK on the handset that receives M-Pesa SMS. Pair it here so desktop POS goes green when the SMS arrives."
+            ? "Install this APK on the handset that receives shop M-Pesa SMS — personal, Pochi, till, or paybill. Pair it here so the till goes green when the SMS arrives."
             : "Locked. Only the owner can pair a companion phone."
         }
         locked={!owner}
@@ -69,7 +87,7 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
         <ol className="text-muted-foreground space-y-2 text-sm leading-relaxed">
           <li>
             <span className="text-foreground font-medium">1.</span> Download the APK onto the phone
-            with the shop M-Pesa SIM. Allow install from this source.
+            that gets those SMS (the shop SIM). Allow install from this source.
           </li>
           <li>
             <span className="text-foreground font-medium">2.</span> Tap Pair phone, copy the token
@@ -81,8 +99,8 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
           </li>
         </ol>
         <p className="text-muted-foreground text-xs leading-relaxed">
-          Not on Play Store. We only receive amount, sender and the confirmation code from inbound
-          M-Pesa messages.
+          Not on Play Store. We only receive the confirmation code, amount, and the name (or bank)
+          that paid — the same details as the M-Pesa SMS.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
@@ -90,6 +108,10 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
               <Download />
               Download APK
             </a>
+          </Button>
+          <Button variant="outline" size="sm" type="button" onClick={() => openCompanionApp()}>
+            <ExternalLink />
+            Open Companion
           </Button>
           <Button size="sm" disabled={!owner || busy} onClick={() => void pair()}>
             {busy ? "Pairing…" : "Pair phone"}
@@ -160,6 +182,12 @@ export function CompanionDeviceCard({ owner }: { owner: boolean }) {
           </DialogHeader>
           <div className="bg-muted rounded-lg px-3 py-2 font-mono text-xs break-all">{issuedToken}</div>
           <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" asChild>
+              <a href={COMPANION_APP_HREF}>
+                <ExternalLink />
+                Open Companion
+              </a>
+            </Button>
             <Button variant="outline" asChild>
               <a href={APK_HREF} download>
                 <Download />

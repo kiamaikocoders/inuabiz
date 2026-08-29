@@ -22,6 +22,10 @@ export type PaymentRow = {
   amount: number;
   channel: string;
   status: string;
+  phone?: string | null;
+  mpesaReceipt?: string | null;
+  createdAt?: string;
+  purpose?: string;
 };
 
 export type BillInvoiceRow = {
@@ -115,23 +119,71 @@ export function vendorPlanBadge(snap: BillingSnapshot | null | undefined): Vendo
   return snap.planCode === "COMPLIANCE" ? "Compliance" : "Standard";
 }
 
+function channelLabel(channel: string): string {
+  const c = channel.toUpperCase();
+  if (c.includes("MPESA") || c.includes("PAYHERO") || c === "STK") return "M-Pesa";
+  if (c.includes("CASH")) return "Cash";
+  if (c.includes("CARD")) return "Card";
+  return channel.replace(/_/g, " ");
+}
+
 export async function fetchPaymentHistory(): Promise<PaymentRow[]> {
   const sb = getSupabase();
   if (!sb) return [];
   const { data, error } = await sb
     .from("payment_transactions")
-    .select("id, invoice_id, created_at, amount, payment_channel, status")
+    .select("id, invoice_id, created_at, amount, payment_channel, status, account, purpose")
+    .eq("purpose", "SAAS_SUBSCRIPTION")
     .order("created_at", { ascending: false })
     .limit(40);
   if (error || !data) return [];
-  return data.map((row) => ({
-    id: row.id as string,
-    invoice: row.invoice_id as string,
-    date: fmtDate(row.created_at as string),
-    amount: Number(row.amount),
-    channel: String(row.payment_channel),
-    status: String(row.status),
-  }));
+  const ids = data.map((row) => row.id as string);
+  const invoiceIds = data.map((row) => String(row.invoice_id ?? "")).filter(Boolean);
+  const receiptByTx = new Map<string, string>();
+  const receiptByInvoice = new Map<string, string>();
+  const rememberReceipt = (row: {
+    payment_transaction_id?: unknown;
+    payhero_reference?: unknown;
+    mpesa_receipt_code?: unknown;
+  }) => {
+    const code = typeof row.mpesa_receipt_code === "string" ? row.mpesa_receipt_code : "";
+    if (!code) return;
+    if (typeof row.payment_transaction_id === "string") receiptByTx.set(row.payment_transaction_id, code);
+    if (typeof row.payhero_reference === "string") receiptByInvoice.set(row.payhero_reference, code);
+  };
+  if (ids.length) {
+    const { data: byTx } = await sb
+      .from("subscription_payments")
+      .select("payment_transaction_id, payhero_reference, mpesa_receipt_code")
+      .in("payment_transaction_id", ids);
+    for (const row of byTx ?? []) rememberReceipt(row);
+  }
+  if (invoiceIds.length) {
+    const { data: byRef } = await sb
+      .from("subscription_payments")
+      .select("payment_transaction_id, payhero_reference, mpesa_receipt_code")
+      .in("payhero_reference", invoiceIds);
+    for (const row of byRef ?? []) rememberReceipt(row);
+  }
+  return data.map((row) => {
+    const id = row.id as string;
+    const invoice = (row.invoice_id as string) || id.slice(0, 8).toUpperCase();
+    const out: PaymentRow = {
+      id,
+      invoice,
+      date: fmtDate(row.created_at as string),
+      amount: Number(row.amount),
+      channel: channelLabel(String(row.payment_channel)),
+      status: String(row.status),
+      createdAt: row.created_at as string,
+      purpose: String(row.purpose ?? "SAAS_SUBSCRIPTION"),
+    };
+    const phone = row.account as string | null;
+    if (phone) out.phone = prettyKePhone(phone);
+    const mpesa = receiptByTx.get(id) ?? receiptByInvoice.get(invoice);
+    if (mpesa) out.mpesaReceipt = mpesa;
+    return out;
+  });
 }
 
 export async function fetchBillInvoices(): Promise<BillInvoiceRow[]> {
@@ -224,6 +276,26 @@ export async function waitForSalePaid(
 
     const timeoutTimer = window.setTimeout(() => finish("TIMEOUT"), timeoutMs);
   });
+}
+
+export async function fetchSaleMpesaReceipt(saleId: string): Promise<string | null> {
+  const meta = await fetchSaleMpesaMeta(saleId);
+  return meta.code;
+}
+
+export async function fetchSaleMpesaMeta(
+  saleId: string,
+): Promise<{ code: string | null; payerName: string | null }> {
+  const sb = getSupabase();
+  if (!sb) return { code: null, payerName: null };
+  const { data } = await sb
+    .from("sales")
+    .select("mpesa_receipt_code, mpesa_payer_name")
+    .eq("id", saleId)
+    .maybeSingle();
+  const code = ((data?.mpesa_receipt_code as string | null | undefined) ?? "").trim() || null;
+  const payerName = ((data?.mpesa_payer_name as string | null | undefined) ?? "").trim() || null;
+  return { code, payerName };
 }
 
 export async function pollSubscriptionPayment(

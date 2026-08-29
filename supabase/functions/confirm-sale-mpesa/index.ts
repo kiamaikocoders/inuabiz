@@ -6,8 +6,8 @@ import {
 } from "../_shared/cors.ts";
 
 /**
- * Manual M-Pesa confirmation for personal / Pochi la Biashara vendors.
- * Till/Paybill sales should auto-close via daraja-c2b-confirmation.
+ * Manual M-Pesa confirmation code. Works for personal, Pochi, till, and paybill.
+ * Companion SMS and Daraja C2B also close PENDING_PAYMENT sales.
  */
 Deno.serve(async (req) => {
   const opt = handleOptions(req);

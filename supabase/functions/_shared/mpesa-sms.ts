@@ -5,9 +5,55 @@ export type ParsedMpesaSms =
       kind: "received";
       receipt: string;
       amount: number;
+      /** Normalised Kenyan MSISDN digits (2547…), if present. */
       sender: string | null;
+      /** Person or bank as written in the SMS, without the phone. */
+      senderName: string | null;
     }
   | { kind: "ignored"; reason: string };
+
+const PHONE_RE = /(\+?254[17]\d{8}|0[17]\d{8})/;
+
+function digitsOnly(input: string): string {
+  return input.replace(/\D/g, "");
+}
+
+function to254(input: string): string {
+  const d = digitsOnly(input);
+  if (d.startsWith("254") && d.length === 12) return d;
+  if (d.startsWith("0") && d.length === 10) return `254${d.slice(1)}`;
+  if (d.length === 9 && (d.startsWith("7") || d.startsWith("1"))) return `254${d}`;
+  return d;
+}
+
+/** Split "JOHN KAMAU 2547…" or "EQUITY BANK LIMITED Acc. 12" into name + phone. */
+export function splitMpesaParty(fromRaw: string): { name: string | null; msisdn: string | null } {
+  let raw = fromRaw.replace(/\s+/g, " ").trim();
+  raw = raw.replace(/\s+New\s+(M-PESA|M-Pesa|Utility|till).*$/i, "").trim();
+  raw = raw.replace(/[.,;]+$/g, "").trim();
+
+  const phone = raw.match(PHONE_RE);
+  let msisdn: string | null = null;
+  let name = raw;
+  if (phone) {
+    const n = to254(phone[1] ?? phone[0]);
+    msisdn = n.length === 12 ? n : null;
+    name = raw.replace(phone[0], " ").replace(/\s+/g, " ").trim();
+  }
+  name = name.replace(/\s+Acc\.?\s*[\d\s]+$/i, "").trim();
+  name = name.replace(/^from\s+/i, "").trim();
+  if (!name || /^[\d+\s-]+$/.test(name)) name = "";
+  return { name: name || null, msisdn };
+}
+
+function extractFromClause(text: string): string | null {
+  const beforeDate = text.match(/\bfrom\s+(.+?)\s+on\s+\d/i);
+  if (beforeDate?.[1]) return beforeDate[1].trim();
+  const beforeNew = text.match(/\bfrom\s+(.+?)(?:\.|\s+New\s)/i);
+  if (beforeNew?.[1]) return beforeNew[1].trim();
+  const phoneOnly = text.match(/\bfrom\s+(\+?254[17]\d{8}|0[17]\d{8}|\d{9,12})\b/i);
+  return phoneOnly?.[1]?.trim() ?? null;
+}
 
 export function parseMpesaSms(body: string): ParsedMpesaSms {
   const text = body.replace(/\s+/g, " ").trim();
@@ -47,12 +93,14 @@ export function parseMpesaSms(body: string): ParsedMpesaSms {
     return { kind: "ignored", reason: "bad_amount" };
   }
 
-  const senderMatch =
-    text.match(/\bfrom\s+(.+?)\s+on\s+\d/i) ??
-    text.match(/\bfrom\s+(\+?254\d{9}|0[17]\d{8}|\d{9,12})\b/i);
-  const sender = senderMatch?.[1]?.trim() ?? null;
-
-  return { kind: "received", receipt, amount, sender };
+  const party = splitMpesaParty(extractFromClause(text) ?? "");
+  return {
+    kind: "received",
+    receipt,
+    amount,
+    sender: party.msisdn,
+    senderName: party.name,
+  };
 }
 
 export async function sha256Hex(input: string): Promise<string> {

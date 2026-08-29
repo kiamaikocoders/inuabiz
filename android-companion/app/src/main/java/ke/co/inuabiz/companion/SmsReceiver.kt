@@ -17,7 +17,10 @@ class SmsReceiver : BroadcastReceiver() {
         if (SmsParse.parse(body) is SmsParse.Result.Ignored) return
         thread(name = "inuabiz-ingest") {
             try {
-                IngestClient.postSms(token, body, from)
+                val ok = IngestClient.postSms(token, body, from)
+                if (ok) {
+                    CompanionPrefs(context.applicationContext).lastSmsAt = System.currentTimeMillis()
+                }
             } catch (_: Exception) {
                 // Foreground service retry is out of scope; POS still allows manual code.
             }

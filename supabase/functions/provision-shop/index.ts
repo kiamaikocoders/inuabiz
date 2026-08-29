@@ -33,10 +33,6 @@ Deno.serve(async (req) => {
     if (name.length < 2) return jsonResponse({ error: "Shop name required" }, 400);
 
     const service = getServiceClient();
-    const { data: planAmount } = await service.rpc("plan_amount_kes", {
-      p_code: "SHOP_MONTHLY",
-    });
-    const SHOP_PRICE_KES = Number(planAmount ?? 3000);
     const { data: profile } = await service
       .from("profiles")
       .select("id, tenant_id, phone, role")
@@ -46,6 +42,11 @@ Deno.serve(async (req) => {
     if (profile.role !== "VENDOR_ADMIN") {
       return jsonResponse({ error: "Only the owner can add a shop" }, 403);
     }
+
+    const { data: unitAmount } = await service.rpc("subscription_unit_amount_for_tenant", {
+      p_tenant_id: profile.tenant_id,
+    });
+    const SHOP_PRICE_KES = Number(unitAmount ?? 3000);
 
     const { count } = await service
       .from("shops")

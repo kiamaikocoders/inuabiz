@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Check, CreditCard, Repeat, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { InvoiceDetailDialog } from "@/components/app/InvoiceDetailDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -33,6 +34,7 @@ import {
   fetchBillingSnapshot,
   fetchPaymentHistory,
   pollSubscriptionPayment,
+  type PaymentRow,
 } from "@/lib/payments";
 import { fetchPublicPricing } from "@/lib/plans";
 
@@ -72,6 +74,7 @@ function Billing() {
   });
 
   const [open, setOpen] = useState(false);
+  const [openInvoice, setOpenInvoice] = useState<PaymentRow | null>(null);
   const [phone, setPhone] = useState("");
   const [state, setState] = useState<"idle" | "waiting" | "done" | "failed">("idle");
   const [busy, setBusy] = useState(false);
@@ -277,37 +280,75 @@ function Billing() {
 
       <div className="surface-card mt-4 p-5">
         <h2 className="font-semibold">Payment history</h2>
+        <p className="text-muted-foreground mt-1 text-sm">Tap a row to open the invoice.</p>
         <div className="mt-4 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Channel</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.invoice}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.date}</TableCell>
-                  <TableCell className="text-right font-semibold">{KES(p.amount)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{p.channel}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={p.status === "COMPLETE" ? "secondary" : "destructive"}>
-                      {p.status}
-                    </Badge>
-                  </TableCell>
+          {rows.length === 0 ? (
+            <p className="text-muted-foreground py-8 text-center text-sm">
+              No subscription invoices yet. Pay with M-Pesa and they will show here.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead>M-Pesa</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Channel</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((p) => (
+                  <TableRow
+                    key={p.id}
+                    className="hover:bg-muted/40 cursor-pointer"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Open invoice ${p.invoice}`}
+                    onClick={() => setOpenInvoice(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setOpenInvoice(p);
+                      }
+                    }}
+                  >
+                    <TableCell className="text-primary font-medium">{p.invoice}</TableCell>
+                    <TableCell className="font-mono text-xs tracking-wide">
+                      {p.mpesaReceipt ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{p.date}</TableCell>
+                    <TableCell className="text-right font-semibold">{KES(p.amount)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{p.channel}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          p.status === "COMPLETE" || p.status === "SUCCESS" || p.status === "PAID"
+                            ? "secondary"
+                            : p.status === "FAILED" || p.status === "CANCELLED"
+                              ? "destructive"
+                              : "outline"
+                        }
+                      >
+                        {p.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
+
+      <InvoiceDetailDialog
+        invoice={openInvoice}
+        planName={snap?.planName ?? "Standard"}
+        onOpenChange={(open) => !open && setOpenInvoice(null)}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

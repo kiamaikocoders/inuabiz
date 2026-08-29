@@ -42,6 +42,7 @@ import { useShopCategory } from "@/hooks/use-shop-category";
 import type { FeatureModule } from "@/lib/category";
 import { NotificationLive } from "@/components/app/NotificationLive";
 import { BroadcastBanner } from "@/components/app/BroadcastBanner";
+import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { fetchBillingSnapshot, vendorPlanBadge } from "@/lib/payments";
 import { KES } from "@/lib/mock-data";
 
@@ -80,11 +81,13 @@ function NavList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
       label: item.label,
       icon: MODULE_ICON[item.module] ?? Store,
     })),
-    ...nav.slice(2).map((item) =>
-      item.to === "/app/credit"
-        ? { ...item, label: category === "DUKA" ? "Duka debt" : "Credit book" }
-        : item,
-    ),
+    ...nav
+      .slice(2)
+      .map((item) =>
+        item.to === "/app/credit"
+          ? { ...item, label: category === "DUKA" ? "Duka debt" : "Credit book" }
+          : item,
+      ),
   ];
 
   return (
@@ -137,8 +140,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined })
   const planBadge = vendorPlanBadge(billing);
   const shopCount = Math.max(shops.length, 1);
   const amount = billing?.amount ?? 0;
-  const perShop =
-    shopCount > 0 && amount > 0 ? Math.round(amount / shopCount) : amount;
+  const perShop = shopCount > 0 && amount > 0 ? Math.round(amount / shopCount) : amount;
   const billingCopy = access
     ? billing
       ? `${planBadge} · ${KES(amount)} / month${
@@ -175,9 +177,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined })
           <p className="text-xs font-semibold text-sidebar-primary">
             {access ? "Subscription" : "Access locked"}
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/70">
-            {billingCopy}
-          </p>
+          <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/70">{billingCopy}</p>
           <Button size="sm" className="mt-3 w-full" variant="secondary" asChild>
             <Link to="/app/billing" onClick={onNavigate}>
               {access ? "Manage billing" : "Subscribe now"}
@@ -286,6 +286,7 @@ export function AppShell({
 
         <main className="flex-1 p-4 sm:p-6">
           <NotificationLive kind="vendor" />
+          <OfflineBanner />
           <BroadcastBanner />
           {!access && (
             <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">

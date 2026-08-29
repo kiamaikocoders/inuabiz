@@ -5,6 +5,25 @@ import type { LastSale, ReceiptLine } from "@/lib/last-sale";
 import type { NotificationItem } from "@/lib/mock-data";
 import { parseCategory } from "@/lib/category";
 import { getGhost } from "@/lib/ghost";
+import { isBrowserOffline, probeOnline } from "@/lib/offline/connectivity";
+import {
+  cacheTenantAccess,
+  cacheTenantHeader,
+  readCachedTenantAccess,
+  readCachedTenantHeader,
+} from "@/lib/offline/db";
+import {
+  readNotifications,
+  readShops,
+  replaceNotifications,
+  replaceShops,
+} from "@/lib/offline/replica";
+
+async function shouldUseCache(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (!isBrowserOffline()) return false;
+  return !(await probeOnline());
+}
 
 export type ShopRow = {
   id: string;
@@ -43,21 +62,35 @@ export type StaffRow = {
 
 export async function fetchTenantAccess(): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb) return true;
-  const { data, error } = await sb.rpc("tenant_has_access");
-  if (error) return true;
-  return Boolean(data);
+  if (!sb || (await shouldUseCache())) {
+    return (await readCachedTenantAccess()) ?? true;
+  }
+  try {
+    const { data, error } = await sb.rpc("tenant_has_access");
+    if (error) return (await readCachedTenantAccess()) ?? true;
+    const access = Boolean(data);
+    await cacheTenantAccess(access);
+    return access;
+  } catch {
+    return (await readCachedTenantAccess()) ?? true;
+  }
 }
 
 export async function fetchShops(): Promise<ShopRow[]> {
   const sb = getSupabase();
-  if (!sb) return [];
-  const { data, error } = await sb
-    .from("shops")
-    .select("id, name, category, address_text, phone, is_default, location_lat, location_lng")
-    .order("created_at");
-  if (error || !data) return [];
-  return data as ShopRow[];
+  if (!sb || (await shouldUseCache())) return (await readShops()) as ShopRow[];
+  try {
+    const { data, error } = await sb
+      .from("shops")
+      .select("id, name, category, address_text, phone, is_default, location_lat, location_lng")
+      .order("created_at");
+    if (error || !data) return (await readShops()) as ShopRow[];
+    const rows = data as ShopRow[];
+    await replaceShops(rows);
+    return rows;
+  } catch {
+    return (await readShops()) as ShopRow[];
+  }
 }
 
 export async function setActiveShop(shopId: string): Promise<void> {
@@ -88,17 +121,27 @@ export async function createShop(input: {
 
 export async function fetchTenantHeader(): Promise<TenantHeader | null> {
   const sb = getSupabase();
-  if (!sb) return null;
-  const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
-  if (!profile?.tenant_id) return null;
-  const { data } = await sb
-    .from("tenants")
-    .select(
-      "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng, email_receipt_enabled",
-    )
-    .eq("id", profile.tenant_id)
-    .maybeSingle();
-  return (data as TenantHeader | null) ?? null;
+  if (!sb || (await shouldUseCache())) {
+    return (await readCachedTenantHeader()) as TenantHeader | null;
+  }
+  try {
+    const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
+    if (!profile?.tenant_id) {
+      return (await readCachedTenantHeader()) as TenantHeader | null;
+    }
+    const { data } = await sb
+      .from("tenants")
+      .select(
+        "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng, email_receipt_enabled",
+      )
+      .eq("id", profile.tenant_id)
+      .maybeSingle();
+    if (data) await cacheTenantHeader(data as TenantHeader);
+    return ((data as TenantHeader | null) ??
+      (await readCachedTenantHeader())) as TenantHeader | null;
+  } catch {
+    return (await readCachedTenantHeader()) as TenantHeader | null;
+  }
 }
 
 export async function saveTenantHeader(patch: {
@@ -206,46 +249,53 @@ export async function inviteStaff(
 
 export async function fetchNotifications(): Promise<NotificationItem[]> {
   const sb = getSupabase();
-  if (!sb) return [];
-  // Super-admin RLS can read every row. Ghost sessions must show the vendor
-  // shop feed only — not "New vendor registered" / platform admin alerts.
-  const ghostTenantId = getGhost()?.tenantId ?? null;
-  let query = sb
-    .from("notifications")
-    .select("id, title, message, type, priority, is_read, created_at, tenant_id, metadata")
-    .order("created_at", { ascending: false })
-    .limit(ghostTenantId ? 80 : 250);
-  if (ghostTenantId) {
-    query = query.eq("tenant_id", ghostTenantId).neq("recipient_role", "SUPER_ADMIN");
-  } else {
-    const {
-      data: { user },
-    } = await sb.auth.getUser();
-    if (!user) return [];
-    query = query.eq("recipient_id", user.id);
+  if (!sb || (await shouldUseCache())) return readNotifications();
+  try {
+    // Super-admin RLS can read every row. Ghost sessions must show the vendor
+    // shop feed only — not "New vendor registered" / platform admin alerts.
+    const ghostTenantId = getGhost()?.tenantId ?? null;
+    let query = sb
+      .from("notifications")
+      .select("id, title, message, type, priority, is_read, created_at, tenant_id, metadata")
+      .order("created_at", { ascending: false })
+      .limit(ghostTenantId ? 80 : 250);
+    if (ghostTenantId) {
+      query = query.eq("tenant_id", ghostTenantId).neq("recipient_role", "SUPER_ADMIN");
+    } else {
+      const { data: sessionData } = await sb.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (!userId) return readNotifications();
+      query = query.eq("recipient_id", userId);
+    }
+    const { data, error } = await query;
+    if (error || !data) return readNotifications();
+    const mapped = data.map((row) => {
+      const meta = (row.metadata as Record<string, unknown> | null) ?? null;
+      const metaTenant =
+        meta && typeof meta["tenant_id"] === "string" ? (meta["tenant_id"] as string) : null;
+      return {
+        id: row.id as string,
+        title: row.title as string,
+        message: row.message as string,
+        type: (String(row.type) === "PAYMENT"
+          ? "SYSTEM"
+          : String(row.type)) as NotificationItem["type"],
+        priority: String(row.priority) as NotificationItem["priority"],
+        read: Boolean(row.is_read),
+        time: new Date(row.created_at as string).toLocaleTimeString("en-KE", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        createdAt: row.created_at as string,
+        tenantId: (row.tenant_id as string | null) ?? metaTenant,
+        metadata: meta,
+      };
+    });
+    await replaceNotifications(mapped);
+    return mapped;
+  } catch {
+    return readNotifications();
   }
-  const { data, error } = await query;
-  if (error || !data) return [];
-  return data.map((row) => {
-    const meta = (row.metadata as Record<string, unknown> | null) ?? null;
-    const metaTenant =
-      meta && typeof meta["tenant_id"] === "string" ? (meta["tenant_id"] as string) : null;
-    return {
-      id: row.id as string,
-      title: row.title as string,
-      message: row.message as string,
-      type: (String(row.type) === "PAYMENT" ? "SYSTEM" : String(row.type)) as NotificationItem["type"],
-      priority: String(row.priority) as NotificationItem["priority"],
-      read: Boolean(row.is_read),
-      time: new Date(row.created_at as string).toLocaleTimeString("en-KE", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      createdAt: row.created_at as string,
-      tenantId: (row.tenant_id as string | null) ?? metaTenant,
-      metadata: meta,
-    };
-  });
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
@@ -278,7 +328,9 @@ export async function fetchNotificationPrefs(): Promise<Prefs | null> {
   if (!sb) return null;
   const { data, error } = await sb
     .from("notification_preferences")
-    .select("channel_in_app, channel_email, channel_sms, channel_whatsapp, channel_sound, channel_push")
+    .select(
+      "channel_in_app, channel_email, channel_sms, channel_whatsapp, channel_sound, channel_push",
+    )
     .maybeSingle();
   if (error || !data) {
     const fallback = await sb
@@ -359,7 +411,9 @@ export async function fetchRecentPaymentEvents(): Promise<PaymentEventRow[]> {
   if (error || !data) return [];
   const openUnclaimed = new Set((await fetchUnclaimedPayments()).map((u) => u.invoiceId));
   const tenantIds = [
-    ...new Set(data.map((row) => row.tenant_id as string | null).filter((id): id is string => Boolean(id))),
+    ...new Set(
+      data.map((row) => row.tenant_id as string | null).filter((id): id is string => Boolean(id)),
+    ),
   ];
   const names = new Map<string, string>();
   if (tenantIds.length) {
@@ -436,7 +490,10 @@ export type AuditInvoice = {
   kra_pin: string | null;
 };
 
-export async function fetchAuditInvoices(fromIso?: string, toIso?: string): Promise<AuditInvoice[]> {
+export async function fetchAuditInvoices(
+  fromIso?: string,
+  toIso?: string,
+): Promise<AuditInvoice[]> {
   const sb = getSupabase();
   if (!sb) return [];
   let q = sb
@@ -463,7 +520,7 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
   const { data: sale, error } = await sb
     .from("sales")
     .select(
-      "id, total, status, payment_channel, customer_phone, created_at, shop_id, discount_amount",
+      "id, total, status, payment_channel, customer_phone, created_at, shop_id, discount_amount, mpesa_receipt_code, mpesa_payer_name",
     )
     .eq("id", saleId)
     .maybeSingle();
@@ -471,8 +528,22 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
 
   const { data: items } = await sb
     .from("sale_items")
-    .select("product_name, qty, unit_price, tax_class")
+    .select("product_name, qty, unit_price, tax_class, product_id")
     .eq("sale_id", saleId);
+
+  const productIds = [
+    ...new Set((items ?? []).map((i) => i.product_id as string | null).filter(Boolean)),
+  ] as string[];
+  const imageByProduct = new Map<string, string>();
+  if (productIds.length) {
+    const { data: productRows } = await sb
+      .from("products")
+      .select("id, image_url")
+      .in("id", productIds);
+    for (const row of productRows ?? []) {
+      if (row.image_url) imageByProduct.set(row.id as string, row.image_url as string);
+    }
+  }
 
   const { data: invoice } = await sb
     .from("invoices")
@@ -500,17 +571,23 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
     qty: Number(i.qty),
     price: Number(i.unit_price),
     taxClass: (i.tax_class as TaxClass) ?? "STANDARD_16",
+    imageUrl: imageByProduct.get(i.product_id as string) ?? null,
   }));
 
   const created = new Date(sale.created_at as string);
   const phone = (sale.customer_phone as string | null) ?? null;
+  const payerName = ((sale.mpesa_payer_name as string | null) ?? "").trim();
   const receipt: LastSale = {
     id: sale.id as string,
     ref: (invoice?.invoice_number as string | undefined) ?? `SL-${String(sale.id).slice(0, 8)}`,
     total: Number(invoice?.total_amount ?? sale.total),
     items: lines.length,
     channel: String(sale.payment_channel ?? "CASH"),
-    customer: (invoice?.customer_name as string) ?? prettyKePhone((sale.customer_phone as string) ?? "") ?? "Walk-in",
+    customer:
+      payerName ||
+      (invoice?.customer_name as string) ||
+      prettyKePhone((sale.customer_phone as string) ?? "") ||
+      "Walk-in",
     shop: shopName,
     location,
     when: created.toLocaleString("en-KE"),
@@ -518,18 +595,29 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
     lines,
   };
   if (phone) receipt.phone = phone;
+  if (payerName) receipt.mpesaPayerName = payerName;
   const legal = header?.legal_name ?? header?.name;
   if (legal) receipt.legalName = legal;
   if (header?.kra_pin) receipt.kraPin = header.kra_pin;
   if (header?.email) receipt.email = header.email;
   if (header?.phone) receipt.merchantPhone = header.phone;
+  if (header?.logo_url) receipt.logoUrl = header.logo_url;
+  const saleCode = (sale.mpesa_receipt_code as string | null) ?? null;
+  if (saleCode) receipt.mpesaReceipt = saleCode;
+  else if (invoice?.mpesa_receipt_code) receipt.mpesaReceipt = invoice.mpesa_receipt_code as string;
+  const saleStatus = String(sale.status);
+  receipt.status =
+    saleStatus === "PAID"
+      ? "Complete"
+      : saleStatus === "FAILED" || saleStatus === "VOID" || saleStatus === "CANCELLED"
+        ? "Failed"
+        : "Pending";
   if (invoice) {
     receipt.vat16 = Number(invoice.vat_16_amount);
     receipt.vat0 = Number(invoice.vat_0_amount);
     receipt.exempt = Number(invoice.exempt_amount);
     receipt.subtotalExVat = Number(invoice.subtotal);
   }
-  if (invoice?.mpesa_receipt_code) receipt.mpesaReceipt = invoice.mpesa_receipt_code as string;
   return receipt;
 }
 
@@ -543,10 +631,13 @@ function unlockChime(): void {
     chimeAudio.preload = "auto";
   }
   const play = () => {
-    void chimeAudio?.play().then(() => {
-      chimeAudio?.pause();
-      if (chimeAudio) chimeAudio.currentTime = 0;
-    }).catch(() => undefined);
+    void chimeAudio
+      ?.play()
+      .then(() => {
+        chimeAudio?.pause();
+        if (chimeAudio) chimeAudio.currentTime = 0;
+      })
+      .catch(() => undefined);
     window.removeEventListener("pointerdown", play);
   };
   window.addEventListener("pointerdown", play, { once: true });
@@ -591,7 +682,9 @@ function playOscillatorFallback(): void {
 }
 
 export function downloadCsv(filename: string, rows: string[][]): void {
-  const csv = rows.map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(",")).join("\n");
+  const csv = rows
+    .map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(","))
+    .join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -741,10 +834,7 @@ export async function createShopTicket(input: {
   }
 }
 
-export async function setShopTicketStatus(
-  id: string,
-  status: ShopTicket["status"],
-): Promise<void> {
+export async function setShopTicketStatus(id: string, status: ShopTicket["status"]): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
   const { error } = await sb.from("shop_tickets").update({ status }).eq("id", id);

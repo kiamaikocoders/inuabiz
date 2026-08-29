@@ -94,7 +94,7 @@ const HELP: StepHelp[] = [
     faqs: [
       {
         q: "Can I add Till and personal M-Pesa together?",
-        a: "Yes. Tick every channel you use today and enter each account number. Sales to any of them can reconcile — primary only controls the default checkout prompt.",
+        a: "Yes. Tick every channel you use today and enter each account number. Companion SMS or the M-Pesa code can close any of them — primary only controls the default checkout prompt. A Safaricom callback also closes till or paybill when that number is registered with InuaBiz.",
       },
       {
         q: "Personal number, Till or Paybill?",

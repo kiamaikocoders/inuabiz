@@ -1,17 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">InuaBiz Companion</string>
+    <string name="brand_inuabiz">InuaBiz</string>
+    <string name="brand_companion">Companion</string>
     <string name="intro">Paste the token from Settings on inuabiz.co.ke. This phone must hold the shop M-Pesa SIM.</string>
+    <string name="token_label">Pairing token</string>
     <string name="token_hint">ibc_…</string>
+    <string name="token_help">Only paste a token that starts with ibc_. Prefer paste over typing.</string>
+    <string name="paste">Paste</string>
     <string name="save">Save and listen</string>
-    <string name="unpair">Unpair this phone</string>
+    <string name="after_pairing_title">After pairing</string>
+    <string name="after_pairing_body">The token locks so it cannot be edited by accident. Replace and Unpair live in the ⋮ menu.</string>
+    <string name="listening">Listening</string>
+    <string name="listening_detail">Forwarding inbound M-Pesa received SMS to your till.</string>
+    <string name="last_sms_never">Last SMS · Not yet</string>
+    <string name="last_sms_fmt">Last SMS · %1$s</string>
+    <string name="token_locked">Token locked</string>
+    <string name="token_locked_hint">Cannot edit by tapping the field</string>
+    <string name="reveal_once">Reveal once</string>
+    <string name="hide_token">Hide token</string>
+    <string name="menu_replace">Replace token…</string>
+    <string name="menu_unpair">Unpair this phone…</string>
+    <string name="open_shop">Open shop till</string>
+    <string name="open_shop_hint">Opens inuabiz.co.ke/app so you can sell while Companion listens.</string>
+    <string name="unpair_title">Unpair this phone?</string>
+    <string name="unpair_body">The till will stop receiving SMS from this handset until you paste a new token. Open sales still accept the M-Pesa code by hand.</string>
+    <string name="unpair_confirm">Yes, unpair</string>
+    <string name="unpair_cancel">Keep listening</string>
+    <string name="replace_title">Replace pairing token</string>
+    <string name="replace_body">Paste the new token from Settings. The old token stops working.</string>
     <string name="not_paired">Not paired</string>
     <string name="paired">Token saved</string>
-    <string name="listening">Listening for M-Pesa received SMS</string>
     <string name="listening_title">InuaBiz Companion</string>
     <string name="listening_body">Forwarding M-Pesa received SMS to your till</string>
     <string name="channel_name">Companion</string>
     <string name="sms_permission_needed">SMS permission is required so the till can close itself.</string>
     <string name="bad_token">That token does not look like an InuaBiz companion key.</string>
     <string name="sim_mismatch">This SIM does not match the M-Pesa number saved at onboarding.</string>
+    <string name="clipboard_empty">Nothing to paste</string>
+    <string name="shop_url">https://inuabiz.co.ke/app</string>
+    <string name="more_actions">More actions</string>
 </resources>

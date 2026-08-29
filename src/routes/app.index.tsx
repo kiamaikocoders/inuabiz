@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area,
@@ -13,6 +14,7 @@ import {
 } from "recharts";
 import { AlertTriangle, Banknote, Receipt, Sparkles, TrendingUp, Users } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
+import { SaleDetailDialog } from "@/components/app/SaleDetailDialog";
 import { StatCard } from "@/components/app/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +75,7 @@ function Dashboard() {
   const salesDelta = pctDelta(todaySales, today?.yesterday ?? 0);
   const weekSales = weekTrend.reduce((s, d) => s + d.sales, 0);
   const topInsight = insights?.items[0];
+  const [openSaleId, setOpenSaleId] = useState<string | null>(null);
 
   return (
     <AppShell
@@ -222,10 +225,15 @@ function Dashboard() {
           ) : (
             <div className="mt-4 divide-y divide-border">
               {sales.slice(0, 6).map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-3 py-3">
+                <button
+                  key={s.id}
+                  type="button"
+                  className="hover:bg-muted/50 flex w-full items-center justify-between gap-3 rounded-lg py-3 text-left"
+                  onClick={() => setOpenSaleId(s.id)}
+                >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
-                      {s.ref} · {s.customer}
+                      {s.mpesaReceipt || s.ref} · {s.customer}
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {s.time} · {s.items} items · {s.channel}
@@ -246,7 +254,7 @@ function Dashboard() {
                       {s.status}
                     </Badge>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -304,6 +312,7 @@ function Dashboard() {
           </div>
         </div>
       </div>
+      <SaleDetailDialog saleId={openSaleId} onOpenChange={(open) => !open && setOpenSaleId(null)} />
     </AppShell>
   );
 }

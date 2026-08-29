@@ -17,5 +17,17 @@ class CompanionPrefs(context: Context) {
             prefs.edit().putString("expected_msisdn", value).apply()
         }
 
+    var lastSmsAt: Long
+        get() = prefs.getLong("last_sms_at", 0L)
+        set(value) {
+            prefs.edit().putLong("last_sms_at", value).apply()
+        }
+
     val isPaired: Boolean get() = !token.isNullOrBlank()
+
+    fun maskedToken(): String {
+        val t = token ?: return ""
+        if (t.length <= 10) return "ibc_••••"
+        return t.take(4) + "•".repeat((t.length - 8).coerceAtMost(20)) + t.takeLast(4)
+    }
 }

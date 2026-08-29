@@ -205,22 +205,45 @@ function Onboarding() {
       void navigate({ to: "/signup" });
       return;
     }
-    void sb.auth.getSession().then(({ data }) => {
-      if (!data.session) {
+
+    let cancelled = false;
+
+    const resolveSession = async () => {
+      const urlLooksLikeAuthReturn =
+        typeof window !== "undefined" &&
+        (window.location.hash.includes("access_token") ||
+          new URLSearchParams(window.location.search).has("code"));
+
+      let session = (await sb.auth.getSession()).data.session;
+      if (!session && urlLooksLikeAuthReturn) {
+        for (let i = 0; i < 20 && !session && !cancelled; i++) {
+          await new Promise((r) => setTimeout(r, 150));
+          session = (await sb.auth.getSession()).data.session;
+        }
+      }
+      if (cancelled) return;
+
+      if (!session) {
         void navigate({ to: "/signup" });
         return;
       }
-      void fetchProfile().then((profile) => {
-        if (profile?.tenant_id && profile.onboarding_completed_at) {
-          void navigate({ to: "/app" });
-          return;
-        }
-        setAccountReady(true);
-        if (profile?.pending_shop_name) setBusiness(profile.pending_shop_name);
-        if (profile?.full_name) setOwnerName(profile.full_name);
-        if (profile?.phone) setPhone(profile.phone);
-      });
-    });
+
+      const profile = await fetchProfile();
+      if (cancelled) return;
+      if (profile?.tenant_id && profile.onboarding_completed_at) {
+        void navigate({ to: "/app" });
+        return;
+      }
+      setAccountReady(true);
+      if (profile?.pending_shop_name) setBusiness(profile.pending_shop_name);
+      if (profile?.full_name) setOwnerName(profile.full_name);
+      if (profile?.phone) setPhone(profile.phone);
+    };
+
+    void resolveSession();
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
   useEffect(() => {
     const draft = loadDraft();

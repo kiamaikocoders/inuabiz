@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import {
   setFeatureFlag,
 } from "@/lib/admin-ops";
 import { fetchSubscriptionPlans } from "@/lib/plans";
-import { SUBSCRIPTION_PRICE } from "@/lib/mock-data";
+import { SUBSCRIPTION_PRICE, KES } from "@/lib/mock-data";
 
 const STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELLED"] as const;
 
@@ -63,13 +63,21 @@ export function TenantOpsCard({
 
   const [days, setDays] = useState(7);
   const [trialReason, setTrialReason] = useState("");
-  const [amount, setAmount] = useState("");
+  const [customUnit, setCustomUnit] = useState("");
   const [planCode, setPlanCode] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("ACTIVE");
   const [periodDays, setPeriodDays] = useState("30");
   const [overrideReason, setOverrideReason] = useState("");
   const [confirmName, setConfirmName] = useState("");
   const [purgeReason, setPurgeReason] = useState("");
+
+  useEffect(() => {
+    if (billing?.customUnitAmountKes != null) {
+      setCustomUnit(String(billing.customUnitAmountKes));
+    } else if (billing) {
+      setCustomUnit("");
+    }
+  }, [billing?.customUnitAmountKes, billing]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["tenant-billing", tenantId] });
@@ -89,15 +97,23 @@ export function TenantOpsCard({
   });
 
   const override = useMutation({
-    mutationFn: () =>
-      overrideSubscription({
+    mutationFn: () => {
+      const trimmed = customUnit.trim();
+      const unit = trimmed === "" ? null : Number(trimmed);
+      if (trimmed !== "" && (!Number.isFinite(unit) || (unit as number) < 0)) {
+        throw new Error("Enter a valid price per shop, or leave blank for the standard plan.");
+      }
+      return overrideSubscription({
         tenantId,
-        amount: Number(amount || billing?.amount || 0),
-        planCode: planCode || billing?.planCode || "FLAT_3000",
+        amount: null,
+        planCode: planCode || billing?.planCode || "SHOP_MONTHLY",
         status,
         periodDays: periodDays.trim() ? Number(periodDays) : null,
         reason: overrideReason,
-      }),
+        customUnitAmountKes: unit,
+        setCustomUnit: true,
+      });
+    },
     onSuccess: () => {
       toast.success("Subscription updated");
       setOverrideReason("");
@@ -126,7 +142,12 @@ export function TenantOpsCard({
         <h3 className="font-semibold">Lifecycle overrides</h3>
         <p className="text-muted-foreground mt-1 text-xs">
           Every change writes an audit row. Trial ends {formatWhen(billing?.trialEndsAt)} · access{" "}
-          {formatWhen(billing?.accessUntil)} · {billing?.planCode} {billing?.amount ?? "—"} KES
+          {formatWhen(billing?.accessUntil)} · {billing?.planCode} ·{" "}
+          {billing?.customUnitAmountKes != null
+            ? `${KES(billing.customUnitAmountKes)}/shop custom`
+            : "standard plan"}{" "}
+          · total {billing?.amount != null ? KES(billing.amount) : "—"}
+          {billing?.shopCount ? ` (${billing.shopCount} shop${billing.shopCount === 1 ? "" : "s"})` : ""}
           {billing?.autoDebit ? " · Ratiba on" : ""}.
         </p>
       </div>
@@ -174,14 +195,18 @@ export function TenantOpsCard({
           <p className="text-sm font-semibold">Custom plan / status</p>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-xs">Amount (KES)</Label>
+              <Label className="text-xs">Price per shop (KES)</Label>
               <Input
                 type="number"
                 min={0}
-                value={amount}
-                placeholder={String(billing?.amount ?? SUBSCRIPTION_PRICE)}
-                onChange={(e) => setAmount(e.target.value)}
+                value={customUnit}
+                placeholder={String(SUBSCRIPTION_PRICE)}
+                onChange={(e) => setCustomUnit(e.target.value)}
               />
+              <p className="text-muted-foreground text-[11px] leading-snug">
+                Negotiated rate for this vendor. Blank = standard plan. Total = shops × this (e.g. 3 ×
+                2,500 = 7,500).
+              </p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Period (days)</Label>

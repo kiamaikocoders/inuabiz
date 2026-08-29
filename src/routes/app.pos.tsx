@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CircleSlash,
   Minus,
+  Pause,
   Plus,
   ScanBarcode,
   Search,
@@ -13,6 +14,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { ProductThumb } from "@/components/app/ProductThumb";
+import { OpenSalesButton, OpenSalesSheet } from "@/components/app/OpenSalesSheet";
 import {
   VendorMpesaPaymentDialog,
   type PaymentDestinationInfo,
@@ -34,13 +37,17 @@ import {
 import { cn } from "@/lib/utils";
 import { KES } from "@/lib/mock-data";
 import {
+  cancelOpenSale,
+  fetchOpenSales,
   fetchPrimaryPaymentDestination,
   fetchProducts,
   fetchShopCustomers,
+  type OpenSale,
 } from "@/lib/data";
-import { invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { CustomerFormDialog } from "@/components/app/CustomerFormDialog";
+import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { saveLastSale, readLastSale, type LastSale } from "@/lib/last-sale";
-import { waitForSalePaid } from "@/lib/payments";
+import { fetchSaleMpesaMeta, waitForSalePaid } from "@/lib/payments";
 import { useIdentity } from "@/lib/identity";
 import { shareReceiptText } from "@/components/app/ReceiptCard";
 import {
@@ -50,6 +57,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { isBrowserOffline, probeOnline } from "@/lib/offline/connectivity";
+import { queueConfirmMpesa, recordOfflineCheckout } from "@/lib/offline/checkout";
+import { readCachedPaymentDestination } from "@/lib/offline/db";
 
 export const Route = createFileRoute("/app/pos")({
   head: () => ({
@@ -74,6 +84,7 @@ type CartLine = { id: string; qty: number };
 
 function POS() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const identity = useIdentity("vendor");
   const { data: liveProducts } = useQuery({
     queryKey: ["products"],
@@ -89,6 +100,12 @@ function POS() {
     queryFn: fetchPrimaryPaymentDestination,
     enabled: isSupabaseConfigured(),
   });
+  const { data: openSales = [] } = useQuery({
+    queryKey: ["open-sales"],
+    queryFn: fetchOpenSales,
+    enabled: isSupabaseConfigured(),
+    refetchInterval: 15_000,
+  });
   const products = liveProducts ?? [];
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
   const [query, setQuery] = useState("");
@@ -98,6 +115,7 @@ function POS() {
   const [payOpen, setPayOpen] = useState(false);
   const [creditOpen, setCreditOpen] = useState(false);
   const [creditCustomerId, setCreditCustomerId] = useState("");
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [mpesaState, setMpesaState] = useState<"idle" | "waiting" | "done" | "failed">("idle");
   const [saleRef, setSaleRef] = useState("SL-10239");
   const [activeSaleId, setActiveSaleId] = useState<string | null>(null);
@@ -106,11 +124,41 @@ function POS() {
     null,
   );
   const [receiptCode, setReceiptCode] = useState("");
+  const [paidPayerName, setPaidPayerName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [parkedSaleId, setParkedSaleId] = useState<string | null>(null);
+  const [lockedTotal, setLockedTotal] = useState<number | null>(null);
+  const [openSalesOpen, setOpenSalesOpen] = useState(false);
+  const [parkOpen, setParkOpen] = useState(false);
+  const [parkLabel, setParkLabel] = useState("");
   const mockTimer = useRef<number | null>(null);
   const payWait = useRef<AbortController | null>(null);
+  const activeSaleIdRef = useRef<string | null>(null);
 
   useEffect(() => () => payWait.current?.abort(), []);
+  useEffect(() => {
+    activeSaleIdRef.current = activeSaleId;
+  }, [activeSaleId]);
+
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return;
+    const channel = sb
+      .channel("pos-open-sales")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sales" }, (payload) => {
+        const next = payload.new as { id?: string; status?: string; total?: number };
+        if (next.status !== "PAID" || !next.id) return;
+        void queryClient.invalidateQueries({ queryKey: ["open-sales"] });
+        if (next.id === activeSaleIdRef.current) return;
+        toast.success("A parked sale was paid", {
+          description: `${KES(Number(next.total ?? 0))} confirmed via M-Pesa.`,
+        });
+      })
+      .subscribe();
+    return () => {
+      void sb.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const filtered = useMemo(
     () =>
@@ -128,6 +176,70 @@ function POS() {
     .filter((l) => l.product);
   const subtotal = lines.reduce((s, l) => s + l.product.price * l.qty, 0);
   const total = Math.max(0, subtotal - discount);
+  const payTotal = lockedTotal ?? total;
+  const defaultParkLabel = (() => {
+    const first = lines[0]?.product.name;
+    if (!first) return "Walk-in";
+    return lines.length > 1 ? `${first} +${lines.length - 1}` : first;
+  })();
+
+  const resetCart = () => {
+    setCart([]);
+    setDiscount(0);
+    setParkedSaleId(null);
+    setLockedTotal(null);
+    setActiveSaleId(null);
+    setBillRef("");
+    setReceiptCode("");
+    setPaidPayerName(null);
+    setMpesaState("idle");
+  };
+
+  const refreshOpenSales = () => {
+    void queryClient.invalidateQueries({ queryKey: ["open-sales"] });
+  };
+
+  const persistPark = async (label?: string) => {
+    if (!lines.length) return true;
+    if (!isSupabaseConfigured()) {
+      toast.error("Sign in to park a sale");
+      return false;
+    }
+    if (isBrowserOffline() && !(await probeOnline())) {
+      const offline = await recordOfflineCheckout({
+        channel: "HOLD",
+        items: lines.map((l) => ({
+          product_id: l.id,
+          qty: l.qty,
+          name: l.product.name,
+          unit_price: l.product.price,
+        })),
+        discount_amount: discount,
+        sale_id: parkedSaleId,
+        label: (label ?? parkLabel).trim() || defaultParkLabel,
+      });
+      setParkedSaleId(offline.sale.id);
+      refreshOpenSales();
+      toast.success("Parked offline", { description: "Will sync when you're back online." });
+      return true;
+    }
+    const { data, error } = await invokeFunction<{ ok?: boolean; sale?: { id: string } }>(
+      "checkout-sale",
+      {
+        items: lines.map((l) => ({ product_id: l.id, qty: l.qty })),
+        discount_amount: discount,
+        channel: "HOLD",
+        sale_id: parkedSaleId,
+        label: (label ?? parkLabel).trim() || defaultParkLabel,
+      },
+    );
+    if (error || !data?.ok) {
+      toast.error("Could not park sale", { description: error ?? "Try again." });
+      return false;
+    }
+    refreshOpenSales();
+    return true;
+  };
 
   const add = (id: string) =>
     setCart((c) =>
@@ -145,23 +257,34 @@ function POS() {
     channel: string,
     customer: string,
     saleId?: string,
+    mpesaReceipt?: string | null,
+    mpesaPayerName?: string | null,
   ): LastSale => {
     const now = new Date();
     const when = `Today · ${now.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })} EAT`;
+    const destLike = /^(PERSONAL_MPESA|TILL|PAYBILL|POCHI)$/i.test(customer);
+    const payer = mpesaPayerName?.trim() || "";
     const sale: LastSale = {
       id: saleId ?? `s-${Date.now()}`,
       ref: saleId ? `SL-${saleId.slice(0, 8)}` : `SL-${String(Date.now()).slice(-5)}`,
       total,
       items: lines.length,
       channel,
-      customer,
-      phone: customer,
+      customer: payer || (destLike ? "Walk-in" : customer),
       shop: identity.shop,
       location: "Kasarani, Nairobi",
       when,
       footer: "Asante sana! Karibu tena.",
-      lines: lines.map((l) => ({ name: l.product.name, qty: l.qty, price: l.product.price })),
+      lines: lines.map((l) => ({
+        name: l.product.name,
+        qty: l.qty,
+        price: l.product.price,
+        imageUrl: l.product.imageUrl ?? null,
+      })),
     };
+    if (!destLike && customer) sale.phone = customer;
+    if (mpesaReceipt) sale.mpesaReceipt = mpesaReceipt;
+    if (payer) sale.mpesaPayerName = payer;
     setSaleRef(sale.ref);
     return sale;
   };
@@ -176,16 +299,48 @@ function POS() {
     setBusy(true);
     setMpesaState("waiting");
     setReceiptCode("");
+    setPaidPayerName(null);
 
     if (!isSupabaseConfigured()) {
       setBusy(false);
-      toast.error("Sign in to record a sale", { description: "Supabase is not configured on this build." });
+      toast.error("Sign in to record a sale", {
+        description: "Supabase is not configured on this build.",
+      });
+      return;
+    }
+
+    if (isBrowserOffline() && !(await probeOnline())) {
+      const offline = await recordOfflineCheckout({
+        channel: "MPESA",
+        items: lines.map((l) => ({
+          product_id: l.id,
+          qty: l.qty,
+          name: l.product.name,
+          unit_price: l.product.price,
+        })),
+        discount_amount: discount,
+        sale_id: parkedSaleId,
+      });
+      setBusy(false);
+      setActiveSaleId(offline.sale.id);
+      setParkedSaleId(offline.sale.id);
+      setLockedTotal(Number(offline.sale.total));
+      setBillRef(offline.bill_ref ?? "");
+      const cachedDest = await readCachedPaymentDestination();
+      setCheckoutDestination(cachedDest ?? paymentDestination ?? null);
+      setPayOpen(true);
+      setMpesaState("waiting");
+      refreshOpenSales();
+      toast.info("M-Pesa sale opened offline", {
+        description:
+          "Customer can still pay your till. Enter the code now — we'll confirm it when you're back online.",
+      });
       return;
     }
 
     const { data, error } = await invokeFunction<{
       ok?: boolean;
-      sale?: { id: string; status: string; payment_bill_ref?: string };
+      sale?: { id: string; status: string; total?: number; payment_bill_ref?: string };
       payment_destination?: PaymentDestinationInfo & {
         destination_type?: string;
         account_number?: string;
@@ -197,6 +352,7 @@ function POS() {
       items: lines.map((l) => ({ product_id: l.id, qty: l.qty })),
       discount_amount: discount,
       channel: "MPESA",
+      sale_id: parkedSaleId,
     });
 
     setBusy(false);
@@ -207,7 +363,10 @@ function POS() {
     }
 
     setActiveSaleId(data.sale.id);
+    setParkedSaleId(data.sale.id);
+    setLockedTotal(Number(data.sale.total ?? total));
     setBillRef(data.bill_ref ?? data.sale.payment_bill_ref ?? "");
+    refreshOpenSales();
     const raw = data.payment_destination;
     setCheckoutDestination(
       raw
@@ -218,7 +377,7 @@ function POS() {
             accountNumber: raw.accountNumber ?? raw.account_number ?? "",
             accountName: raw.accountName ?? raw.account_name ?? null,
           }
-        : paymentDestination ?? null,
+        : (paymentDestination ?? null),
     );
     setPayOpen(true);
 
@@ -226,25 +385,24 @@ function POS() {
     const ac = new AbortController();
     payWait.current = ac;
     const destType = String(raw?.destination_type ?? raw?.destinationType ?? "PERSONAL_MPESA");
-    const smsDest = destType === "PERSONAL_MPESA" || destType === "POCHI";
     const result = await waitForSalePaid(data.sale.id, {
-      timeoutMs: smsDest ? 180_000 : 90_000,
+      timeoutMs: 180_000,
       signal: ac.signal,
     });
     if (ac.signal.aborted) return;
     if (result === "PAID") {
       setMpesaState("done");
-      toast.success("Payment received", { description: `${KES(total)} confirmed via M-Pesa.` });
-      saveLastSale(buildSale("M-Pesa", destType, data.sale.id));
+      toast.success("Payment received", { description: `${KES(payTotal)} confirmed via M-Pesa.` });
+      refreshOpenSales();
+      const meta = await fetchSaleMpesaMeta(data.sale.id);
+      if (meta.payerName) setPaidPayerName(meta.payerName);
+      if (meta.code) setReceiptCode(meta.code);
+      saveLastSale(buildSale("M-Pesa", destType, data.sale.id, meta.code, meta.payerName));
     } else if (result === "FAILED") {
       setMpesaState("failed");
-    } else if (result === "TIMEOUT" && smsDest) {
-      toast.info("Still waiting for M-Pesa SMS", {
-        description: "Keep the companion phone on, or enter the confirmation code.",
-      });
     } else if (result === "TIMEOUT") {
-      toast.info("Waiting for customer payment", {
-        description: data.message ?? "Daraja will mark this sale paid when funds arrive.",
+      toast.info("Still waiting for M-Pesa", {
+        description: data.message ?? "Keep the companion phone on, or enter the confirmation code.",
       });
     }
   };
@@ -255,7 +413,42 @@ function POS() {
 
     if (!isSupabaseConfigured()) {
       setBusy(false);
-      toast.error("Sign in to record a sale", { description: "Supabase is not configured on this build." });
+      toast.error("Sign in to record a sale", {
+        description: "Supabase is not configured on this build.",
+      });
+      return;
+    }
+
+    if (isBrowserOffline() && !(await probeOnline())) {
+      const customer = shopCustomers.find((c) => c.id === customerId);
+      const offline = await recordOfflineCheckout({
+        channel,
+        items: lines.map((l) => ({
+          product_id: l.id,
+          qty: l.qty,
+          name: l.product.name,
+          unit_price: l.product.price,
+        })),
+        discount_amount: discount,
+        ...(customerId ? { customer_id: customerId } : {}),
+        ...(customer?.name ? { customer_name: customer.name } : {}),
+        sale_id: parkedSaleId,
+      });
+      setBusy(false);
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["sales"] });
+      if (channel === "CASH") {
+        toast.success("Cash sale saved offline", {
+          description: "Will sync when you're back online.",
+        });
+        finishSale("Cash", "Walk-in", offline.sale.id);
+        return;
+      }
+      setCreditOpen(false);
+      toast.success("Credit saved offline", {
+        description: customer ? `Attached to ${customer.name}.` : "Credit sale queued.",
+      });
+      finishSale("Credit", customer?.name ?? "Customer", offline.sale.id);
       return;
     }
 
@@ -267,6 +460,7 @@ function POS() {
       discount_amount: discount,
       channel,
       customer_id: customerId,
+      sale_id: parkedSaleId,
     });
     setBusy(false);
     if (error || !data?.ok || !data.sale) {
@@ -294,7 +488,25 @@ function POS() {
 
     if (!isSupabaseConfigured()) {
       setBusy(false);
-      toast.error("Sign in to confirm M-Pesa", { description: "Supabase is not configured on this build." });
+      toast.error("Sign in to confirm M-Pesa", {
+        description: "Supabase is not configured on this build.",
+      });
+      return;
+    }
+
+    if (isBrowserOffline() && !(await probeOnline())) {
+      await queueConfirmMpesa({
+        sale_id: activeSaleId,
+        mpesa_receipt_code: receiptCode.trim(),
+      });
+      setBusy(false);
+      setMpesaState("waiting");
+      toast.success("M-Pesa code saved offline", {
+        description: "We'll confirm it on the server when you're back online. Sale stays pending.",
+      });
+      saveLastSale(
+        buildSale("M-Pesa", "PENDING", activeSaleId, receiptCode.trim().toUpperCase(), null),
+      );
       return;
     }
 
@@ -308,8 +520,162 @@ function POS() {
       return;
     }
     setMpesaState("done");
-    toast.success("Payment confirmed", { description: `${KES(total)} recorded.` });
-    saveLastSale(buildSale("M-Pesa", receiptCode, activeSaleId));
+    toast.success("Payment confirmed", { description: `${KES(payTotal)} recorded.` });
+    refreshOpenSales();
+    saveLastSale(buildSale("M-Pesa", "Walk-in", activeSaleId, receiptCode.trim()));
+  };
+
+  const parkAndServeNext = async (label?: string) => {
+    if (!lines.length && !activeSaleId) {
+      setOpenSalesOpen(true);
+      return;
+    }
+    setBusy(true);
+    const ok = lines.length ? await persistPark(label) : true;
+    setBusy(false);
+    if (!ok) return;
+    payWait.current?.abort();
+    setPayOpen(false);
+    resetCart();
+    toast.success("Sale parked", {
+      description: "Serve the next customer, then resume from Open sales.",
+    });
+    setParkOpen(false);
+    setParkLabel("");
+  };
+
+  const stayOnSale = () => {
+    payWait.current?.abort();
+    setPayOpen(false);
+  };
+
+  const nextCustomerFromPay = () => {
+    payWait.current?.abort();
+    setPayOpen(false);
+    resetCart();
+    refreshOpenSales();
+    toast.success("Waiting sale parked", {
+      description: "Recall it from Open sales when that customer is ready.",
+    });
+  };
+
+  const loadSaleIntoCart = (sale: OpenSale) => {
+    setCart(
+      sale.lines
+        .filter((line) => line.productId)
+        .map((line) => ({ id: line.productId, qty: line.qty })),
+    );
+    setDiscount(sale.discount);
+    setParkedSaleId(sale.id);
+    setSaleRef(sale.ref);
+    setBillRef(sale.billRef ?? "");
+    setLockedTotal(sale.status === "PENDING_PAYMENT" ? sale.total : null);
+  };
+
+  const resumeSale = async (sale: OpenSale) => {
+    setOpenSalesOpen(false);
+    if (lines.length && parkedSaleId !== sale.id) {
+      const ok = await persistPark();
+      if (!ok) return;
+    }
+    payWait.current?.abort();
+    loadSaleIntoCart(sale);
+    if (sale.status !== "PENDING_PAYMENT") {
+      toast.success("Sale resumed", { description: sale.label });
+      return;
+    }
+    setActiveSaleId(sale.id);
+    setMpesaState("waiting");
+    setReceiptCode("");
+    setPaidPayerName(null);
+    setCheckoutDestination(paymentDestination ?? null);
+    setPayOpen(true);
+    if (!isSupabaseConfigured()) return;
+    const { data, error } = await invokeFunction<{
+      ok?: boolean;
+      already_paid?: boolean;
+      sale?: { id: string; total?: number };
+      payment_destination?: PaymentDestinationInfo & {
+        destination_type?: string;
+        account_number?: string;
+        account_name?: string | null;
+      };
+      bill_ref?: string;
+      message?: string;
+    }>("checkout-sale", { channel: "MPESA", sale_id: sale.id });
+    if (error || !data?.ok) {
+      toast.error("Could not reopen sale", { description: error ?? "Try again." });
+      return;
+    }
+    if (data.already_paid) {
+      setMpesaState("done");
+      refreshOpenSales();
+      return;
+    }
+    const raw = data.payment_destination;
+    setCheckoutDestination(
+      raw
+        ? {
+            destinationType: (raw.destinationType ??
+              raw.destination_type ??
+              "PERSONAL_MPESA") as PaymentDestinationInfo["destinationType"],
+            accountNumber: raw.accountNumber ?? raw.account_number ?? "",
+            accountName: raw.accountName ?? raw.account_name ?? null,
+          }
+        : (paymentDestination ?? null),
+    );
+    setBillRef(data.bill_ref ?? sale.billRef ?? "");
+    const ac = new AbortController();
+    payWait.current = ac;
+    const result = await waitForSalePaid(sale.id, { timeoutMs: 180_000, signal: ac.signal });
+    if (ac.signal.aborted) return;
+    if (result === "PAID") {
+      setMpesaState("done");
+      const meta = await fetchSaleMpesaMeta(sale.id);
+      if (meta.payerName) setPaidPayerName(meta.payerName);
+      if (meta.code) setReceiptCode(meta.code);
+      const now = new Date();
+      saveLastSale({
+        id: sale.id,
+        ref: sale.ref,
+        total: sale.total,
+        items: sale.itemCount,
+        channel: "M-Pesa",
+        customer: meta.payerName?.trim() || "Walk-in",
+        shop: identity.shop,
+        location: "Kasarani, Nairobi",
+        when: `Today · ${now.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })} EAT`,
+        footer: "Asante sana! Karibu tena.",
+        lines: sale.lines.map((line) => ({
+          name: line.name,
+          qty: line.qty,
+          price: line.price,
+        })),
+        ...(meta.code ? { mpesaReceipt: meta.code } : {}),
+        ...(meta.payerName?.trim() ? { mpesaPayerName: meta.payerName.trim() } : {}),
+      });
+      toast.success("Payment received", {
+        description: `${KES(sale.total)} confirmed via M-Pesa.`,
+      });
+      refreshOpenSales();
+    } else if (result === "FAILED") {
+      setMpesaState("failed");
+    } else if (result === "TIMEOUT") {
+      toast.info("Still waiting for M-Pesa", {
+        description: data.message ?? "Keep the companion phone on, or enter the confirmation code.",
+      });
+    }
+  };
+
+  const discardSale = async (sale: OpenSale) => {
+    try {
+      await cancelOpenSale(sale.id);
+      if (parkedSaleId === sale.id || activeSaleId === sale.id) resetCart();
+      refreshOpenSales();
+      toast.success("Sale discarded");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not discard");
+    }
   };
 
   return (
@@ -336,6 +702,7 @@ function POS() {
             >
               <ScanBarcode className="mr-2 size-4" /> Scan
             </Button>
+            <OpenSalesButton count={openSales.length} onClick={() => setOpenSalesOpen(true)} />
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -362,10 +729,15 @@ function POS() {
                 onClick={() => add(p.id)}
                 className="group rounded-xl border border-border bg-card p-3 text-left transition-all hover:border-primary hover:shadow-soft"
               >
-                <div className="flex items-start justify-between">
-                  <span className="text-2xl">{p.emoji}</span>
+                <div className="relative">
+                  <ProductThumb
+                    src={p.imageUrl}
+                    alt=""
+                    emoji={p.emoji}
+                    className="aspect-square w-full rounded-lg"
+                  />
                   {p.stock <= p.reorderLevel && (
-                    <Badge variant="destructive" className="text-[10px]">
+                    <Badge variant="destructive" className="absolute top-2 right-2 text-[10px]">
                       Low
                     </Badge>
                   )}
@@ -390,14 +762,34 @@ function POS() {
         </div>
 
         <div className="surface-card flex h-fit flex-col p-5 lg:sticky lg:top-20">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold">Current sale</h2>
-            {lines.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setCart([])}>
-                Clear
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {lines.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setParkLabel(defaultParkLabel);
+                    setParkOpen(true);
+                  }}
+                >
+                  <Pause className="mr-1 size-3.5" /> Park
+                </Button>
+              )}
+              {lines.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => resetCart()}>
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
+          {parkedSaleId ? (
+            <p className="text-muted-foreground mt-1 text-xs">
+              Resumed {saleRef}. Park or take payment — it stays in Open sales until you finish.
+            </p>
+          ) : null}
 
           <div className="mt-3 space-y-2">
             {lines.length === 0 && (
@@ -407,17 +799,32 @@ function POS() {
             )}
             {lines.map((l) => (
               <div key={l.id} className="flex items-center gap-2 rounded-lg bg-muted/60 p-2.5">
-                <span className="text-lg">{l.product.emoji}</span>
+                <ProductThumb
+                  src={l.product.imageUrl}
+                  alt=""
+                  emoji={l.product.emoji}
+                  className="size-9 shrink-0 rounded-md"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{l.product.name}</p>
                   <p className="text-muted-foreground text-xs">{KES(l.product.price)} each</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" className="size-7" onClick={() => dec(l.id)}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-7"
+                    onClick={() => dec(l.id)}
+                  >
                     <Minus className="size-3" />
                   </Button>
                   <span className="w-6 text-center text-sm font-semibold">{l.qty}</span>
-                  <Button variant="outline" size="icon" className="size-7" onClick={() => add(l.id)}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-7"
+                    onClick={() => add(l.id)}
+                  >
                     <Plus className="size-3" />
                   </Button>
                   <Button
@@ -452,7 +859,7 @@ function POS() {
             </div>
             <div className="flex justify-between pt-1 text-base">
               <span className="font-semibold">Total</span>
-              <span className="font-display font-bold">{KES(total)}</span>
+              <span className="font-display font-bold">{KES(payTotal)}</span>
             </div>
           </div>
 
@@ -476,12 +883,6 @@ function POS() {
                 variant="outline"
                 disabled={lines.length === 0 || busy}
                 onClick={() => {
-                  if (!shopCustomers.length) {
-                    toast.error("Add a customer first", {
-                      description: "Credit sales attach to a customer on the Customers page.",
-                    });
-                    return;
-                  }
                   setCreditCustomerId(shopCustomers[0]?.id ?? "");
                   setCreditOpen(true);
                 }}
@@ -495,26 +896,26 @@ function POS() {
 
       <VendorMpesaPaymentDialog
         open={payOpen}
-        onOpenChange={setPayOpen}
+        onOpenChange={(open) => {
+          if (!open && mpesaState === "waiting") stayOnSale();
+          else setPayOpen(open);
+        }}
         state={mpesaState === "idle" ? "waiting" : mpesaState}
-        total={total}
+        total={payTotal}
         saleRef={saleRef}
         billRef={billRef}
         destination={checkoutDestination}
         receiptCode={receiptCode}
+        mpesaReceipt={receiptCode}
+        payerName={paidPayerName}
         onReceiptChange={setReceiptCode}
         busy={busy}
         onConfirmManual={() => void confirmManualMpesa()}
-        onCancel={() => {
-          if (mockTimer.current) window.clearTimeout(mockTimer.current);
-          payWait.current?.abort();
-          setMpesaState("failed");
-          setPayOpen(false);
-        }}
+        onCancel={stayOnSale}
+        onNextCustomer={nextCustomerFromPay}
         onPrint={() => {
           setPayOpen(false);
-          setCart([]);
-          setDiscount(0);
+          resetCart();
           void navigate({ to: "/app/pos/success" });
         }}
         onShare={() => {
@@ -526,35 +927,83 @@ function POS() {
         }}
         onNewSale={() => {
           setPayOpen(false);
-          setCart([]);
-          setDiscount(0);
-          setMpesaState("idle");
-          setActiveSaleId(null);
+          resetCart();
         }}
       />
+
+      <OpenSalesSheet
+        open={openSalesOpen}
+        onOpenChange={setOpenSalesOpen}
+        sales={openSales}
+        onResume={(sale) => void resumeSale(sale)}
+        onDiscard={(sale) => void discardSale(sale)}
+      />
+
+      <Dialog open={parkOpen} onOpenChange={setParkOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Park this sale</DialogTitle>
+            <DialogDescription>
+              Name it so you can call it back — table, drink, or the customer&apos;s name.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="park-label">Label</Label>
+            <Input
+              id="park-label"
+              value={parkLabel}
+              onChange={(e) => setParkLabel(e.target.value)}
+              placeholder={defaultParkLabel}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full"
+              disabled={busy || !lines.length}
+              onClick={() => void parkAndServeNext(parkLabel)}
+            >
+              Park and serve next
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Put {KES(total)} on credit</DialogTitle>
             <DialogDescription>
-              This sale is added to the customer's ledger. Collect later from Customers.
+              Attach this sale to a customer. Add a regular if they are not on the list yet.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="credit-customer">Customer</Label>
-            <Select value={creditCustomerId} onValueChange={setCreditCustomerId}>
-              <SelectTrigger id="credit-customer">
-                <SelectValue placeholder="Select a customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {shopCustomers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name} · {c.phone || "no phone"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {shopCustomers.length ? (
+              <Select value={creditCustomerId} onValueChange={setCreditCustomerId}>
+                <SelectTrigger id="credit-customer">
+                  <SelectValue placeholder="Select a customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shopCustomers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} · {c.phone || "no phone"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                No customers yet. Add one to put this sale on credit.
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setAddCustomerOpen(true)}
+            >
+              <Plus className="mr-2 size-4" /> Add customer
+            </Button>
           </div>
           <DialogFooter>
             <Button
@@ -567,6 +1016,16 @@ function POS() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CustomerFormDialog
+        open={addCustomerOpen}
+        onOpenChange={setAddCustomerOpen}
+        onSaved={(id) => {
+          void queryClient.invalidateQueries({ queryKey: ["shop-customers"] });
+          void queryClient.invalidateQueries({ queryKey: ["customers"] });
+          setCreditCustomerId(id);
+        }}
+      />
     </AppShell>
   );
 }

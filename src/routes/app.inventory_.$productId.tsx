@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { deleteProduct, fetchProduct, saveProduct } from "@/lib/data";
+import { uploadProductImage } from "@/lib/product-image";
 import { fetchShops } from "@/lib/ops";
 import { fetchProfile } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -50,7 +51,7 @@ function EditProduct() {
   const shop = shops.find((s) => s.id === profile?.active_shop_id) ?? shops[0];
   const chemist = categoryHasModule(shop?.category, "tax_rate_bc");
 
-  const onSubmit = async (draft: ProductDraft) => {
+  const onSubmit = async (draft: ProductDraft, imageFile?: File | null) => {
     const res = await saveProduct({
       id: productId,
       name: draft.name,
@@ -63,10 +64,14 @@ function EditProduct() {
       classificationCode: draft.classificationCode,
       attrs: { ...draft.attrs, department: draft.category },
     });
+    if (imageFile && !res.demo) {
+      await uploadProductImage(productId, imageFile);
+    }
     toast.success("Product updated", {
       description: res.demo ? "Demo mode — sign in to persist to Supabase." : "Inventory saved.",
     });
     await queryClient.invalidateQueries({ queryKey: ["products"] });
+    await queryClient.invalidateQueries({ queryKey: ["product", productId] });
     await navigate({ to: "/app/inventory" });
   };
 

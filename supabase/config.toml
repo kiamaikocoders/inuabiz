@@ -4,7 +4,7 @@ project_id = "hnzzkmifgufurkqvnchp"
 [api]
 enabled = true
 port = 54321
-schemas = ["public"]
+schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
@@ -18,10 +18,8 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:8080"
+site_url = "https://inuabiz.co.ke"
 additional_redirect_urls = [
-  "http://localhost:8080",
-  "http://localhost:8080/**",
   "https://inuabiz.co.ke",
   "https://inuabiz.co.ke/**",
   "https://www.inuabiz.co.ke",
@@ -30,12 +28,35 @@ additional_redirect_urls = [
   "https://app.inuabiz.co.ke/**",
   "https://admin.inuabiz.co.ke",
   "https://admin.inuabiz.co.ke/**",
+  "http://localhost:8080",
+  "http://localhost:8080/**",
 ]
 enable_signup = true
 
-[auth.sms]
+[auth.email]
 enable_signup = true
 enable_confirmations = true
+
+[auth.email.template.confirmation]
+subject = "Your InuaBiz email code"
+content_path = "./templates/confirmation.html"
+
+# WARNING: never `supabase config push` with empty [auth.sms.twilio] credentials — it clears production Twilio.
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
 
 [realtime]
 enabled = true
@@ -123,3 +144,6 @@ verify_jwt = true
 
 [functions.ingest-mpesa-sms]
 verify_jwt = false
+
+[functions.sync-offline-batch]
+verify_jwt = true

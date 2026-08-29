@@ -1,6 +1,9 @@
 /// <reference lib="webworker" />
-import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
+import { cleanupOutdatedCaches, precacheAndRoute, matchPrecache } from "workbox-precaching";
 import { clientsClaim } from "workbox-core";
+import { registerRoute } from "workbox-routing";
+import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
+import { ExpirationPlugin } from "workbox-expiration";
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -10,6 +13,60 @@ self.skipWaiting();
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
+
+/** App shell: try network, then any precached HTML document (SSR / Start has no index.html). */
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.mode !== "navigate") return;
+  event.respondWith(
+    (async () => {
+      try {
+        const fresh = await fetch(request);
+        if (fresh.ok) return fresh;
+      } catch {
+        /* offline */
+      }
+      const cached =
+        (await matchPrecache("/")) ||
+        (await matchPrecache("/index.html")) ||
+        (await caches.match(request)) ||
+        (await caches.match("/"));
+      if (cached) return cached;
+      return new Response("InuaBiz is offline. Open the app once while online to cache the till.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    })(),
+  );
+});
+
+registerRoute(
+  ({ request, url }) =>
+    request.destination === "font" ||
+    url.hostname === "fonts.googleapis.com" ||
+    url.hostname === "fonts.gstatic.com",
+  new CacheFirst({
+    cacheName: "inuabiz-fonts",
+    plugins: [new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 })],
+  }),
+);
+
+registerRoute(
+  ({ request, url }) =>
+    request.destination === "image" || url.pathname.includes("/storage/v1/object/public/"),
+  new StaleWhileRevalidate({
+    cacheName: "inuabiz-images",
+    plugins: [new ExpirationPlugin({ maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 })],
+  }),
+);
+
+registerRoute(
+  ({ url }) => url.pathname.endsWith(".webmanifest") || url.pathname.includes("manifest"),
+  new NetworkFirst({
+    cacheName: "inuabiz-manifest",
+    networkTimeoutSeconds: 3,
+  }),
+);
 
 type PushPayload = {
   title?: string;

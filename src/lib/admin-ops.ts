@@ -122,6 +122,9 @@ export type TenantBilling = {
   accessUntil: string | null;
   status: string;
   amount: number;
+  /** Negotiated KES per shop when set; null means public plan price. */
+  customUnitAmountKes: number | null;
+  shopCount: number;
   planCode: string;
   periodEnd: string | null;
   autoDebit: boolean;
@@ -231,11 +234,14 @@ export async function extendTrial(tenantId: string, days: number, reason: string
 
 export async function overrideSubscription(input: {
   tenantId: string;
-  amount: number;
+  amount: number | null;
   planCode: string;
   status: "TRIAL" | "ACTIVE" | "PAST_DUE" | "SUSPENDED" | "CANCELLED";
   periodDays: number | null;
   reason: string;
+  /** When set, negotiated KES per shop. Null + setCustomUnit clears back to plan price. */
+  customUnitAmountKes?: number | null;
+  setCustomUnit?: boolean;
 }): Promise<void> {
   await rpcOk("admin_override_subscription", {
     p_tenant_id: input.tenantId,
@@ -244,6 +250,8 @@ export async function overrideSubscription(input: {
     p_status: input.status,
     p_period_days: input.periodDays,
     p_reason: input.reason,
+    p_custom_unit_amount_kes: input.setCustomUnit ? (input.customUnitAmountKes ?? null) : null,
+    p_set_custom_unit: Boolean(input.setCustomUnit),
   });
 }
 
@@ -281,15 +289,23 @@ export async function fetchTenantBilling(tenantId: string): Promise<TenantBillin
     .maybeSingle();
   const { data: sub } = await sb
     .from("subscriptions")
-    .select("amount, plan_code, status, current_period_end, auto_debit_enabled")
+    .select("amount, plan_code, status, current_period_end, auto_debit_enabled, custom_unit_amount_kes")
     .eq("tenant_id", tenantId)
     .maybeSingle();
+  const { count: shopCount } = await sb
+    .from("shops")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
   if (!tenant) return null;
+  const customUnit =
+    sub?.custom_unit_amount_kes == null ? null : Number(sub.custom_unit_amount_kes);
   return {
     trialEndsAt: (tenant.trial_ends_at as string | null) ?? null,
     accessUntil: (tenant.access_until as string | null) ?? null,
     status: String(sub?.status ?? tenant.status),
     amount: Number(sub?.amount ?? 0),
+    customUnitAmountKes: Number.isFinite(customUnit as number) ? customUnit : null,
+    shopCount: shopCount ?? 0,
     planCode: String(sub?.plan_code ?? "FLAT_3000"),
     periodEnd: (sub?.current_period_end as string | null) ?? null,
     autoDebit: Boolean(sub?.auto_debit_enabled),

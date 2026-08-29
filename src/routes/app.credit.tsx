@@ -81,6 +81,8 @@ function Credit() {
       setNameOrPhone("");
       setAmount("");
       await queryClient.invalidateQueries({ queryKey: ["credit-book"] });
+      await queryClient.invalidateQueries({ queryKey: ["customers"] });
+      await queryClient.invalidateQueries({ queryKey: ["shop-customers"] });
     } catch (err) {
       toast.error("Could not record", {
         description: err instanceof Error ? err.message : "Try again",

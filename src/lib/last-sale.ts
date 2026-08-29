@@ -6,6 +6,7 @@ export type ReceiptLine = {
   price: number;
   taxClass?: "STANDARD_16" | "ZERO_RATED" | "EXEMPT";
   note?: string;
+  imageUrl?: string | null;
 };
 
 export type LastSale = {
@@ -27,8 +28,11 @@ export type LastSale = {
   exempt?: number;
   subtotalExVat?: number;
   mpesaReceipt?: string;
+  mpesaPayerName?: string;
+  status?: "Complete" | "Pending" | "Failed";
   when?: string;
   footer?: string;
+  logoUrl?: string | null;
   lines?: ReceiptLine[];
 };
 

@@ -1,13 +1,23 @@
 import { getServiceClient, handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { parseMpesaSms, sha256Hex } from "../_shared/mpesa-sms.ts";
+import { parseMpesaSms, sha256Hex, type ParsedMpesaSms } from "../_shared/mpesa-sms.ts";
 
 function amountKey(n: number): string {
   return n.toFixed(2);
 }
 
+function partyFields(parsed: Extract<ParsedMpesaSms, { kind: "received" }>) {
+  return {
+    receipt_code: parsed.receipt,
+    amount: parsed.amount,
+    sender_msisdn: parsed.sender,
+    sender_name: parsed.senderName,
+  };
+}
+
 /**
  * Companion APK ingest. Auth is a long-lived device token (not a user JWT).
- * Matches tenant-scoped PENDING_PAYMENT sales by amount, newest first.
+ * Matches a PENDING_PAYMENT sale by amount when that amount is unique.
+ * If two open sales share the amount, leave unmatched so the till picks the ticket.
  */
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -53,59 +63,75 @@ Deno.serve(async (req) => {
 
     const { data: already } = await service
       .from("sales")
-      .select("id, status")
+      .select("id, status, customer_phone, mpesa_payer_name")
       .eq("tenant_id", device.tenant_id)
       .eq("mpesa_receipt_code", parsed.receipt)
       .maybeSingle();
     if (already) {
+      if (parsed.senderName && !already.mpesa_payer_name) {
+        await service
+          .from("sales")
+          .update({ mpesa_payer_name: parsed.senderName })
+          .eq("id", already.id);
+      }
       await service.from("companion_sms_events").insert({
         tenant_id: device.tenant_id,
         device_id: device.id,
         sale_id: already.id,
-        receipt_code: parsed.receipt,
-        amount: parsed.amount,
-        sender_msisdn: parsed.sender,
         raw_body: smsBody.slice(0, 2000),
         parse_status: "duplicate",
+        ...partyFields(parsed),
       });
       return jsonResponse({
         ok: true,
         matched: already.status === "PAID",
         duplicate: true,
         sale_id: already.id,
+        payer_name: parsed.senderName,
       });
     }
 
     const { data: pending } = await service
       .from("sales")
-      .select("id, total")
+      .select("id, total, customer_phone")
       .eq("tenant_id", device.tenant_id)
       .eq("status", "PENDING_PAYMENT")
       .order("created_at", { ascending: false })
       .limit(25);
 
-    const match = (pending ?? []).find((row) => amountKey(Number(row.total)) === amountKey(parsed.amount));
-    if (!match) {
+    const matches = (pending ?? []).filter(
+      (row) => amountKey(Number(row.total)) === amountKey(parsed.amount),
+    );
+    if (matches.length !== 1) {
       await service.from("companion_sms_events").insert({
         tenant_id: device.tenant_id,
         device_id: device.id,
-        receipt_code: parsed.receipt,
-        amount: parsed.amount,
-        sender_msisdn: parsed.sender,
         raw_body: smsBody.slice(0, 2000),
         parse_status: "unmatched",
+        ...partyFields(parsed),
       });
-      return jsonResponse({ ok: true, matched: false });
+      return jsonResponse({
+        ok: true,
+        matched: false,
+        ambiguous: matches.length > 1,
+        payer_name: parsed.senderName,
+        receipt: parsed.receipt,
+      });
     }
+    const match = matches[0]!;
+
+    const patch: Record<string, unknown> = {
+      status: "PAID",
+      paid_at: new Date().toISOString(),
+      payment_channel: "MPESA",
+      mpesa_receipt_code: parsed.receipt,
+    };
+    if (parsed.senderName) patch.mpesa_payer_name = parsed.senderName;
+    if (parsed.sender && !match.customer_phone) patch.customer_phone = parsed.sender;
 
     const { data: claimed, error: claimError } = await service
       .from("sales")
-      .update({
-        status: "PAID",
-        paid_at: new Date().toISOString(),
-        payment_channel: "MPESA",
-        mpesa_receipt_code: parsed.receipt,
-      })
+      .update(patch)
       .eq("id", match.id)
       .eq("tenant_id", device.tenant_id)
       .eq("status", "PENDING_PAYMENT")
@@ -120,27 +146,37 @@ Deno.serve(async (req) => {
       await service.from("companion_sms_events").insert({
         tenant_id: device.tenant_id,
         device_id: device.id,
-        receipt_code: parsed.receipt,
-        amount: parsed.amount,
-        sender_msisdn: parsed.sender,
         raw_body: smsBody.slice(0, 2000),
         parse_status: "unmatched",
+        ...partyFields(parsed),
       });
       return jsonResponse({ ok: true, matched: false });
+    }
+
+    if (parsed.senderName) {
+      await service
+        .from("invoices")
+        .update({ customer_name: parsed.senderName })
+        .eq("sale_id", claimed.id)
+        .in("customer_name", ["Walk-in Customer", "Walk-in"]);
     }
 
     await service.from("companion_sms_events").insert({
       tenant_id: device.tenant_id,
       device_id: device.id,
       sale_id: claimed.id,
-      receipt_code: parsed.receipt,
-      amount: parsed.amount,
-      sender_msisdn: parsed.sender,
       raw_body: smsBody.slice(0, 2000),
       parse_status: "matched",
+      ...partyFields(parsed),
     });
 
-    return jsonResponse({ ok: true, matched: true, sale_id: claimed.id });
+    return jsonResponse({
+      ok: true,
+      matched: true,
+      sale_id: claimed.id,
+      receipt: parsed.receipt,
+      payer_name: parsed.senderName,
+    });
   } catch (err) {
     console.error(err);
     return jsonResponse(

@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Phone } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Mail, Phone, Pencil } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
+import { CustomerFormDialog } from "@/components/app/CustomerFormDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KES } from "@/lib/mock-data";
@@ -15,13 +17,23 @@ export const Route = createFileRoute("/app/customers_/$customerId")({
 });
 
 function CustomerDetail() {
+  const queryClient = useQueryClient();
   const { customerId } = Route.useParams();
-  const { data: customer } = useQuery({
+  const [editOpen, setEditOpen] = useState(false);
+  const { data: customer, isLoading } = useQuery({
     queryKey: ["customer", customerId],
     queryFn: () => fetchCustomer(customerId),
   });
   const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: fetchSales });
   const { data: debts = [] } = useQuery({ queryKey: ["credit-book"], queryFn: fetchCreditBook });
+
+  if (isLoading) {
+    return (
+      <AppShell title="Customer">
+        <p className="text-muted-foreground text-sm">Loading…</p>
+      </AppShell>
+    );
+  }
 
   if (!customer) {
     return (
@@ -39,7 +51,15 @@ function CustomerDetail() {
   const relatedDebt = debts.filter((d) => d.phone === customer.phone || d.id === customer.id);
 
   return (
-    <AppShell title={customer.name} description={customer.phone}>
+    <AppShell
+      title={customer.name}
+      description={customer.phone || "No phone on file"}
+      actions={
+        <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+          <Pencil className="mr-1 size-4" /> Edit
+        </Button>
+      }
+    >
       <Button variant="ghost" size="sm" className="mb-4 -ml-2" asChild>
         <Link to="/app/customers">
           <ArrowLeft className="mr-1 size-4" /> All customers
@@ -60,8 +80,16 @@ function CustomerDetail() {
               <div>
                 <h2 className="font-semibold">{customer.name}</h2>
                 <p className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                  <Phone className="size-3" /> {customer.phone}
+                  <Phone className="size-3" /> {customer.phone || "No phone"}
                 </p>
+                {customer.email && (
+                  <p className="text-muted-foreground mt-0.5 inline-flex items-center gap-1 text-xs">
+                    <Mail className="size-3" /> {customer.email}
+                  </p>
+                )}
+                {customer.notes && (
+                  <p className="text-muted-foreground mt-2 text-sm">{customer.notes}</p>
+                )}
               </div>
             </div>
             <Badge>{customer.tier}</Badge>
@@ -124,6 +152,17 @@ function CustomerDetail() {
           </div>
         </div>
       </div>
+
+      <CustomerFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        customer={customer}
+        onSaved={() => {
+          void queryClient.invalidateQueries({ queryKey: ["customers"] });
+          void queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
+          void queryClient.invalidateQueries({ queryKey: ["shop-customers"] });
+        }}
+      />
     </AppShell>
   );
 }

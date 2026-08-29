@@ -37,9 +37,12 @@ export function VendorMpesaPaymentDialog({
   busy,
   onConfirmManual,
   onCancel,
+  onNextCustomer,
   onPrint,
   onShare,
   onNewSale,
+  mpesaReceipt,
+  payerName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,20 +56,29 @@ export function VendorMpesaPaymentDialog({
   busy: boolean;
   onConfirmManual: () => void;
   onCancel: () => void;
+  onNextCustomer: () => void;
   onPrint: () => void;
   onShare: () => void;
   onNewSale: () => void;
+  mpesaReceipt?: string | null;
+  payerName?: string | null;
 }) {
-  const isPersonal =
-    destination?.destinationType === "PERSONAL_MPESA" || destination?.destinationType === "POCHI";
+  const destType = destination?.destinationType;
+  const isTillLike = destType === "TILL" || destType === "PAYBILL";
   const destLabel =
-    destination?.destinationType === "TILL"
+    destType === "TILL"
       ? "Buy Goods Till"
-      : destination?.destinationType === "PAYBILL"
+      : destType === "PAYBILL"
         ? "Paybill"
-        : destination?.destinationType === "POCHI"
+        : destType === "POCHI"
           ? "Pochi la Biashara"
           : "M-Pesa number";
+  const waitHint =
+    destType === "TILL"
+      ? "Customer pays this till. Companion SMS or the code confirms the sale. A Safaricom callback also closes it if this till is registered with us."
+      : destType === "PAYBILL"
+        ? "Customer pays this paybill. Companion SMS or the code confirms the sale. A Safaricom callback also closes it if this paybill is registered with us."
+        : `Customer sends ${KES(total)} to your number. The companion phone marks this paid when the M-Pesa SMS arrives — or enter the 10-character code.`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,7 +92,7 @@ export function VendorMpesaPaymentDialog({
           <>
             <DialogHeader className="items-center space-y-0 text-center">
               <DialogTitle className="font-display text-[22px]">
-                {isPersonal ? "Confirm M-Pesa payment" : "Waiting for payment"}
+                Confirm M-Pesa payment
               </DialogTitle>
               <DialogDescription className="sr-only">
                 Customer pays the vendor M-Pesa destination directly.
@@ -104,7 +116,7 @@ export function VendorMpesaPaymentDialog({
                 {destination.accountName ? (
                   <p className="text-muted-foreground mt-1">{destination.accountName}</p>
                 ) : null}
-                {!isPersonal && billRef ? (
+                {isTillLike && billRef ? (
                   <p className="mt-3 text-xs">
                     <span className="text-muted-foreground">Account / reference: </span>
                     <span className="font-semibold">{billRef}</span>
@@ -117,37 +129,34 @@ export function VendorMpesaPaymentDialog({
               </p>
             )}
 
-            {isPersonal ? (
-              <div className="mt-4 space-y-2 text-left">
-                <Label htmlFor="mpesa-code">M-Pesa confirmation code</Label>
-                <Input
-                  id="mpesa-code"
-                  placeholder="e.g. QFX789ABC1"
-                  value={receiptCode}
-                  onChange={(e) => onReceiptChange(e.target.value.toUpperCase())}
-                  className="font-mono uppercase"
-                />
-                <p className="text-muted-foreground text-xs">
-                  Customer sends {KES(total)} to your number. The companion phone marks this paid
-                  when the M-Pesa SMS arrives — or enter the 10-character code.
-                </p>
-                <Button
-                  className="mt-2 w-full"
-                  disabled={busy || receiptCode.trim().length < 8}
-                  onClick={onConfirmManual}
-                >
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : "Confirm payment"}
-                </Button>
-              </div>
-            ) : (
-              <p className="text-muted-foreground mt-4 text-xs leading-relaxed">
-                Customer pays on their phone. This screen closes automatically when Daraja confirms
-                the payment to your {destLabel.toLowerCase()}.
-              </p>
-            )}
+            <div className="mt-4 space-y-2 text-left">
+              <Label htmlFor="mpesa-code">M-Pesa confirmation code</Label>
+              <Input
+                id="mpesa-code"
+                placeholder="e.g. QFX789ABC1"
+                value={receiptCode}
+                onChange={(e) => onReceiptChange(e.target.value.toUpperCase())}
+                className="font-mono uppercase"
+              />
+              <p className="text-muted-foreground text-xs leading-relaxed">{waitHint}</p>
+              <Button
+                className="mt-2 w-full"
+                disabled={busy || receiptCode.trim().length < 8}
+                onClick={onConfirmManual}
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : "Confirm payment"}
+              </Button>
+            </div>
 
-            <Button variant="outline" className="mt-4 h-11 w-full rounded-[10px]" onClick={onCancel}>
-              Cancel
+            <Button
+              variant="outline"
+              className="mt-4 h-11 w-full rounded-[10px]"
+              onClick={onNextCustomer}
+            >
+              Next customer
+            </Button>
+            <Button variant="ghost" className="mt-1 h-10 w-full" onClick={onCancel}>
+              Stay on this sale
             </Button>
           </>
         ) : null}
@@ -166,6 +175,14 @@ export function VendorMpesaPaymentDialog({
             </div>
             <p className="text-primary font-display mt-3 text-xl font-bold">Payment confirmed</p>
             <dl className="mt-4 w-full space-y-2 text-left text-[13px]">
+              {(mpesaReceipt || payerName) && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">M-Pesa</dt>
+                  <dd className="text-right font-semibold">
+                    {[mpesaReceipt, payerName].filter(Boolean).join(" · ")}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Sale</dt>
                 <dd className="font-semibold">{saleRef}</dd>

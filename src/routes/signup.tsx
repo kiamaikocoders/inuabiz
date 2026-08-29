@@ -68,7 +68,7 @@ function Signup() {
         toast.info(res.demo ? "Demo code 123456" : "Check your email", {
           description: res.demo
             ? "Supabase is not configured — enter 123456 to continue."
-            : `We sent a code to ${email}.`,
+            : `We sent a code to ${email}. Enter it here, or tap Click here in the email.`,
         });
         return;
       }
@@ -190,7 +190,9 @@ function Signup() {
           <>
             <h1 className="text-2xl font-bold">Verify your email</h1>
             <p className="text-muted-foreground mt-2 text-sm">
-              Enter the code sent to <span className="text-foreground font-medium">{email}</span>.
+              Enter the code sent to <span className="text-foreground font-medium">{email}</span>,
+              or tap <span className="text-foreground font-medium">Click here</span> in that email
+              to confirm and continue.
             </p>
             <form
               className="mt-8 space-y-6"

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus, ScanBarcode } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ export function ProductForm({
 }: {
   initial?: Product;
   submitLabel: string;
-  onSubmit: (draft: ProductDraft) => void | Promise<void>;
+  onSubmit: (draft: ProductDraft, imageFile?: File | null) => void | Promise<void>;
   formId?: string;
   hideSubmit?: boolean;
   defaultTaxClass?: string;
@@ -80,8 +80,16 @@ export function ProductForm({
   );
   const { def } = useShopCategory();
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(initial?.imageUrl ?? null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const blobPreview = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blobPreview.current) URL.revokeObjectURL(blobPreview.current);
+    };
+  }, []);
 
   const set = (key: keyof ProductDraft, value: string) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -89,14 +97,18 @@ export function ProductForm({
   const onImage = (file: File | undefined) => {
     if (!file) return;
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("Image too large", { description: "PNG or JPG up to 5MB." });
+      toast.error("Image too large", { description: "PNG, JPG or WebP up to 5MB." });
       return;
     }
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      toast.error("Use a JPEG, PNG or WebP photo");
+      return;
+    }
+    if (blobPreview.current) URL.revokeObjectURL(blobPreview.current);
     const url = URL.createObjectURL(file);
-    setPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
+    blobPreview.current = url;
+    setImageFile(file);
+    setPreview(url);
   };
 
   return (
@@ -112,7 +124,11 @@ export function ProductForm({
           return;
         }
         setBusy(true);
-        void Promise.resolve(onSubmit(draft)).finally(() => setBusy(false));
+        void Promise.resolve(onSubmit(draft, imageFile))
+          .catch((err: unknown) => {
+            toast.error(err instanceof Error ? err.message : "Could not save product");
+          })
+          .finally(() => setBusy(false));
       }}
     >
       <div className="grid gap-4">
@@ -300,7 +316,7 @@ export function ProductForm({
         <input
           ref={fileRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept="image/png,image/jpeg,image/webp"
           className="sr-only"
           onChange={(e) => onImage(e.target.files?.[0])}
         />
@@ -320,7 +336,7 @@ export function ProductForm({
             <ImagePlus className="text-primary size-8" />
           )}
           <p className="text-primary text-[13px] font-medium">Click or drag image here</p>
-          <p className="text-muted-foreground text-[11px]">PNG, JPG up to 5MB</p>
+          <p className="text-muted-foreground text-[11px]">PNG, JPG or WebP up to 5MB</p>
         </button>
       </section>
 

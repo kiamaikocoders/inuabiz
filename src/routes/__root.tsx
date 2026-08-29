@@ -12,10 +12,10 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
-import { NotFoundStatus, OfflineStatus, ServerErrorStatus } from "@/components/status/screens";
-import { useNetworkOnline } from "@/lib/network";
+import { NotFoundStatus, ServerErrorStatus } from "@/components/status/screens";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { captureInstallPrompt } from "@/lib/pwa-install";
+import { startOfflineSyncWatcher } from "@/lib/offline/sync";
 
 captureInstallPrompt();
 
@@ -104,11 +104,12 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { online, markOnline, retry } = useNetworkOnline();
 
   useEffect(() => {
     captureInstallPrompt();
   }, []);
+
+  useEffect(() => startOfflineSyncWatcher(), []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -116,18 +117,6 @@ function RootComponent() {
       <Outlet />
       <InstallPrompt />
       <Toaster position="top-center" richColors />
-      {!online && (
-        <div className="fixed inset-0 z-[100]">
-          <OfflineStatus
-            onRetry={() => {
-              void retry().then((ok) => {
-                if (!ok) window.location.reload();
-              });
-            }}
-            onHome={markOnline}
-          />
-        </div>
-      )}
     </QueryClientProvider>
   );
 }

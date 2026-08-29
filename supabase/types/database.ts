@@ -451,6 +451,7 @@ export type Database = {
           receipt_code: string | null
           sale_id: string | null
           sender_msisdn: string | null
+          sender_name: string | null
           tenant_id: string
         }
         Insert: {
@@ -463,6 +464,7 @@ export type Database = {
           receipt_code?: string | null
           sale_id?: string | null
           sender_msisdn?: string | null
+          sender_name?: string | null
           tenant_id: string
         }
         Update: {
@@ -475,6 +477,7 @@ export type Database = {
           receipt_code?: string | null
           sale_id?: string | null
           sender_msisdn?: string | null
+          sender_name?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -1203,6 +1206,7 @@ export type Database = {
           cost_price: number
           created_at: string
           id: string
+          image_url: string | null
           is_active: boolean
           is_sample: boolean
           low_stock_threshold: number
@@ -1222,6 +1226,7 @@ export type Database = {
           cost_price?: number
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           is_sample?: boolean
           low_stock_threshold?: number
@@ -1241,6 +1246,7 @@ export type Database = {
           cost_price?: number
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           is_sample?: boolean
           low_stock_threshold?: number
@@ -1532,8 +1538,11 @@ export type Database = {
           customer_phone: string | null
           discount_amount: number
           id: string
+          mpesa_payer_name: string | null
+          mpesa_receipt_code: string | null
           notes: string | null
           paid_at: string | null
+          payment_bill_ref: string | null
           payment_channel: Database["public"]["Enums"]["payment_channel"] | null
           shop_id: string | null
           status: Database["public"]["Enums"]["sale_status"]
@@ -1549,8 +1558,11 @@ export type Database = {
           customer_phone?: string | null
           discount_amount?: number
           id?: string
+          mpesa_payer_name?: string | null
+          mpesa_receipt_code?: string | null
           notes?: string | null
           paid_at?: string | null
+          payment_bill_ref?: string | null
           payment_channel?:
             | Database["public"]["Enums"]["payment_channel"]
             | null
@@ -1568,8 +1580,11 @@ export type Database = {
           customer_phone?: string | null
           discount_amount?: number
           id?: string
+          mpesa_payer_name?: string | null
+          mpesa_receipt_code?: string | null
           notes?: string | null
           paid_at?: string | null
+          payment_bill_ref?: string | null
           payment_channel?:
             | Database["public"]["Enums"]["payment_channel"]
             | null
@@ -1944,6 +1959,7 @@ export type Database = {
           currency: string
           current_period_end: string | null
           current_period_start: string | null
+          custom_unit_amount_kes: number | null
           id: string
           last_invoice_id: string | null
           next_billing_date: string | null
@@ -1965,6 +1981,7 @@ export type Database = {
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          custom_unit_amount_kes?: number | null
           id?: string
           last_invoice_id?: string | null
           next_billing_date?: string | null
@@ -1986,6 +2003,7 @@ export type Database = {
           currency?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          custom_unit_amount_kes?: number | null
           id?: string
           last_invoice_id?: string | null
           next_billing_date?: string | null
@@ -2279,6 +2297,10 @@ export type Database = {
       issue_sale_invoice: { Args: { p_sale_id: string }; Returns: string }
       set_active_shop: { Args: { p_shop_id: string }; Returns: undefined }
       subscription_amount_for_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
+      subscription_unit_amount_for_tenant: {
         Args: { p_tenant_id: string }
         Returns: number
       }

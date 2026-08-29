@@ -34,6 +34,7 @@ export type Product = {
   stock: number;
   reorderLevel: number;
   emoji: string;
+  imageUrl?: string | null;
   taxClass?: "STANDARD_16" | "ZERO_RATED" | "EXEMPT";
   classificationCode?: string;
   attrs?: ProductAttrs;
@@ -49,12 +50,15 @@ export type Sale = {
   customer: string;
   status: "Complete" | "Pending" | "Failed";
   createdAt?: string;
+  mpesaReceipt?: string | null;
 };
 
 export type Customer = {
   id: string;
   name: string;
   phone: string;
+  email?: string;
+  notes?: string;
   visits: number;
   spend: number;
   debt: number;

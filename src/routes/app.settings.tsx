@@ -248,7 +248,7 @@ function SettingsPage() {
           title="Payment Settings"
           description={
             owner
-              ? "Money from sales lands in these channels. Pair a companion phone so personal M-Pesa and Pochi close the till automatically."
+              ? "Money from sales lands in these channels. Pair a companion phone so inbound M-Pesa SMS — personal, Pochi, till, or paybill — closes the sale."
               : "Locked. Payment channels are owner-only."
           }
           locked={!owner}
