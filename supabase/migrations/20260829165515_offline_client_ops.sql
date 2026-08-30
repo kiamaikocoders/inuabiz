@@ -18,7 +18,6 @@ create index if not exists offline_client_ops_tenant_created_idx
 
 alter table public.offline_client_ops enable row level security;
 
--- Vendors can read their own tenant's sync history; writes go through service_role Edge Function.
 drop policy if exists offline_client_ops_select_tenant on public.offline_client_ops;
 create policy offline_client_ops_select_tenant
   on public.offline_client_ops
@@ -32,4 +31,4 @@ grant select on public.offline_client_ops to authenticated;
 grant all on public.offline_client_ops to service_role;
 
 comment on table public.offline_client_ops is
-  'Idempotency log for sync-offline-batch (client_op_id = UUID from the till).';
+  'Idempotency log for sync-offline-batch (client_op_id = UUID from the till).';;

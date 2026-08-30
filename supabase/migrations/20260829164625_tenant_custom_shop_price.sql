@@ -1,6 +1,4 @@
 -- Per-tenant custom price per shop (e.g. 2500 instead of public SHOP_MONTHLY).
--- When null, billing uses the public plan amount × shop count as before.
-
 alter table public.subscriptions
   add column if not exists custom_unit_amount_kes numeric(12, 2)
     check (custom_unit_amount_kes is null or custom_unit_amount_kes >= 0);
@@ -140,8 +138,6 @@ begin
     updated_at = now()
   where tenant_id = p_tenant_id;
 
-  -- Always recompute total from unit × shops when custom pricing is in play,
-  -- or when caller did not pass a one-off total.
   select count(*) into v_shops from public.shops where tenant_id = p_tenant_id;
   if p_set_custom_unit or p_amount is null then
     v_amount := public.subscription_amount_for_tenant(p_tenant_id);
@@ -185,4 +181,4 @@ revoke all on function public.admin_override_subscription(
 ) from public, anon;
 grant execute on function public.admin_override_subscription(
   uuid, numeric, text, public.tenant_status, integer, text, numeric, boolean
-) to authenticated;
+) to authenticated;;
