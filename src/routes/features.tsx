@@ -20,24 +20,26 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
+import { breadcrumbJsonLd, pageHead, softwareApplicationJsonLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/features")({
-  head: () => ({
-    meta: [
-      { title: "Features — POS, M-Pesa, credit, shops & invoices | InuaBiz" },
-      {
-        name: "description",
-        content:
-          "Everything in one InuaBiz till: mobile POS, M-Pesa STK and reconciliation, duka debt, stock alerts, extra shops, staff, wholesale invoices and AI restock advice.",
-      },
-      { property: "og:title", content: "InuaBiz features" },
-      {
-        property: "og:description",
-        content:
-          "POS, M-Pesa sync, credit ledger, inventory, extra shops, invoices and AI insights — for Kenyan shopkeepers.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "InuaBiz features — POS, M-Pesa, credit & stock for Kenya dukas",
+      description:
+        "See what InuaBiz includes: mobile POS, M-Pesa STK/Till/Paybill reconciliation, kukopesha credit, inventory alerts, extra shops, staff roles, wholesale invoices and AI restock.",
+      path: "/features",
+      ogTitle: "InuaBiz features — Kenya POS & M-Pesa till",
+      ogDescription:
+        "POS, M-Pesa sync, credit ledger, inventory, multi-shop and AI insights — built for Kenyan shopkeepers.",
+      jsonLd: [
+        softwareApplicationJsonLd(),
+        breadcrumbJsonLd([
+          { name: "InuaBiz", path: "/" },
+          { name: "Features", path: "/features" },
+        ]),
+      ],
+    }),
   component: Features,
 });
 

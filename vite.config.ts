@@ -1,4 +1,5 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
@@ -58,6 +59,13 @@ export default defineConfig({
         devOptions: {
           enabled: false,
         },
+      }),
+      // Keep last so source maps / tunnel route attach after other plugins.
+      sentryTanstackStart({
+        org: "inuabiz",
+        project: "javascript-tanstackstart-react",
+        authToken: process.env["SENTRY_AUTH_TOKEN"],
+        tunnelRoute: true,
       }),
     ],
     optimizeDeps: {

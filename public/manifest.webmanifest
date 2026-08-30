@@ -1,7 +1,7 @@
 {
   "name": "InuaBiz — Micro-POS for Kenyan vendors",
   "short_name": "InuaBiz",
-  "description": "Sell, track credit and reconcile M-Pesa from your phone.",
+  "description": "InuaBiz Kenya POS: M-Pesa till, credit ledger, stock alerts and AI restock for dukas.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,6 +9,7 @@
   "theme_color": "#0B6E4F",
   "background_color": "#F7F4EF",
   "categories": ["business", "finance", "productivity"],
+  "lang": "en-KE",
   "icons": [
     { "src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/pwa/icon-512.png", "sizes": "512x512", "type": "image/png" },

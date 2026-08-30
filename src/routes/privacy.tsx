@@ -1,17 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalDocument, LegalSection } from "@/components/site/LegalDocument";
+import { breadcrumbJsonLd, pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({
-    meta: [
-      { title: "Privacy Policy — InuaBiz" },
-      {
-        name: "description",
-        content:
-          "How InuaBiz collects, uses and shares shop and till data, including M-Pesa payment matching.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "Privacy Policy — InuaBiz",
+      description:
+        "How InuaBiz collects, uses and shares shop and till data, including M-Pesa payment matching for Kenyan vendors.",
+      path: "/privacy",
+      jsonLd: breadcrumbJsonLd([
+        { name: "InuaBiz", path: "/" },
+        { name: "Privacy", path: "/privacy" },
+      ]),
+    }),
   component: Privacy,
 });
 

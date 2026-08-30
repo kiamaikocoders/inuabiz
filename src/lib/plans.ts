@@ -1,4 +1,4 @@
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured, supabaseRestConfig } from "@/lib/supabase-env";
 import {
   COMPLIANCE_PRICE,
   SETUP_FEE,
@@ -71,6 +71,9 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
   },
 ];
 
+const PLAN_SELECT =
+  "id,code,name,description,amount_kes,currency,billing_interval,is_active,is_public,display_order,updated_at";
+
 function mapRow(row: Record<string, unknown>): SubscriptionPlan {
   return {
     id: String(row["id"]),
@@ -79,7 +82,7 @@ function mapRow(row: Record<string, unknown>): SubscriptionPlan {
     description: (row["description"] as string | null) ?? null,
     amountKes: Number(row["amount_kes"] ?? 0),
     currency: String(row["currency"] ?? "KES"),
-    billingInterval: (String(row["billing_interval"] ?? "month") as PlanInterval),
+    billingInterval: String(row["billing_interval"] ?? "month") as PlanInterval,
     isActive: Boolean(row["is_active"]),
     isPublic: Boolean(row["is_public"]),
     displayOrder: Number(row["display_order"] ?? 0),
@@ -92,53 +95,98 @@ function amountFor(plans: SubscriptionPlan[], code: string, fallback: number): n
   return hit ? hit.amountKes : fallback;
 }
 
+function restHeaders(key: string): HeadersInit {
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    Accept: "application/json",
+  };
+}
+
+/** Public catalog via PostgREST — no supabase-js (keeps marketing JS light). */
+async function fetchPlansViaRest(opts?: {
+  includeInactive?: boolean;
+}): Promise<SubscriptionPlan[] | null> {
+  const cfg = supabaseRestConfig();
+  if (!cfg) return null;
+
+  const params = new URLSearchParams({
+    select: PLAN_SELECT,
+    order: "display_order.asc",
+  });
+  if (!opts?.includeInactive) {
+    params.set("is_active", "eq.true");
+    params.set("is_public", "eq.true");
+  }
+
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/subscription_plans?${params}`, {
+      headers: restHeaders(cfg.key),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Record<string, unknown>[];
+    if (!Array.isArray(data) || !data.length) return null;
+    return data.map(mapRow);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTrialDaysViaRest(): Promise<number | null> {
+  const cfg = supabaseRestConfig();
+  if (!cfg) return null;
+  const params = new URLSearchParams({
+    select: "value",
+    key: "eq.billing.trial_days",
+    limit: "1",
+  });
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/platform_settings?${params}`, {
+      headers: restHeaders(cfg.key),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Array<{ value?: unknown }>;
+    const raw = data[0]?.value;
+    if (raw == null) return null;
+    const n = Number(typeof raw === "string" ? raw.replace(/^"|"$/g, "") : raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Public + admin catalog. Admin sees inactive rows when live. */
 export async function fetchSubscriptionPlans(opts?: {
   includeInactive?: boolean;
 }): Promise<SubscriptionPlan[]> {
-  const sb = getSupabase();
-  if (!sb) return DEFAULT_PLANS;
+  if (opts?.includeInactive) {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return DEFAULT_PLANS;
 
-  let q = sb
-    .from("subscription_plans")
-    .select(
-      "id, code, name, description, amount_kes, currency, billing_interval, is_active, is_public, display_order, updated_at",
-    )
-    .order("display_order", { ascending: true });
+    const { data, error } = await sb
+      .from("subscription_plans")
+      .select(PLAN_SELECT.replace(/,/g, ", "))
+      .order("display_order", { ascending: true });
 
-  if (!opts?.includeInactive) {
-    q = q.eq("is_active", true).eq("is_public", true);
+    if (error || !data?.length) return DEFAULT_PLANS;
+    return data.map((row) => mapRow(row as Record<string, unknown>));
   }
 
-  const { data, error } = await q;
-  if (error || !data?.length) return DEFAULT_PLANS;
-  return data.map((row) => mapRow(row as Record<string, unknown>));
+  return (await fetchPlansViaRest()) ?? DEFAULT_PLANS;
 }
 
 export async function fetchPublicPricing(): Promise<PublicPricing> {
-  const plans = await fetchSubscriptionPlans();
-  let trialDays = TRIAL_DAYS;
-
-  const sb = getSupabase();
-  if (sb) {
-    const { data } = await sb
-      .from("platform_settings")
-      .select("value")
-      .eq("key", "billing.trial_days")
-      .maybeSingle();
-    if (data?.value != null) {
-      const n = Number(
-        typeof data.value === "string" ? data.value.replace(/^"|"$/g, "") : data.value,
-      );
-      if (Number.isFinite(n) && n > 0) trialDays = n;
-    }
-  }
-
+  const [plans, trialFromRest] = await Promise.all([
+    fetchPlansViaRest(),
+    fetchTrialDaysViaRest(),
+  ]);
+  const list = plans ?? DEFAULT_PLANS;
   return {
-    shopMonthly: amountFor(plans, "SHOP_MONTHLY", SUBSCRIPTION_PRICE),
-    compliance: amountFor(plans, "COMPLIANCE", COMPLIANCE_PRICE),
-    setup: amountFor(plans, "SETUP", SETUP_FEE),
-    trialDays,
+    shopMonthly: amountFor(list, "SHOP_MONTHLY", SUBSCRIPTION_PRICE),
+    compliance: amountFor(list, "COMPLIANCE", COMPLIANCE_PRICE),
+    setup: amountFor(list, "SETUP", SETUP_FEE),
+    trialDays: trialFromRest ?? TRIAL_DAYS,
   };
 }
 
@@ -154,6 +202,7 @@ export type PlanUpsertInput = {
 };
 
 export async function createSubscriptionPlan(input: PlanUpsertInput): Promise<SubscriptionPlan> {
+  const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) throw new Error("Supabase is not configured");
 
@@ -182,6 +231,7 @@ export async function updateSubscriptionPlan(
   id: string,
   input: Partial<PlanUpsertInput>,
 ): Promise<SubscriptionPlan> {
+  const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) throw new Error("Supabase is not configured");
 
@@ -209,6 +259,7 @@ export async function updateSubscriptionPlan(
 }
 
 export async function deleteSubscriptionPlan(id: string): Promise<void> {
+  const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) throw new Error("Supabase is not configured");
   const { error } = await sb.from("subscription_plans").delete().eq("id", id);
@@ -216,6 +267,7 @@ export async function deleteSubscriptionPlan(id: string): Promise<void> {
 }
 
 export async function saveTrialDays(days: number): Promise<void> {
+  const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) throw new Error("Supabase is not configured");
   const { error } = await sb.from("platform_settings").upsert(

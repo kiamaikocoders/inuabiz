@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/Logo";
-import { invokePublicFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase-env";
 
 const legalLinks = [
   { to: "/privacy" as const, label: "Privacy Policy" },
@@ -24,6 +24,7 @@ export function SiteFooter() {
       return;
     }
     setBusy(true);
+    const { invokePublicFunction } = await import("@/lib/supabase");
     const { data, error } = await invokePublicFunction<{ ok?: boolean }>("subscribe-newsletter", {
       email: trimmed,
       source: "footer",

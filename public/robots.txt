@@ -1,8 +1,22 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /app
+Disallow: /app/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /onboarding
+Disallow: /verify
+Disallow: /maintenance
 
 User-agent: Bingbot
 Allow: /
+Disallow: /app
+Disallow: /app/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /onboarding
+Disallow: /verify
+Disallow: /maintenance
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +26,13 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /app
+Disallow: /app/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /onboarding
+Disallow: /verify
+Disallow: /maintenance
+
+Sitemap: https://inuabiz.co.ke/sitemap.xml
+Host: https://inuabiz.co.ke

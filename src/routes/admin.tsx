@@ -1,8 +1,12 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { requireSuperAdmin } from "@/lib/auth";
+import { privateHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
-  beforeLoad: () => requireSuperAdmin(),
+  beforeLoad: async () => {
+    const { requireSuperAdmin } = await import("@/lib/auth");
+    await requireSuperAdmin();
+  },
+  head: () => privateHead("InuaBiz — Admin"),
   component: () => <Outlet />,
 });

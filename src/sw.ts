@@ -43,6 +43,7 @@ self.addEventListener("fetch", (event) => {
 registerRoute(
   ({ request, url }) =>
     request.destination === "font" ||
+    (url.pathname.includes("/files/") && url.pathname.endsWith(".woff2")) ||
     url.hostname === "fonts.googleapis.com" ||
     url.hostname === "fonts.gstatic.com",
   new CacheFirst({

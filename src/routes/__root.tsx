@@ -4,18 +4,25 @@ import {
   createRootRouteWithContext,
   redirect,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { NotFoundStatus, ServerErrorStatus } from "@/components/status/screens";
-import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { captureInstallPrompt } from "@/lib/pwa-install";
-import { startOfflineSyncWatcher } from "@/lib/offline/sync";
+import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { trackPageView } from "@/lib/analytics";
+import { initClarity } from "@/lib/monitoring";
+import * as Sentry from "@sentry/tanstackstart-react";
+
+const InstallPrompt = lazy(() =>
+  import("@/components/app/InstallPrompt").then((m) => ({ default: m.InstallPrompt })),
+);
 
 captureInstallPrompt();
 
@@ -27,6 +34,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    Sentry.captureException(error);
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
@@ -52,9 +60,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "InuaBiz is a mobile-first POS, M-Pesa reconciliation, credit ledger and AI cash-flow engine for Kenyan MSMEs.",
+          "InuaBiz (Inua Biz) is Kenya's micro-POS for dukas: M-Pesa till, credit ledger, stock alerts and AI restock advice. Start free on your phone.",
       },
-      { name: "author", content: "InuaBiz" },
+      { name: "author", content: SITE_NAME },
+      { name: "application-name", content: SITE_NAME },
+      { property: "og:site_name", content: SITE_NAME },
+      { property: "og:locale", content: "en_KE" },
       { property: "og:title", content: "InuaBiz — Micro-POS for Kenyan vendors" },
       {
         property: "og:description",
@@ -62,23 +73,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Sell, track credit and reconcile M-Pesa from your phone. One price per shop / month. Compliance and enterprise options.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: SITE_URL },
+      { property: "og:image", content: DEFAULT_OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: DEFAULT_OG_IMAGE },
       { name: "theme-color", content: "#0B6E4F" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "InuaBiz" },
+      { name: "apple-mobile-web-app-title", content: SITE_NAME },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
     ],
     links: [
+      { rel: "preload", href: appCss, as: "style" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/pwa/apple-touch-icon.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@500;600;700&display=swap",
-      },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
@@ -104,18 +115,38 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     captureInstallPrompt();
+    initClarity();
   }, []);
 
-  useEffect(() => startOfflineSyncWatcher(), []);
+  useEffect(() => {
+    trackPageView(pathname);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!pathname.startsWith("/app")) return;
+    let stop = () => undefined;
+    let cancelled = false;
+    void import("@/lib/offline/sync").then((m) => {
+      if (cancelled) return;
+      stop = m.startOfflineSyncWatcher();
+    });
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <InstallPrompt />
+      <Suspense fallback={null}>
+        <InstallPrompt />
+      </Suspense>
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );

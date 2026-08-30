@@ -46,24 +46,15 @@ import {
   trackValidationFailed,
 } from "@/lib/analytics";
 import { clearDraft, defaultPayChannels, hasMeaningfulProgress, loadDraft, saveDraft, type OnboardingPayChannelId, type OnboardingPayChannels } from "@/lib/onboarding-progress";
+import { privateHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
-  head: () => ({
-    meta: [
-      { title: "Start your free trial — InuaBiz onboarding in 2 minutes" },
-      {
-        name: "description",
-        content:
-          "Create your InuaBiz account, verify email, then finish shop setup. 3-day trial on your first shop.",
-      },
-      { property: "og:title", content: "Start your InuaBiz free trial" },
-      {
-        property: "og:description",
-        content: "Shop category, location and M-Pesa destination. 3-day trial on the first shop.",
-      },
-    ],
-  }),
+  head: () =>
+    privateHead(
+      "Start your free trial — InuaBiz",
+      "Finish InuaBiz shop setup: category, location and M-Pesa destination.",
+    ),
   component: Onboarding,
 });
 

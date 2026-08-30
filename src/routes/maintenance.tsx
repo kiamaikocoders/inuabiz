@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MaintenanceStatus } from "@/components/status/screens";
+import { privateHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/maintenance")({
-  head: () => ({
-    meta: [{ title: "We'll be right back — InuaBiz" }],
-  }),
+  head: () => privateHead("We'll be right back — InuaBiz"),
   component: MaintenanceStatus,
 });

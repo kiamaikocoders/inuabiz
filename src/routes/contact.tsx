@@ -14,27 +14,26 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { invokePublicFunction, isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase-env";
 import { COMPLIANCE_PRICE, KES } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
 import { useQuery } from "@tanstack/react-query";
+import { breadcrumbJsonLd, pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({
-    meta: [
-      { title: "Contact InuaBiz — talk to the team in Nairobi" },
-      {
-        name: "description",
-        content:
-          "Questions about InuaBiz, onboarding, extra shops or M-Pesa setup? Write to the Nairobi team — we reply the same day.",
-      },
-      { property: "og:title", content: "Contact InuaBiz" },
-      {
-        property: "og:description",
-        content: "Reach the InuaBiz team in Nairobi for support, demos or onboarding help.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "Contact InuaBiz — Nairobi team for demos & M-Pesa setup",
+      description:
+        "Questions about InuaBiz, onboarding, extra shops or M-Pesa Till setup? Email hello@inuabiz.co.ke — the Nairobi team replies the same day.",
+      path: "/contact",
+      ogTitle: "Contact InuaBiz",
+      ogDescription: "Reach the InuaBiz team in Nairobi for support, demos or onboarding help.",
+      jsonLd: breadcrumbJsonLd([
+        { name: "InuaBiz", path: "/" },
+        { name: "Contact", path: "/contact" },
+      ]),
+    }),
   component: Contact,
 });
 
@@ -58,6 +57,7 @@ function Contact() {
       return;
     }
     setBusy(true);
+    const { invokePublicFunction } = await import("@/lib/supabase");
     const { data, error } = await invokePublicFunction<{ ok?: boolean }>("submit-contact", {
       name: name.trim(),
       phone: phone.trim(),

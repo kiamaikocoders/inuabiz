@@ -4,6 +4,9 @@ import {
   type SupabaseClient,
   type SupportedStorage,
 } from "@supabase/supabase-js";
+import { supabaseRestConfig } from "@/lib/supabase-env";
+
+export { isSupabaseConfigured } from "@/lib/supabase-env";
 
 export const REMEMBER_ME_KEY = "inuabiz:remember-me";
 export const REMEMBER_EMAIL_KEY = "inuabiz:remember-email";
@@ -35,19 +38,15 @@ function authStorage(): SupportedStorage | undefined {
 
 let client: SupabaseClient | null | undefined;
 
-export function isSupabaseConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-}
-
 export function getSupabase(): SupabaseClient | null {
   if (client !== undefined) return client;
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !key) {
+  const cfg = supabaseRestConfig();
+  if (!cfg) {
     client = null;
     return null;
   }
+  const { url, key } = cfg;
 
   const browser = typeof window !== "undefined";
   client = createClient(url, key, {

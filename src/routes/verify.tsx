@@ -7,6 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { AuthSplit } from "@/components/auth/AuthSplit";
 import { AUTH_SCENES } from "@/lib/auth-scenes";
 import { fetchProfile, verifyPhoneOtp } from "@/lib/auth";
+import { privateHead } from "@/lib/seo";
 
 type VerifySearch = { phone?: string };
 
@@ -14,15 +15,7 @@ export const Route = createFileRoute("/verify")({
   validateSearch: (s: Record<string, unknown>): VerifySearch => ({
     phone: typeof s["phone"] === "string" ? s["phone"] : "",
   }),
-  head: () => ({
-    meta: [
-      { title: "Verify code — InuaBiz" },
-      {
-        name: "description",
-        content: "Enter the 4-digit SMS code sent to your Kenyan mobile number to sign in to InuaBiz.",
-      },
-    ],
-  }),
+  head: () => privateHead("Verify code — InuaBiz"),
   component: Verify,
 });
 

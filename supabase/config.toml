@@ -127,6 +127,9 @@ verify_jwt = false
 [functions.subscribe-newsletter]
 verify_jwt = false
 
+[functions.ingest-product-event]
+verify_jwt = false
+
 [functions.provision-shop]
 verify_jwt = true
 

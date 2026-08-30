@@ -68,6 +68,48 @@ export function track(name: string, props: Record<string, unknown> = {}): void {
   w.dataLayer = w.dataLayer ?? [];
   w.dataLayer.push({ event: name, ...event.props, ts: event.ts });
   if (import.meta.env.DEV) console.debug("[analytics]", name, event.props);
+  void flushRemote(event);
+}
+
+function flushRemote(event: AnalyticsEvent): void {
+  const url = import.meta.env["VITE_SUPABASE_URL"] as string | undefined;
+  const key = import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined;
+  if (!url || !key) return;
+
+  const { session_id, path, ...rest } = event.props;
+  void fetch(`${url}/functions/v1/ingest-product-event`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      name: event.name,
+      path: typeof path === "string" ? path : undefined,
+      session_hash: typeof session_id === "string" ? session_id.slice(0, 64) : undefined,
+      props: rest,
+    }),
+    keepalive: true,
+  }).catch(() => {
+    /* never block UX on analytics */
+  });
+}
+
+export function trackPageView(path?: string): void {
+  track("page_view", path ? { path } : {});
+}
+
+export function trackSignupStarted(): void {
+  track("signup_started");
+}
+
+export function trackSignupOtpSent(): void {
+  track("signup_otp_sent");
+}
+
+export function trackSignupCompleted(): void {
+  track("signup_completed");
 }
 
 /* ---------------- Onboarding funnel helpers ---------------- */

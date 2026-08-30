@@ -1,8 +1,12 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { requireVendorWorkspace } from "@/lib/auth";
+import { privateHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/app")({
   ssr: false,
-  beforeLoad: () => requireVendorWorkspace(),
+  beforeLoad: async () => {
+    const { requireVendorWorkspace } = await import("@/lib/auth");
+    await requireVendorWorkspace();
+  },
+  head: () => privateHead("InuaBiz — Vendor app"),
   component: () => <Outlet />,
 });

@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalDocument, LegalSection } from "@/components/site/LegalDocument";
+import { breadcrumbJsonLd, pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({
-    meta: [
-      { title: "Terms of Service — InuaBiz" },
-      {
-        name: "description",
-        content: "Terms for using the InuaBiz till, including licences, accounts and M-Pesa payments.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "Terms of Service — InuaBiz",
+      description:
+        "Terms for using the InuaBiz till, including licences, accounts and M-Pesa payments for Kenyan shops.",
+      path: "/terms",
+      jsonLd: breadcrumbJsonLd([
+        { name: "InuaBiz", path: "/" },
+        { name: "Terms", path: "/terms" },
+      ]),
+    }),
   component: Terms,
 });
 

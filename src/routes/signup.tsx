@@ -14,18 +14,23 @@ import { resendSignupOtp, signUpWithEmail, verifyEmailOtp } from "@/lib/auth";
 import { TRIAL_DAYS } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
 import { useQuery } from "@tanstack/react-query";
+import { pageHead } from "@/lib/seo";
+import {
+  trackSignupCompleted,
+  trackSignupOtpSent,
+  trackSignupStarted,
+} from "@/lib/analytics";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({
-    meta: [
-      { title: "Create account — InuaBiz" },
-      {
-        name: "description",
-        content:
-          "Sign up with your name, shop, email and password. Verify by email OTP, then finish shop onboarding. Free trial on your first shop.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "Create InuaBiz account — free Kenya POS trial",
+      description:
+        "Sign up for InuaBiz with your name, shop, email and password. Verify by email OTP, finish shop onboarding, then start your free till trial.",
+      path: "/signup",
+      ogTitle: "Start free with InuaBiz",
+      ogDescription: "Create your Kenya POS account in minutes. Free trial on your first shop.",
+    }),
   component: Signup,
 });
 
@@ -57,6 +62,7 @@ function Signup() {
       return;
     }
     setBusy(true);
+    trackSignupStarted();
     try {
       const res = await signUpWithEmail({ fullName, shopName, email, password });
       if (typeof window !== "undefined") {
@@ -64,6 +70,7 @@ function Signup() {
         sessionStorage.setItem("inuabiz:pendingShop", shopName);
       }
       if (res.needsOtp || res.demo) {
+        trackSignupOtpSent();
         setStage("otp");
         toast.info(res.demo ? "Demo code 123456" : "Check your email", {
           description: res.demo
@@ -72,6 +79,7 @@ function Signup() {
         });
         return;
       }
+      trackSignupCompleted();
       toast.success("Account created");
       await navigate({ to: "/onboarding" });
     } catch (err: unknown) {
@@ -90,6 +98,7 @@ function Signup() {
       if (res.demo && otp !== "123456") {
         throw new Error("Enter 123456 in demo, or the 6-digit email code");
       }
+      trackSignupCompleted();
       toast.success("Email verified", { description: "Finish setting up your shop." });
       await navigate({ to: "/onboarding" });
     } catch (err: unknown) {

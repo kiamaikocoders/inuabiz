@@ -11,23 +11,23 @@ import {
 import { cn } from "@/lib/utils";
 import { KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
+import { breadcrumbJsonLd, pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/how-it-works")({
-  head: () => ({
-    meta: [
-      { title: "How InuaBiz works — from sign-up to reconciled sale" },
-      {
-        name: "description",
-        content:
-          "From email sign-up and shop onboarding to an STK push at checkout, extra shops and a daily till email — see exactly how InuaBiz works day to day.",
-      },
-      { property: "og:title", content: "How InuaBiz works" },
-      {
-        property: "og:description",
-        content: "Sign up in 2 minutes, sell, take M-Pesa and let reconciliation happen by itself.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "How InuaBiz works — sign up to M-Pesa reconciled sale",
+      description:
+        "See how InuaBiz works day to day: email sign-up, shop onboarding, STK at checkout, credit on the ledger, extra shops and a daily till email for Kenyan vendors.",
+      path: "/how-it-works",
+      ogTitle: "How InuaBiz works",
+      ogDescription:
+        "Sign up in about two minutes, sell, take M-Pesa and let reconciliation land on the sale.",
+      jsonLd: breadcrumbJsonLd([
+        { name: "InuaBiz", path: "/" },
+        { name: "How it works", path: "/how-it-works" },
+      ]),
+    }),
   component: HowItWorks,
 });
 

@@ -36,6 +36,7 @@ import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
 import { Route as AdminHealthRouteImport } from './routes/admin.health'
 import { Route as AdminInboxRouteImport } from './routes/admin.inbox'
+import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
 import { Route as AdminMapRouteImport } from './routes/admin.map'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPlansRouteImport } from './routes/admin.plans'
@@ -44,6 +45,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminUnclaimedRouteImport } from './routes/admin.unclaimed'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
+import { Route as ApiSentryExampleRouteImport } from './routes/api.sentry-example'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppBillingRouteImport } from './routes/app.billing'
 import { Route as AppCreditRouteImport } from './routes/app.credit'
@@ -203,6 +205,11 @@ const AdminInboxRoute = AdminInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminIntelligenceRoute = AdminIntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMapRoute = AdminMapRouteImport.update({
   id: '/map',
   path: '/map',
@@ -242,6 +249,11 @@ const AdminVendorsRoute = AdminVendorsRouteImport.update({
   id: '/vendors',
   path: '/vendors',
   getParentRoute: () => AdminRoute,
+} as any)
+const ApiSentryExampleRoute = ApiSentryExampleRouteImport.update({
+  id: '/api/sentry-example',
+  path: '/api/sentry-example',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
@@ -386,6 +398,7 @@ export interface FileRoutesByFullPath {
   '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/inbox': typeof AdminInboxRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/plans': typeof AdminPlansRoute
@@ -394,6 +407,7 @@ export interface FileRoutesByFullPath {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
+  '/api/sentry-example': typeof ApiSentryExampleRoute
   '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
@@ -444,6 +458,7 @@ export interface FileRoutesByTo {
   '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/inbox': typeof AdminInboxRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/plans': typeof AdminPlansRoute
@@ -452,6 +467,7 @@ export interface FileRoutesByTo {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
+  '/api/sentry-example': typeof ApiSentryExampleRoute
   '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
@@ -505,6 +521,7 @@ export interface FileRoutesById {
   '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/inbox': typeof AdminInboxRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/map': typeof AdminMapRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/plans': typeof AdminPlansRoute
@@ -513,6 +530,7 @@ export interface FileRoutesById {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
+  '/api/sentry-example': typeof ApiSentryExampleRoute
   '/app/billing': typeof AppBillingRoute
   '/app/credit': typeof AppCreditRoute
   '/app/customers': typeof AppCustomersRoute
@@ -567,6 +585,7 @@ export interface FileRouteTypes {
     | '/admin/communications'
     | '/admin/health'
     | '/admin/inbox'
+    | '/admin/intelligence'
     | '/admin/map'
     | '/admin/notifications'
     | '/admin/plans'
@@ -575,6 +594,7 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
+    | '/api/sentry-example'
     | '/app/billing'
     | '/app/credit'
     | '/app/customers'
@@ -625,6 +645,7 @@ export interface FileRouteTypes {
     | '/admin/communications'
     | '/admin/health'
     | '/admin/inbox'
+    | '/admin/intelligence'
     | '/admin/map'
     | '/admin/notifications'
     | '/admin/plans'
@@ -633,6 +654,7 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
+    | '/api/sentry-example'
     | '/app/billing'
     | '/app/credit'
     | '/app/customers'
@@ -685,6 +707,7 @@ export interface FileRouteTypes {
     | '/admin/communications'
     | '/admin/health'
     | '/admin/inbox'
+    | '/admin/intelligence'
     | '/admin/map'
     | '/admin/notifications'
     | '/admin/plans'
@@ -693,6 +716,7 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/unclaimed'
     | '/admin/vendors'
+    | '/api/sentry-example'
     | '/app/billing'
     | '/app/credit'
     | '/app/customers'
@@ -740,6 +764,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
   VerifyRoute: typeof VerifyRoute
+  ApiSentryExampleRoute: typeof ApiSentryExampleRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -933,6 +958,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInboxRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/intelligence': {
+      id: '/admin/intelligence'
+      path: '/intelligence'
+      fullPath: '/admin/intelligence'
+      preLoaderRoute: typeof AdminIntelligenceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/map': {
       id: '/admin/map'
       path: '/map'
@@ -988,6 +1020,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/vendors'
       preLoaderRoute: typeof AdminVendorsRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/api/sentry-example': {
+      id: '/api/sentry-example'
+      path: '/api/sentry-example'
+      fullPath: '/api/sentry-example'
+      preLoaderRoute: typeof ApiSentryExampleRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/': {
       id: '/app/'
@@ -1160,6 +1199,7 @@ interface AdminRouteChildren {
   AdminCommunicationsRoute: typeof AdminCommunicationsRoute
   AdminHealthRoute: typeof AdminHealthRoute
   AdminInboxRoute: typeof AdminInboxRoute
+  AdminIntelligenceRoute: typeof AdminIntelligenceRoute
   AdminMapRoute: typeof AdminMapRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPlansRoute: typeof AdminPlansRoute
@@ -1179,6 +1219,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCommunicationsRoute: AdminCommunicationsRoute,
   AdminHealthRoute: AdminHealthRoute,
   AdminInboxRoute: AdminInboxRoute,
+  AdminIntelligenceRoute: AdminIntelligenceRoute,
   AdminMapRoute: AdminMapRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPlansRoute: AdminPlansRoute,
@@ -1266,6 +1307,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
   VerifyRoute: VerifyRoute,
+  ApiSentryExampleRoute: ApiSentryExampleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

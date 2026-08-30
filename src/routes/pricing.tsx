@@ -20,24 +20,37 @@ import {
 } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
 import { cn } from "@/lib/utils";
+import { breadcrumbJsonLd, faqJsonLd, pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/pricing")({
-  head: () => ({
-    meta: [
-      { title: "Pricing — Standard, Compliance & Enterprise | InuaBiz" },
-      {
-        name: "description",
-        content:
-          "InuaBiz Standard per shop / month, Compliance (ETR), optional assisted setup, and enterprise custom builds with dedicated infrastructure.",
-      },
-      { property: "og:title", content: "InuaBiz pricing — Standard, Compliance, Enterprise" },
-      {
-        property: "og:description",
-        content:
-          "Self-serve till from admin-managed plan rates. ETR compliance pack, assisted setup and white-label enterprise licenses — talk to Nairobi.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "InuaBiz pricing — Kenya POS plans from Ksh 3,000 / shop",
+      description:
+        "InuaBiz Standard per shop / month after a free trial, Compliance (ETR) when you need the tax pack, assisted setup, and enterprise custom builds. Clear Kenya POS pricing.",
+      path: "/pricing",
+      ogTitle: "InuaBiz pricing — Standard, Compliance, Enterprise",
+      ogDescription:
+        "Self-serve till from admin-managed plan rates. ETR compliance, assisted setup and white-label enterprise — Nairobi team.",
+      jsonLd: [
+        breadcrumbJsonLd([
+          { name: "InuaBiz", path: "/" },
+          { name: "Pricing", path: "/pricing" },
+        ]),
+        faqJsonLd([
+          {
+            question: "How much does InuaBiz cost?",
+            answer:
+              "Standard is priced per shop / month after a short free trial on the first shop. Compliance (ETR) and enterprise licenses are available when you need them.",
+          },
+          {
+            question: "Is there an InuaBiz free trial?",
+            answer:
+              "Yes. New shops get a free trial on the first location before Standard billing starts.",
+          },
+        ]),
+      ],
+    }),
   component: Pricing,
 });
 

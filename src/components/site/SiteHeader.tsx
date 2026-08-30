@@ -3,7 +3,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/brand/Logo";
-import { InstallAppButton } from "@/components/app/InstallPrompt";
+import { InstallAppButton } from "@/components/app/InstallAppButton";
 
 type NavItem = { to: string; label: string };
 

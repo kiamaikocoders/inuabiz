@@ -13,24 +13,47 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
+import {
+  faqJsonLd,
+  organizationJsonLd,
+  pageHead,
+  softwareApplicationJsonLd,
+  websiteJsonLd,
+} from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "InuaBiz — Lift Your Business | Micro-POS for Kenyan vendors" },
-      {
-        name: "description",
-        content:
-          "Mobile-first POS, M-Pesa reconciliation, digital credit ledger, extra shops and AI restock advice for Kenyan dukas, chemists and boutiques. One price per shop / month.",
-      },
-      { property: "og:title", content: "InuaBiz — Lift Your Business" },
-      {
-        property: "og:description",
-        content:
-          "Sell, track credit and reconcile M-Pesa from your phone. Short free trial, no paperwork.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      title: "InuaBiz (Inua Biz) — Kenya POS & M-Pesa till for dukas",
+      description:
+        "InuaBiz is Kenya's micro-POS for dukas, boutiques, chemists and eateries. Ring sales, reconcile M-Pesa STK/Till/Paybill, track kukopesha credit and restock with AI — from your phone.",
+      path: "/",
+      ogTitle: "InuaBiz — Lift your business from your phone",
+      ogDescription:
+        "Kenya micro-POS: M-Pesa till, credit ledger, stock alerts and AI restock. Free trial, no paperwork.",
+      jsonLd: [
+        organizationJsonLd(),
+        websiteJsonLd(),
+        softwareApplicationJsonLd(),
+        faqJsonLd([
+          {
+            question: "What is InuaBiz?",
+            answer:
+              "InuaBiz (also written Inua Biz) is a mobile-first point-of-sale for Kenyan MSMEs. It combines a till, M-Pesa reconciliation, customer credit ledger, inventory alerts and AI restock advice.",
+          },
+          {
+            question: "Does InuaBiz work with M-Pesa?",
+            answer:
+              "Yes. InuaBiz supports M-Pesa STK prompts, Buy Goods Till and Paybill, and posts matched payments to the same sale in your till book.",
+          },
+          {
+            question: "Who is InuaBiz for?",
+            answer:
+              "Kenyan dukas, boutiques, chemists, eateries and multi-shop owners who want a phone-based POS without heavy paperwork.",
+          },
+        ]),
+      ],
+    }),
   component: Landing,
 });
 
@@ -64,13 +87,16 @@ function Landing() {
                 {trialDays}-day free trial · no paperwork
               </Badge>
               <h1 className="text-primary-foreground mt-6 text-4xl leading-[1.05] font-bold sm:text-5xl lg:text-6xl">
-                Lift your business
-                <span className="text-gold block">from your phone.</span>
+                <span className="block">InuaBiz</span>
+                <span className="mt-1 block text-[0.72em] font-semibold tracking-tight sm:text-[0.68em]">
+                  Lift your business
+                  <span className="text-gold"> from your phone.</span>
+                </span>
               </h1>
               <p className="text-primary-foreground/80 mt-6 max-w-xl text-base leading-relaxed sm:text-lg">
-                InuaBiz is the micro-POS built for Kenyan dukas, boutiques, chemists and eateries.
-                Sell fast, reconcile M-Pesa automatically, track customer credit and let AI tell you
-                what to restock next.
+                InuaBiz (Inua Biz) is the Kenya POS built for dukas, boutiques, chemists and
+                eateries. Sell fast, reconcile M-Pesa automatically, track customer credit and let
+                AI tell you what to restock next.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button size="lg" variant="secondary" asChild>

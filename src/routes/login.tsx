@@ -18,19 +18,14 @@ import {
   updatePassword,
 } from "@/lib/auth";
 import { getSupabase, getRememberMe, setRememberMe, REMEMBER_EMAIL_KEY } from "@/lib/supabase";
+import { privateHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({
-    meta: [
-      { title: "Sign in — InuaBiz vendor login" },
-      {
-        name: "description",
-        content: "Sign in to InuaBiz with the email and password you used at signup.",
-      },
-      { property: "og:title", content: "Sign in to InuaBiz" },
-      { property: "og:description", content: "Email and password login for Kenyan vendors." },
-    ],
-  }),
+  head: () =>
+    privateHead(
+      "Sign in — InuaBiz",
+      "Sign in to your InuaBiz vendor account with email and password.",
+    ),
   component: Login,
 });
 
