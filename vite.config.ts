@@ -3,6 +3,8 @@ import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // Production hosts on Vercel — never default to Cloudflare Workers.
+  nitro: { preset: "vercel" },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
