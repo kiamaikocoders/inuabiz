@@ -45,6 +45,7 @@ function Notifications() {
   const ghost = useGhost();
   const [tab, setTab] = useState("all");
   const [pushBusy, setPushBusy] = useState(false);
+  const [deviceOverride, setDeviceOverride] = useState<boolean | null>(null);
   const { data: live } = useQuery({
     queryKey: ["notifications", ghost?.tenantId ?? "self"],
     queryFn: fetchNotifications,
@@ -73,6 +74,7 @@ function Notifications() {
 
   const toggleDevice = async (on: boolean) => {
     setPushBusy(true);
+    setDeviceOverride(on);
     try {
       if (on) {
         await enableDevicePush();
@@ -88,13 +90,18 @@ function Notifications() {
       await queryClient.invalidateQueries({ queryKey: ["notification-prefs"] });
       await queryClient.invalidateQueries({ queryKey: ["push-status"] });
     } catch (err) {
+      setDeviceOverride(null);
       toast.error(err instanceof Error ? err.message : "Could not update device notifications");
     } finally {
       setPushBusy(false);
+      setDeviceOverride(null);
     }
   };
 
-  const deviceOn = (prefs?.channel_push ?? true) && push?.permission === "granted";
+  const deviceBlocked = push?.permission === "denied";
+  const deviceOn =
+    deviceOverride ??
+    Boolean(push?.subscribed && prefs?.channel_push !== false);
 
   return (
     <AppShell
@@ -205,12 +212,14 @@ function Notifications() {
                 <p className="text-muted-foreground text-xs">
                   {push?.permission === "unsupported"
                     ? "This browser cannot show lock-screen alerts"
-                    : "Alerts when InuaBiz is in the background or closed"}
+                    : deviceBlocked
+                      ? "Blocked in browser settings — allow notifications for inuabiz.co.ke"
+                      : "Alerts when InuaBiz is in the background or closed"}
                 </p>
               </div>
               <Switch
                 checked={deviceOn}
-                disabled={pushBusy || push?.permission === "unsupported"}
+                disabled={pushBusy || push?.permission === "unsupported" || deviceBlocked}
                 onCheckedChange={(v) => void toggleDevice(v)}
               />
             </div>

@@ -15,6 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { NotFoundStatus, ServerErrorStatus } from "@/components/status/screens";
 import { captureInstallPrompt } from "@/lib/pwa-install";
+import { initPwaServiceWorker } from "@/lib/pwa-register";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { trackPageView } from "@/lib/analytics";
 import { initClarity } from "@/lib/monitoring";
@@ -119,6 +120,7 @@ function RootComponent() {
 
   useEffect(() => {
     captureInstallPrompt();
+    initPwaServiceWorker();
     initClarity();
   }, []);
 

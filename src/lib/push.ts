@@ -7,6 +7,8 @@ export type PushStatus = {
   subscribed: boolean;
 };
 
+const SW_WAIT_MS = 15_000;
+
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const raw = atob(base64.replace(/-/g, "+").replace(/_/g, "/") + padding);
@@ -21,6 +23,38 @@ export function pushSupported(): boolean {
     "Notification" in window &&
     "serviceWorker" in navigator
   );
+}
+
+async function waitForServiceWorker(): Promise<ServiceWorkerRegistration> {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("This browser cannot use background notifications.");
+  }
+  if (import.meta.env.DEV) {
+    throw new Error(
+      "Device notifications only work on the live app or a production build. Test on inuabiz.co.ke or run npm run build && npm run preview.",
+    );
+  }
+
+  let registration = await navigator.serviceWorker.getRegistration("/");
+  if (!registration?.active) {
+    try {
+      registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    } catch (err) {
+      throw new Error(
+        err instanceof Error ? err.message : "Could not register the InuaBiz service worker.",
+      );
+    }
+  }
+
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<ServiceWorkerRegistration>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("Service worker is still starting. Reload the page and try again.")),
+        SW_WAIT_MS,
+      );
+    }),
+  ]);
 }
 
 async function hasStoredSubscription(profileId: string): Promise<boolean> {
@@ -51,9 +85,9 @@ export async function fetchPushStatus(): Promise<PushStatus> {
     }
   }
 
-  if (firebaseConfigured() && (await isSupported())) {
+  if (firebaseConfigured() && Notification.permission === "granted" && (await isSupported())) {
     try {
-      const reg = await navigator.serviceWorker.getRegistration();
+      const reg = await navigator.serviceWorker.getRegistration("/");
       if (reg) {
         const messaging = getMessaging(getFirebaseApp());
         const token = await getToken(messaging, {
@@ -92,9 +126,7 @@ async function registerFirebasePush(profileId: string): Promise<void> {
     throw new Error("This browser cannot use Firebase push notifications.");
   }
 
-  const registration = await navigator.serviceWorker.ready;
-  if (!registration) throw new Error("Install InuaBiz or reload after a production build to get closed-app alerts.");
-
+  const registration = await waitForServiceWorker();
   const messaging = getMessaging(getFirebaseApp());
   const vapidKey = fcmVapidKey();
   if (!vapidKey) throw new Error("Firebase VAPID key is missing on this build.");
@@ -128,10 +160,7 @@ async function registerLegacyWebPush(profileId: string): Promise<void> {
     throw new Error("This browser cannot show device notifications.");
   }
 
-  const ready = await navigator.serviceWorker.ready.catch(() => null);
-  if (!ready) {
-    throw new Error("Install InuaBiz or reload after a production build to get closed-app alerts.");
-  }
+  const ready = await waitForServiceWorker();
 
   const key = await legacyVapidPublicKey();
   if (!key) throw new Error("Push is not configured on this environment yet.");
@@ -168,6 +197,12 @@ export async function enableDevicePush(): Promise<void> {
   if (typeof window === "undefined" || !("Notification" in window)) {
     throw new Error("This browser cannot show device notifications.");
   }
+  if (Notification.permission === "denied") {
+    throw new Error(
+      "Notifications are blocked for InuaBiz in this browser. Allow them in site settings, then try again.",
+    );
+  }
+
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
     throw new Error("Allow notifications in the browser to get alerts when InuaBiz is closed.");

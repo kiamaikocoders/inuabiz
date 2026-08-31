@@ -353,8 +353,7 @@ export async function saveNotificationPrefs(patch: Partial<Prefs>): Promise<void
   if (!user) return;
   const { error } = await sb
     .from("notification_preferences")
-    .update(patch)
-    .eq("profile_id", user.id);
+    .upsert({ profile_id: user.id, ...patch, updated_at: new Date().toISOString() }, { onConflict: "profile_id" });
   if (error) throw new Error(error.message);
 }
 
