@@ -34,5 +34,5 @@ Disallow: /onboarding
 Disallow: /verify
 Disallow: /maintenance
 
-Sitemap: https://inuabiz.co.ke/sitemap.xml
-Host: https://inuabiz.co.ke
+Sitemap: https://www.inuabiz.co.ke/sitemap.xml
+Host: https://www.inuabiz.co.ke

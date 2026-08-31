@@ -11,6 +11,9 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    resolve: {
+      dedupe: ["react", "react-dom"],
+    },
     server: {
       host: "localhost",
       port: 8080,

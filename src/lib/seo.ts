@@ -1,5 +1,7 @@
-/** Official apex — keep in sync with .cursor/rules/official-site.mdc */
-export const SITE_URL = "https://inuabiz.co.ke";
+/** Canonical origin — Vercel redirects apex → www; use www in canonicals/sitemap. */
+export const SITE_URL = "https://www.inuabiz.co.ke";
+/** Public marketing apex (redirects to SITE_URL). */
+export const SITE_APEX = "https://inuabiz.co.ke";
 export const SITE_NAME = "InuaBiz";
 export const SITE_EMAIL = "hello@inuabiz.co.ke";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.jpg`;

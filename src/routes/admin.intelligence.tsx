@@ -383,30 +383,32 @@ function Intelligence() {
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              void (async () => {
-                try {
-                  await Sentry.startSpan(
-                    { name: "Example Frontend Span", op: "test" },
-                    async () => {
-                      const res = await fetch("/api/sentry-example");
-                      if (!res.ok) throw new Error("Sentry Example Frontend Error");
-                    },
-                  );
-                } catch (err) {
-                  Sentry.captureException(err);
-                  toast.message("Sentry test fired", {
-                    description: "Check Issues / Traces in the InuaBiz Sentry project.",
-                  });
-                }
-              })();
-            }}
-          >
-            <Sparkles className="size-3.5" /> Test Sentry error
-          </Button>
+          {import.meta.env.DEV ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await Sentry.startSpan(
+                      { name: "Example Frontend Span", op: "test" },
+                      async () => {
+                        const res = await fetch("/api/sentry-example");
+                        if (!res.ok) throw new Error("Sentry Example Frontend Error");
+                      },
+                    );
+                  } catch (err) {
+                    Sentry.captureException(err);
+                    toast.message("Sentry test fired", {
+                      description: "Check Issues / Traces in the InuaBiz Sentry project.",
+                    });
+                  }
+                })();
+              }}
+            >
+              <Sparkles className="size-3.5" /> Test Sentry error
+            </Button>
+          ) : null}
         </div>
       </section>
     </AdminShell>
