@@ -35,26 +35,16 @@ async function waitForServiceWorker(): Promise<ServiceWorkerRegistration> {
     );
   }
 
-  let registration = await navigator.serviceWorker.getRegistration("/");
-  if (!registration?.active) {
-    try {
-      registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-    } catch (err) {
-      throw new Error(
-        err instanceof Error ? err.message : "Could not register the InuaBiz service worker.",
-      );
-    }
+  const deadline = Date.now() + SW_WAIT_MS;
+  while (Date.now() < deadline) {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (registration?.active) return registration;
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  return Promise.race([
-    navigator.serviceWorker.ready,
-    new Promise<ServiceWorkerRegistration>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Service worker is still starting. Reload the page and try again.")),
-        SW_WAIT_MS,
-      );
-    }),
-  ]);
+  throw new Error(
+    "InuaBiz could not start background alerts on this device. Reload the page and try again.",
+  );
 }
 
 async function hasStoredSubscription(profileId: string): Promise<boolean> {
