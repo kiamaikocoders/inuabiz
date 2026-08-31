@@ -1,18 +1,43 @@
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { nitro } from "nitro/vite";
+import { defineConfig, loadEnv } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-export default defineConfig({
-  // Production hosts on Vercel — never default to Cloudflare Workers.
-  nitro: { preset: "vercel" },
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
-  },
-  vite: {
+export default defineConfig(({ command, mode }) => {
+  const envDefine: Record<string, string> = {};
+  for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), "VITE_"))) {
+    envDefine[`import.meta.env.${key}`] = JSON.stringify(value);
+  }
+
+  return {
+    define: envDefine,
+    css: { transformer: "lightningcss" },
     resolve: {
-      dedupe: ["react", "react-dom"],
+      alias: { "@": `${process.cwd()}/src` },
+      dedupe: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "@tanstack/react-query",
+        "@tanstack/query-core",
+      ],
+    },
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "mapbox-gl",
+        "react-map-gl/mapbox",
+      ],
+      ignoreOutdatedRequests: true,
     },
     server: {
       host: "localhost",
@@ -20,9 +45,23 @@ export default defineConfig({
       strictPort: true,
     },
     plugins: [
+      tailwindcss(),
+      tsconfigPaths({ projects: ["./tsconfig.json"] }),
+      tanstackStart({
+        importProtection: {
+          behavior: "error",
+          client: {
+            files: ["**/server/**"],
+            specifiers: ["server-only"],
+          },
+        },
+        server: { entry: "server" },
+      }),
+      ...(command === "build" ? [nitro({ preset: "vercel" })] : []),
+      react(),
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.svg", "pwa/apple-touch-icon.png", "sounds/till-chime.mp3"],
+        includeAssets: ["favicon.svg", "favicon.ico", "pwa/apple-touch-icon.png", "sounds/till-chime.mp3"],
         manifest: {
           name: "InuaBiz — Micro-POS for Kenyan vendors",
           short_name: "InuaBiz",
@@ -60,12 +99,10 @@ export default defineConfig({
         injectManifest: {
           globPatterns: ["**/*.{js,css,html,ico,png,svg,mp3,woff2,webmanifest}"],
         },
-        // SW in Vite dev breaks Start SSR hydration + HMR; enable only for production builds.
         devOptions: {
           enabled: false,
         },
       }),
-      // Keep last so source maps / tunnel route attach after other plugins.
       sentryTanstackStart({
         org: "inuabiz",
         project: "javascript-tanstackstart-react",
@@ -73,8 +110,5 @@ export default defineConfig({
         tunnelRoute: true,
       }),
     ],
-    optimizeDeps: {
-      include: ["mapbox-gl", "react-map-gl/mapbox"],
-    },
-  },
+  };
 });

@@ -18,6 +18,7 @@ supabase/.temp/
 .idea
 .vercel
 .env*
+.lovable/
 android-companion/local.properties
 android-companion/.gradle/
 android-companion/**/build/

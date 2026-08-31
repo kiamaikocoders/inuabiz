@@ -11,7 +11,6 @@ import {
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { NotFoundStatus, ServerErrorStatus } from "@/components/status/screens";
 import { captureInstallPrompt } from "@/lib/pwa-install";
@@ -36,7 +35,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   useEffect(() => {
     Sentry.captureException(error);
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   const retry = () => {
@@ -91,6 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/pwa/apple-touch-icon.png" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
