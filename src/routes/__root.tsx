@@ -23,6 +23,11 @@ import * as Sentry from "@sentry/tanstackstart-react";
 const InstallPrompt = lazy(() =>
   import("@/components/app/InstallPrompt").then((m) => ({ default: m.InstallPrompt })),
 );
+const InuaBizBotWidget = lazy(() =>
+  import("@/components/marketing/InuaBizBotWidget").then((m) => ({
+    default: m.InuaBizBotWidget,
+  })),
+);
 
 captureInstallPrompt();
 
@@ -141,6 +146,11 @@ function RootComponent() {
     };
   }, [pathname]);
 
+  const showLandingBot =
+    !pathname.startsWith("/app") &&
+    !pathname.startsWith("/admin") &&
+    pathname !== "/maintenance";
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
@@ -148,6 +158,11 @@ function RootComponent() {
       <Suspense fallback={null}>
         <InstallPrompt />
       </Suspense>
+      {showLandingBot && (
+        <Suspense fallback={null}>
+          <InuaBizBotWidget />
+        </Suspense>
+      )}
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );

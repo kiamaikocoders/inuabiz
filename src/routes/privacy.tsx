@@ -30,7 +30,7 @@ function Privacy() {
   return (
     <LegalDocument
       title="Privacy Policy"
-      effective="27 August 2026"
+      effective="05 January 2026"
       image="/images/legal/privacy-ngong-morning.png"
       imageAlt="Ngong Hills in morning light, looking over Nairobi from the ridge"
       toc={toc}

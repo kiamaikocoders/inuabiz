@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,11 @@ import {
 } from "@/lib/analytics";
 
 export const Route = createFileRoute("/signup")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    shop: typeof s["shop"] === "string" ? s["shop"] : undefined,
+    phone: typeof s["phone"] === "string" ? s["phone"] : undefined,
+    type: typeof s["type"] === "string" ? s["type"] : undefined,
+  }),
   head: () =>
     pageHead({
       title: "Create InuaBiz account — free Kenya POS trial",
@@ -36,6 +41,7 @@ export const Route = createFileRoute("/signup")({
 
 function Signup() {
   const navigate = useNavigate();
+  const { shop: shopParam, phone: phoneParam, type: typeParam } = Route.useSearch();
   const { data: pricing } = useQuery({
     queryKey: ["public-pricing"],
     queryFn: fetchPublicPricing,
@@ -49,6 +55,16 @@ function Signup() {
   const [stage, setStage] = useState<"form" | "otp">("form");
   const [busy, setBusy] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  useEffect(() => {
+    if (shopParam) setShopName(shopParam);
+    if (phoneParam && typeof window !== "undefined") {
+      sessionStorage.setItem("inuabiz:botLeadPhone", phoneParam);
+    }
+    if (typeParam && typeof window !== "undefined") {
+      sessionStorage.setItem("inuabiz:botBusinessType", typeParam);
+    }
+  }, [shopParam, phoneParam, typeParam]);
 
   const submitForm = async () => {
     if (password.length < 8) {

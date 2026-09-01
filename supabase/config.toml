@@ -159,3 +159,6 @@ verify_jwt = true
 
 [functions.run-support-diagnostic]
 verify_jwt = true
+
+[functions.landing-bot-chat]
+verify_jwt = false

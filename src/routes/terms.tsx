@@ -31,7 +31,7 @@ function Terms() {
   return (
     <LegalDocument
       title="Terms of Service"
-      effective="27 August 2026"
+      effective="05 January 2026"
       image="/images/legal/terms-kisumu-dusk.png"
       imageAlt="Kisumu lakefront at dusk, looking across the water"
       toc={toc}

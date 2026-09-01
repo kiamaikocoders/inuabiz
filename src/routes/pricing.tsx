@@ -272,7 +272,7 @@ function Pricing() {
               ))}
             </ul>
             <Button size="lg" variant="gold" className="mt-8" asChild>
-              <Link to="/contact">Talk to Nairobi about a license</Link>
+              <Link to="/contact">Talk to InuaBiz about a license</Link>
             </Button>
           </div>
         </section>
@@ -288,16 +288,16 @@ function Pricing() {
               <div className="mt-8 flex flex-col items-center rounded-[24px] bg-card px-7 py-8 text-center shadow-lift">
                 <img
                   src="/images/pricing/faq-nairobi-woman.jpg"
-                  alt="InuaBiz teammate in Nairobi"
+                  alt="InuaBiz support team member"
                   className="size-[72px] rounded-full object-cover"
                 />
-                <h3 className="mt-4 text-xl font-bold">Talk to Nairobi</h3>
+                <h3 className="mt-4 text-xl font-bold">Talk to InuaBiz</h3>
                 <p className="text-muted-foreground mt-2 max-w-xs text-sm leading-relaxed">
                   If the public plans do not fit — extra shops, ETR, or a license — book 15 minutes
                   before you subscribe.
                 </p>
                 <Button variant="gold" className="mt-5 rounded-full" asChild>
-                  <Link to="/contact">Talk to the team</Link>
+                  <Link to="/contact">Talk to InuaBiz</Link>
                 </Button>
               </div>
             </div>
