@@ -61,7 +61,7 @@ export default defineConfig(({ command, mode }) => {
       react(),
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.svg", "favicon.ico", "pwa/apple-touch-icon.png", "sounds/till-chime.mp3"],
+        includeAssets: ["favicon.svg", "favicon.ico", "firebase-messaging-sw.js", "pwa/apple-touch-icon.png", "sounds/till-chime.mp3"],
         manifest: {
           name: "InuaBiz — Micro-POS for Kenyan vendors",
           short_name: "InuaBiz",

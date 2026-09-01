@@ -18,7 +18,8 @@ import {
   playPosChime,
   saveNotificationPrefs,
 } from "@/lib/ops";
-import { disableDevicePush, enableDevicePush, fetchPushStatus } from "@/lib/push";
+import { disableDevicePush, enableDevicePush, fetchPushStatus, testDevicePush } from "@/lib/push";
+import { unlockPosAudio } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useState } from "react";
 import { useGhost } from "@/lib/ghost";
@@ -75,6 +76,7 @@ function Notifications() {
   const toggleDevice = async (on: boolean) => {
     setPushBusy(true);
     setDeviceOverride(on);
+    unlockPosAudio();
     try {
       if (on) {
         await enableDevicePush();
@@ -226,6 +228,23 @@ function Notifications() {
             <p className="text-muted-foreground text-xs leading-relaxed">
               SMS and WhatsApp are not on this till yet. Share a receipt from the sale screen instead.
             </p>
+            {deviceOn ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={pushBusy}
+                onClick={() => {
+                  void testDevicePush()
+                    .then(() => toast.success("Test notification sent"))
+                    .catch((err: unknown) =>
+                      toast.error(err instanceof Error ? err.message : "Test failed"),
+                    );
+                }}
+              >
+                Send test notification
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>

@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useGhost } from "@/lib/ghost";
-import { fetchNotificationPrefs, playPosChime, type Prefs } from "@/lib/ops";
+import { fetchNotificationPrefs, playPosChime, unlockPosAudio, type Prefs } from "@/lib/ops";
+import { listenForForegroundPush } from "@/lib/push";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const CHIME_TYPES = new Set(["SALE", "STOCK_LOW", "CREDIT", "PAYMENT"]);
@@ -40,6 +41,23 @@ export function NotificationLive({ kind }: { kind: "vendor" | "admin" }) {
   });
   const prefsRef = useRef<Prefs | null>(null);
   prefsRef.current = prefs ?? null;
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const stopForeground = listenForForegroundPush(({ title, body, url }) => {
+      const livePrefs = prefsRef.current;
+      if (livePrefs?.channel_in_app !== false) {
+        toast(title, { description: body });
+      }
+      if (livePrefs?.channel_sound !== false) {
+        playPosChime();
+      }
+      if (livePrefs?.channel_push !== false) {
+        maybePageNotification(title, body, url);
+      }
+    });
+    return stopForeground;
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;

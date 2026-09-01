@@ -625,6 +625,7 @@ let chimeAudio: HTMLAudioElement | null = null;
 
 function unlockChime(): void {
   if (typeof window === "undefined") return;
+  unlockPosAudio();
   if (!chimeAudio) {
     chimeAudio = new Audio("/sounds/till-chime.mp3");
     chimeAudio.preload = "auto";
@@ -638,8 +639,20 @@ function unlockChime(): void {
       })
       .catch(() => undefined);
     window.removeEventListener("pointerdown", play);
+    window.removeEventListener("keydown", play);
   };
   window.addEventListener("pointerdown", play, { once: true });
+  window.addEventListener("keydown", play, { once: true });
+}
+
+export function unlockPosAudio(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const ctx = new AudioContext();
+    void ctx.resume();
+  } catch {
+    /* ignore */
+  }
 }
 
 if (typeof window !== "undefined") unlockChime();
@@ -656,7 +669,12 @@ export function playPosChime(): void {
     }
     chimeAudio.currentTime = 0;
     const played = chimeAudio.play();
-    if (played) void played.catch(() => playOscillatorFallback());
+    if (played) {
+      void played.catch(() => {
+        unlockPosAudio();
+        playOscillatorFallback();
+      });
+    }
   } catch {
     playOscillatorFallback();
   }

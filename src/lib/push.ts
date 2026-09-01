@@ -1,4 +1,4 @@
-import { deleteToken, getMessaging, getToken, isSupported } from "firebase/messaging";
+import { deleteToken, getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { firebaseConfigured, fcmVapidKey, getFirebaseApp } from "@/lib/firebase";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 
@@ -7,7 +7,8 @@ export type PushStatus = {
   subscribed: boolean;
 };
 
-const SW_WAIT_MS = 15_000;
+const SW_WAIT_MS = 20_000;
+const FCM_SW_URL = "/firebase-messaging-sw.js";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -25,7 +26,47 @@ export function pushSupported(): boolean {
   );
 }
 
-async function waitForServiceWorker(): Promise<ServiceWorkerRegistration> {
+function pushErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/push service error|token-subscribe-failed|registration-failed/i.test(msg)) {
+    return "Push registration failed. Reload the page, then try again. If it still fails, allow notifications for inuabiz.co.ke in browser settings.";
+  }
+  if (/vapid/i.test(msg)) {
+    return "Push is misconfigured on this build. Contact support if this continues.";
+  }
+  return msg || "Could not enable device notifications.";
+}
+
+async function waitForActiveWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
+  if (registration.active) return registration;
+
+  const worker = registration.installing ?? registration.waiting;
+  if (worker) {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Service worker install timed out.")), SW_WAIT_MS);
+      worker.addEventListener("statechange", () => {
+        if (worker.state === "activated") {
+          clearTimeout(timer);
+          resolve();
+        }
+        if (worker.state === "redundant") {
+          clearTimeout(timer);
+          reject(new Error("Service worker failed to activate."));
+        }
+      });
+    });
+    return registration;
+  }
+
+  const deadline = Date.now() + SW_WAIT_MS;
+  while (Date.now() < deadline) {
+    if (registration.active) return registration;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error("InuaBiz could not start background alerts on this device. Reload and try again.");
+}
+
+async function getFcmServiceWorker(): Promise<ServiceWorkerRegistration> {
   if (!("serviceWorker" in navigator)) {
     throw new Error("This browser cannot use background notifications.");
   }
@@ -35,16 +76,22 @@ async function waitForServiceWorker(): Promise<ServiceWorkerRegistration> {
     );
   }
 
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  let registration = registrations.find((reg) => reg.active?.scriptURL.includes("firebase-messaging-sw.js"));
+  if (!registration) {
+    registration = await navigator.serviceWorker.register(FCM_SW_URL);
+  }
+  return waitForActiveWorker(registration);
+}
+
+async function getPwaServiceWorker(): Promise<ServiceWorkerRegistration> {
   const deadline = Date.now() + SW_WAIT_MS;
   while (Date.now() < deadline) {
     const registration = await navigator.serviceWorker.getRegistration("/");
     if (registration?.active) return registration;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-
-  throw new Error(
-    "InuaBiz could not start background alerts on this device. Reload the page and try again.",
-  );
+  throw new Error("InuaBiz could not start background alerts on this device. Reload the page and try again.");
 }
 
 async function hasStoredSubscription(profileId: string): Promise<boolean> {
@@ -77,7 +124,9 @@ export async function fetchPushStatus(): Promise<PushStatus> {
 
   if (firebaseConfigured() && Notification.permission === "granted" && (await isSupported())) {
     try {
-      const reg = await navigator.serviceWorker.getRegistration("/");
+      const reg = (await navigator.serviceWorker.getRegistrations()).find((r) =>
+        r.active?.scriptURL.includes("firebase-messaging-sw.js"),
+      );
       if (reg) {
         const messaging = getMessaging(getFirebaseApp());
         const token = await getToken(messaging, {
@@ -116,15 +165,20 @@ async function registerFirebasePush(profileId: string): Promise<void> {
     throw new Error("This browser cannot use Firebase push notifications.");
   }
 
-  const registration = await waitForServiceWorker();
+  const registration = await getFcmServiceWorker();
   const messaging = getMessaging(getFirebaseApp());
   const vapidKey = fcmVapidKey();
   if (!vapidKey) throw new Error("Firebase VAPID key is missing on this build.");
 
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration: registration,
-  });
+  let token: string | undefined;
+  try {
+    token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    });
+  } catch (err) {
+    throw new Error(pushErrorMessage(err));
+  }
   if (!token) throw new Error("Could not register this device with Firebase.");
 
   const sb = getSupabase();
@@ -150,15 +204,20 @@ async function registerLegacyWebPush(profileId: string): Promise<void> {
     throw new Error("This browser cannot show device notifications.");
   }
 
-  const ready = await waitForServiceWorker();
+  const ready = await getPwaServiceWorker();
 
   const key = await legacyVapidPublicKey();
   if (!key) throw new Error("Push is not configured on this environment yet.");
 
-  const sub = await ready.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(key) as BufferSource,
-  });
+  let sub: PushSubscription;
+  try {
+    sub = await ready.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key) as BufferSource,
+    });
+  } catch (err) {
+    throw new Error(pushErrorMessage(err));
+  }
   const json = sub.toJSON();
   const endpoint = json.endpoint;
   const p256dh = json.keys?.["p256dh"];
@@ -206,8 +265,18 @@ export async function enableDevicePush(): Promise<void> {
   if (!user) throw new Error("Sign in to enable device notifications.");
 
   if (firebaseConfigured()) {
-    await registerFirebasePush(user.id);
-    return;
+    try {
+      await registerFirebasePush(user.id);
+      return;
+    } catch (err) {
+      const message = pushErrorMessage(err);
+      try {
+        await registerLegacyWebPush(user.id);
+        return;
+      } catch {
+        throw new Error(message);
+      }
+    }
   }
 
   await registerLegacyWebPush(user.id);
@@ -223,6 +292,10 @@ export async function disableDevicePush(): Promise<void> {
     } catch {
       /* ignore */
     }
+    const fcmReg = (await navigator.serviceWorker.getRegistrations()).find((r) =>
+      r.active?.scriptURL.includes("firebase-messaging-sw.js"),
+    );
+    await fcmReg?.unregister().catch(() => undefined);
   }
 
   const ready = await navigator.serviceWorker.ready.catch(() => null);
@@ -243,4 +316,30 @@ export async function disableDevicePush(): Promise<void> {
 export async function testDevicePush(): Promise<void> {
   const { error } = await invokeFunction("dispatch-push", { test: true });
   if (error) throw new Error(error);
+}
+
+/** Foreground FCM handler — shows alerts when the app is open but realtime missed. */
+export function listenForForegroundPush(
+  onAlert: (payload: { title: string; body: string; url: string }) => void,
+): () => void {
+  if (!firebaseConfigured() || typeof window === "undefined") return () => undefined;
+
+  let cancelled = false;
+  void (async () => {
+    if (!(await isSupported().catch(() => false))) return;
+    const messaging = getMessaging(getFirebaseApp());
+    onMessage(messaging, (payload) => {
+      if (cancelled) return;
+      const data = payload.data ?? {};
+      onAlert({
+        title: payload.notification?.title ?? data["title"] ?? "InuaBiz",
+        body: payload.notification?.body ?? data["body"] ?? "",
+        url: data["url"] ?? "/app/notifications",
+      });
+    });
+  })();
+
+  return () => {
+    cancelled = true;
+  };
 }
