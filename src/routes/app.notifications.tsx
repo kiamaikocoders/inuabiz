@@ -215,7 +215,7 @@ function Notifications() {
                   {push?.permission === "unsupported"
                     ? "This browser cannot show lock-screen alerts"
                     : deviceBlocked
-                      ? "Blocked in browser settings — allow notifications for inuabiz.co.ke"
+                      ? `Blocked in browser settings — allow notifications for ${typeof window !== "undefined" ? window.location.host : "www.inuabiz.co.ke"}`
                       : "Alerts when InuaBiz is in the background or closed"}
                 </p>
               </div>

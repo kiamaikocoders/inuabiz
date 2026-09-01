@@ -1,4 +1,4 @@
-import { deleteToken, getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
+import { deleteToken, getMessaging, isSupported, onMessage } from "firebase/messaging";
 import { firebaseConfigured, fcmVapidKey, getFirebaseApp } from "@/lib/firebase";
 import { getSupabase, invokeFunction } from "@/lib/supabase";
 
@@ -8,6 +8,7 @@ export type PushStatus = {
 };
 
 const SW_WAIT_MS = 20_000;
+const PWA_SW_PATH = "/sw.js";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -26,19 +27,56 @@ export function pushSupported(): boolean {
 }
 
 function siteOriginHint(): string {
-  if (typeof window === "undefined") return "inuabiz.co.ke";
-  return window.location.host || "inuabiz.co.ke";
+  if (typeof window === "undefined") return "www.inuabiz.co.ke";
+  return window.location.host || "www.inuabiz.co.ke";
+}
+
+function isPwaServiceWorker(scriptUrl: string | undefined): boolean {
+  if (!scriptUrl) return false;
+  try {
+    const path = new URL(scriptUrl, window.location.origin).pathname;
+    return path === PWA_SW_PATH || path.endsWith("/sw.js");
+  } catch {
+    return scriptUrl.includes("/sw.js");
+  }
+}
+
+function isFirebaseMessagingWorker(scriptUrl: string | undefined): boolean {
+  return Boolean(scriptUrl?.includes("firebase-messaging-sw.js"));
+}
+
+function isValidVapidPublicKey(key: string): boolean {
+  if (!/^[A-Za-z0-9_-]{80,96}$/.test(key) || key.startsWith("eyJ")) return false;
+  try {
+    const bytes = urlBase64ToUint8Array(key);
+    return bytes.length === 65 && bytes[0] === 4;
+  } catch {
+    return false;
+  }
 }
 
 function pushErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/push service error|token-subscribe-failed|registration-failed/i.test(msg)) {
-    return `Push registration failed on ${siteOriginHint()}. Reload, then toggle This device again. Notifications are per-site — allow them for the exact URL you use (www.inuabiz.co.ke).`;
+    return `Could not register this device for push on ${siteOriginHint()}. Hard-refresh the page (Ctrl+Shift+R), then toggle This device again. If you use both inuabiz.co.ke and www.inuabiz.co.ke, allow notifications on the exact URL you use.`;
   }
-  if (/vapid/i.test(msg)) {
+  if (/vapid|not configured/i.test(msg)) {
     return "Push is misconfigured on this build. Contact support if this continues.";
   }
   return msg || "Could not enable device notifications.";
+}
+
+async function unregisterFirebaseMessagingWorkers(): Promise<void> {
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  await Promise.all(
+    registrations
+      .filter((registration) =>
+        [registration.active, registration.waiting, registration.installing].some((worker) =>
+          isFirebaseMessagingWorker(worker?.scriptURL),
+        ),
+      )
+      .map((registration) => registration.unregister().catch(() => undefined)),
+  );
 }
 
 async function waitForActivePwaWorker(): Promise<ServiceWorkerRegistration> {
@@ -51,10 +89,45 @@ async function waitForActivePwaWorker(): Promise<ServiceWorkerRegistration> {
     );
   }
 
+  await unregisterFirebaseMessagingWorkers();
+
   const deadline = Date.now() + SW_WAIT_MS;
+  let registered = false;
   while (Date.now() < deadline) {
-    const registration = await navigator.serviceWorker.getRegistration("/");
-    if (registration?.active) return registration;
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const pwaRegistration = registrations.find((registration) =>
+      [registration.active, registration.waiting, registration.installing].some((worker) =>
+        isPwaServiceWorker(worker?.scriptURL),
+      ),
+    );
+
+    if (pwaRegistration?.active && isPwaServiceWorker(pwaRegistration.active.scriptURL)) {
+      return pwaRegistration;
+    }
+
+    if (!registered && !pwaRegistration) {
+      registered = true;
+      await navigator.serviceWorker.register(PWA_SW_PATH).catch(() => undefined);
+    }
+
+    if (pwaRegistration) {
+      const worker = pwaRegistration.installing ?? pwaRegistration.waiting;
+      if (worker) {
+        await new Promise<void>((resolve) => {
+          const timer = window.setTimeout(resolve, SW_WAIT_MS);
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "activated" || worker.state === "redundant") {
+              window.clearTimeout(timer);
+              resolve();
+            }
+          });
+        });
+        if (pwaRegistration.active && isPwaServiceWorker(pwaRegistration.active.scriptURL)) {
+          return pwaRegistration;
+        }
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
@@ -104,20 +177,31 @@ export async function fetchPushStatus(): Promise<PushStatus> {
   return { permission: Notification.permission, subscribed: Boolean(sub) };
 }
 
+function normalizeVapidPublicKey(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const key = raw.trim().replace(/^"|"$/g, "");
+  return isValidVapidPublicKey(key) ? key : null;
+}
+
 async function resolveVapidPublicKey(): Promise<string> {
   const sb = getSupabase();
   if (sb) {
-    const { data } = await sb.rpc("push_vapid_public");
-    if (typeof data === "string" && data.length > 20) return data.replace(/^"|"$/g, "");
-    const { data: row } = await sb
+    const { data, error } = await sb.rpc("push_vapid_public");
+    const rpcKey = normalizeVapidPublicKey(data);
+    if (rpcKey) return rpcKey;
+    if (error) console.warn("push_vapid_public failed", error.message);
+
+    const { data: row, error: settingsError } = await sb
       .from("platform_settings")
       .select("value")
       .eq("key", "push.vapid_public")
       .maybeSingle();
-    const value = row?.value;
-    if (typeof value === "string" && value.length > 20) return value.replace(/^"|"$/g, "");
+    const settingsKey = normalizeVapidPublicKey(row?.value);
+    if (settingsKey) return settingsKey;
+    if (settingsError) console.warn("push.vapid_public lookup failed", settingsError.message);
   }
-  const envKey = fcmVapidKey();
+
+  const envKey = normalizeVapidPublicKey(fcmVapidKey());
   if (envKey) return envKey;
   throw new Error("Push is not configured on this environment yet.");
 }
@@ -168,37 +252,6 @@ async function registerWebPush(profileId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-async function registerFirebasePush(profileId: string): Promise<void> {
-  if (!(await isSupported())) return;
-  const registrations = await navigator.serviceWorker.getRegistrations();
-  let registration = registrations.find((reg) => reg.active?.scriptURL.includes("firebase-messaging-sw.js"));
-  if (!registration) {
-    registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-  }
-  if (!registration?.active) return;
-
-  const messaging = getMessaging(getFirebaseApp());
-  const vapidKey = await resolveVapidPublicKey();
-  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
-  if (!token) return;
-
-  const sb = getSupabase();
-  if (!sb) return;
-  const { error } = await sb.from("push_subscriptions").upsert(
-    {
-      profile_id: profileId,
-      fcm_token: token,
-      endpoint: null,
-      p256dh: null,
-      auth: null,
-      user_agent: navigator.userAgent.slice(0, 240),
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "fcm_token" },
-  );
-  if (error) throw new Error(error.message);
-}
-
 export async function enableDevicePush(): Promise<void> {
   if (typeof window === "undefined" || !("Notification" in window)) {
     throw new Error("This browser cannot show device notifications.");
@@ -222,20 +275,13 @@ export async function enableDevicePush(): Promise<void> {
   if (!user) throw new Error("Sign in to enable device notifications.");
 
   await registerWebPush(user.id);
-
-  if (firebaseConfigured()) {
-    try {
-      await registerFirebasePush(user.id);
-    } catch {
-      /* Web Push subscription is enough for closed-app alerts */
-    }
-  }
 }
 
 export async function disableDevicePush(): Promise<void> {
   const sb = getSupabase();
 
   await clearLocalPushSubscriptions();
+  await unregisterFirebaseMessagingWorkers();
 
   if (firebaseConfigured() && (await isSupported().catch(() => false))) {
     try {
