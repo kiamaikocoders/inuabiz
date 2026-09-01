@@ -150,3 +150,12 @@ verify_jwt = false
 
 [functions.sync-offline-batch]
 verify_jwt = true
+
+[functions.create-support-ticket]
+verify_jwt = true
+
+[functions.reply-support-ticket]
+verify_jwt = true
+
+[functions.run-support-diagnostic]
+verify_jwt = true

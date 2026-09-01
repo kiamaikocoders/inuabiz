@@ -10,7 +10,9 @@ export type AdminAiRunType =
   | "unclaimed"
   | "broadcast"
   | "tenant_brief"
-  | "chat";
+  | "chat"
+  | "support_summarize"
+  | "support_improve_tone";
 
 export type HealthRow = {
   name: string;
@@ -444,6 +446,91 @@ export async function askAdminCopilot(
   } catch {
     const fb = heuristicBriefing(snap);
     return `${fb.summary}\n\nSuggested: ${fb.actions.map((a) => a.title).join("; ")}`;
+  }
+}
+
+export type SupportThreadInput = {
+  ticketId: string;
+  subject: string;
+  category: string;
+  priority: string;
+  tenantName: string;
+  aiSummary: string | null;
+  messages: Array<{ sender: string; text: string; at: string }>;
+};
+
+/** Condense a support thread into bullet points for admin triage. */
+export async function summarizeSupportThread(
+  thread: SupportThreadInput,
+): Promise<{ bullets: string[]; model: string; source: "gateway" | "heuristic" }> {
+  const fallback = {
+    bullets: [
+      thread.aiSummary ?? thread.subject,
+      ...thread.messages.slice(-3).map((m) => `${m.sender}: ${m.text.slice(0, 120)}`),
+    ].slice(0, 4),
+    model: "heuristic-v1",
+    source: "heuristic" as const,
+  };
+
+  try {
+    const { text, model } = await complete(
+      "Summarize this InuaBiz merchant support ticket for a super-admin. JSON only: {bullets: string[]}. Max 4 bullets, each under 120 chars. Include M-Pesa amounts/receipt codes if mentioned. British English.",
+      JSON.stringify(thread),
+      350,
+    );
+    const parsed = extractJson(text) as { bullets?: string[] };
+    const bullets = parsed.bullets?.filter(Boolean).slice(0, 4) ?? fallback.bullets;
+    const out = { bullets, model, source: "gateway" as const };
+    await logRun("support_summarize", { ticketId: thread.ticketId }, out, model, 0.1);
+    return out;
+  } catch {
+    await logRun(
+      "support_summarize",
+      { ticketId: thread.ticketId },
+      fallback,
+      fallback.model,
+      0,
+    );
+    return fallback;
+  }
+}
+
+/** Polish a draft admin reply for a Kenyan duka owner. */
+export async function improveSupportReply(input: {
+  ticketId: string;
+  subject: string;
+  tenantName: string;
+  draft: string;
+}): Promise<{ message: string; model: string; source: "gateway" | "heuristic" }> {
+  const draft = input.draft.trim();
+  if (!draft) throw new Error("Write a draft reply first");
+
+  const fallback = {
+    message: draft.endsWith(".") ? draft : `${draft}.`,
+    model: "heuristic-v1",
+    source: "heuristic" as const,
+  };
+
+  try {
+    const { text, model } = await complete(
+      "Rewrite this InuaBiz support reply for a Kenyan small-business owner (duka/chemist/eatery). JSON only: {message: string}. Warm, clear, under 280 chars. British English. Kiswahili mix OK if natural. Do not invent refunds or policy you were not told.",
+      JSON.stringify(input),
+      280,
+    );
+    const parsed = extractJson(text) as { message?: string };
+    const message = parsed.message?.trim() || fallback.message;
+    const out = { message, model, source: "gateway" as const };
+    await logRun("support_improve_tone", { ticketId: input.ticketId }, out, model, 0.08);
+    return out;
+  } catch {
+    await logRun(
+      "support_improve_tone",
+      { ticketId: input.ticketId },
+      fallback,
+      fallback.model,
+      0,
+    );
+    return fallback;
   }
 }
 

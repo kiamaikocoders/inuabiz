@@ -4,11 +4,11 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   Bell,
-  CircleHelp,
   CreditCard,
   Gauge,
   Inbox,
   LayoutGrid,
+  LifeBuoy,
   LineChart,
   Mail,
   Map,
@@ -35,6 +35,7 @@ import { fetchTenants } from "@/lib/data";
 import { fetchNotifications, fetchUnclaimedPayments } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { countNewContactMessages } from "@/lib/inbox";
+import { countOpenSupportTickets } from "@/lib/support-tickets";
 
 type NavItem = {
   to: string;
@@ -49,7 +50,7 @@ type NavGroup = { label: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
   {
-    label: "COMMAND CENTER",
+    label: "OVERVIEW",
     items: [
       {
         to: "/admin",
@@ -58,6 +59,11 @@ const navGroups: NavGroup[] = [
         exact: true,
         well: "bg-success text-white shadow-success/40",
       },
+    ],
+  },
+  {
+    label: "VENDORS & STORES",
+    items: [
       {
         to: "/admin/vendors",
         label: "Vendors",
@@ -76,23 +82,16 @@ const navGroups: NavGroup[] = [
         icon: Map,
         well: "bg-violet-500 text-white shadow-violet-500/40",
       },
+    ],
+  },
+  {
+    label: "PAYMENTS",
+    items: [
       {
         to: "/admin/unclaimed",
         label: "Unclaimed payments",
         icon: ShieldAlert,
         well: "bg-destructive text-white shadow-destructive/40",
-      },
-      {
-        to: "/admin/ai",
-        label: "Admin AI",
-        icon: Sparkles,
-        well: "bg-primary text-primary-foreground shadow-primary/40",
-      },
-      {
-        to: "/admin/intelligence",
-        label: "Intelligence",
-        icon: LineChart,
-        well: "bg-cyan-600 text-white shadow-cyan-600/40",
       },
     ],
   },
@@ -114,20 +113,42 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "SYSTEM",
+    label: "INTELLIGENCE",
     items: [
       {
-        to: "/admin/health",
-        label: "Ops command center",
-        icon: Activity,
-        well: "bg-teal-500 text-white shadow-teal-500/40",
+        to: "/admin/ai",
+        label: "Admin AI",
+        icon: Sparkles,
+        well: "bg-primary text-primary-foreground shadow-primary/40",
       },
+      {
+        to: "/admin/intelligence",
+        label: "Intelligence",
+        icon: LineChart,
+        well: "bg-cyan-600 text-white shadow-cyan-600/40",
+      },
+    ],
+  },
+  {
+    label: "INBOX & SUPPORT",
+    items: [
       {
         to: "/admin/inbox",
         label: "Contact inbox",
         icon: Inbox,
         well: "bg-rose-500 text-white shadow-rose-500/40",
       },
+      {
+        to: "/admin/tickets",
+        label: "Support desk",
+        icon: LifeBuoy,
+        well: "bg-indigo-500 text-white shadow-indigo-500/40",
+      },
+    ],
+  },
+  {
+    label: "COMMS",
+    items: [
       {
         to: "/admin/communications",
         label: "Communications",
@@ -140,6 +161,22 @@ const navGroups: NavGroup[] = [
         icon: Bell,
         well: "bg-info text-white shadow-info/40",
       },
+    ],
+  },
+  {
+    label: "OPERATIONS",
+    items: [
+      {
+        to: "/admin/health",
+        label: "Ops command center",
+        icon: Activity,
+        well: "bg-teal-500 text-white shadow-teal-500/40",
+      },
+    ],
+  },
+  {
+    label: "ACCOUNT",
+    items: [
       {
         to: "/admin/profile",
         label: "Profile",
@@ -177,6 +214,7 @@ function SidebarInner({
   vendorCount,
   unclaimedCount,
   inboxCount,
+  ticketCount,
   unreadCount,
 }: {
   onNavigate?: (() => void) | undefined;
@@ -187,6 +225,7 @@ function SidebarInner({
   vendorCount: number;
   unclaimedCount: number;
   inboxCount: number;
+  ticketCount: number;
   unreadCount: number;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -269,6 +308,8 @@ function SidebarInner({
                             ? unclaimedCount
                             : item.to === "/admin/inbox"
                               ? inboxCount
+                              : item.to === "/admin/tickets"
+                                ? ticketCount
                             : item.to === "/admin/notifications"
                               ? unreadCount
                               : item.badge;
@@ -337,6 +378,11 @@ export function AdminShell({
     queryFn: countNewContactMessages,
     enabled: live,
   });
+  const { data: ticketOpen = 0 } = useQuery({
+    queryKey: ["support-tickets-open-count"],
+    queryFn: countOpenSupportTickets,
+    enabled: live,
+  });
   const { data: notes = [] } = useQuery({
     queryKey: ["notifications", "self"],
     queryFn: fetchNotifications,
@@ -345,6 +391,7 @@ export function AdminShell({
   const vendorCount = vendors.length;
   const unclaimedCount = unclaimed.length;
   const inboxCount = inboxNew;
+  const ticketCount = ticketOpen;
   const unread = notes.filter((n) => !n.read).length;
   const [query, setQuery] = useState("");
   const [dark, setDark] = useState(false);
@@ -375,6 +422,7 @@ export function AdminShell({
           vendorCount={vendorCount}
           unclaimedCount={unclaimedCount}
           inboxCount={inboxCount}
+          ticketCount={ticketCount}
           unreadCount={unread}
         />
       </aside>
@@ -398,6 +446,7 @@ export function AdminShell({
                   vendorCount={vendorCount}
                   unclaimedCount={unclaimedCount}
                   inboxCount={inboxCount}
+                  ticketCount={ticketCount}
                   unreadCount={unread}
                 />
               </SheetContent>
@@ -416,11 +465,6 @@ export function AdminShell({
 
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               {actions}
-              <Button variant="secondary" size="icon" className="size-9 rounded-full" asChild>
-                <Link to="/contact" aria-label="Help">
-                  <CircleHelp className="size-[18px]" />
-                </Link>
-              </Button>
               <Button
                 variant="secondary"
                 size="icon"

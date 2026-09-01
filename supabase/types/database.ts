@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -116,6 +116,44 @@ export type Database = {
             columns: ["target_tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_ops_audit: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string
+          id: string
+          payload: Json
+          target_label: string | null
+          target_tenant_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          target_label?: string | null
+          target_tenant_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          target_label?: string | null
+          target_tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_ops_audit_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -340,42 +378,6 @@ export type Database = {
           },
         ]
       }
-      contact_messages: {
-        Row: {
-          created_at: string
-          email: string | null
-          id: string
-          message: string
-          name: string
-          phone: string | null
-          status: string
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          id?: string
-          message: string
-          name: string
-          phone?: string | null
-          status?: string
-          topic?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
-          id?: string
-          message?: string
-          name?: string
-          phone?: string | null
-          status?: string
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       companion_devices: {
         Row: {
           created_at: string
@@ -429,6 +431,13 @@ export type Database = {
             columns: ["shop_id"]
             isOneToOne: false
             referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companion_devices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
             referencedColumns: ["id"]
           },
           {
@@ -499,10 +508,53 @@ export type Database = {
             foreignKeyName: "companion_sms_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companion_sms_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          message: string
+          name: string
+          phone: string | null
+          status: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          message: string
+          name: string
+          phone?: string | null
+          status?: string
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          message?: string
+          name?: string
+          phone?: string | null
+          status?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       credit_entries: {
         Row: {
@@ -890,53 +942,6 @@ export type Database = {
           },
         ]
       }
-      notification_preferences: {
-        Row: {
-          channel_email: boolean
-          channel_in_app: boolean
-          channel_sms: boolean
-          channel_sound: boolean
-          channel_whatsapp: boolean
-          channel_push: boolean
-          created_at: string
-          id: string
-          profile_id: string
-          updated_at: string
-        }
-        Insert: {
-          channel_email?: boolean
-          channel_in_app?: boolean
-          channel_sms?: boolean
-          channel_sound?: boolean
-          channel_whatsapp?: boolean
-          channel_push?: boolean
-          created_at?: string
-          id?: string
-          profile_id: string
-          updated_at?: string
-        }
-        Update: {
-          channel_email?: boolean
-          channel_in_app?: boolean
-          channel_sms?: boolean
-          channel_sound?: boolean
-          channel_whatsapp?: boolean
-          channel_push?: boolean
-          created_at?: string
-          id?: string
-          profile_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_preferences_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       newsletter_subscribers: {
         Row: {
           confirmed: boolean
@@ -963,6 +968,53 @@ export type Database = {
           unsubscribed_at?: string | null
         }
         Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          channel_email: boolean
+          channel_in_app: boolean
+          channel_push: boolean
+          channel_sms: boolean
+          channel_sound: boolean
+          channel_whatsapp: boolean
+          created_at: string
+          id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel_email?: boolean
+          channel_in_app?: boolean
+          channel_push?: boolean
+          channel_sms?: boolean
+          channel_sound?: boolean
+          channel_whatsapp?: boolean
+          created_at?: string
+          id?: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel_email?: boolean
+          channel_in_app?: boolean
+          channel_push?: boolean
+          channel_sms?: boolean
+          channel_sound?: boolean
+          channel_whatsapp?: boolean
+          created_at?: string
+          id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -1021,6 +1073,67 @@ export type Database = {
           },
           {
             foreignKeyName: "notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offline_client_ops: {
+        Row: {
+          applied_at: string
+          client_op_id: string
+          conflict_code: string | null
+          created_at: string
+          op_type: string
+          payload: Json
+          profile_id: string
+          result: Json | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          applied_at?: string
+          client_op_id: string
+          conflict_code?: string | null
+          created_at?: string
+          op_type: string
+          payload?: Json
+          profile_id: string
+          result?: Json | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          applied_at?: string
+          client_op_id?: string
+          conflict_code?: string | null
+          created_at?: string
+          op_type?: string
+          payload?: Json
+          profile_id?: string
+          result?: Json | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_client_ops_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_client_ops_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_client_ops_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1166,6 +1279,58 @@ export type Database = {
           },
         ]
       }
+      platform_feature_flags: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          id: string
+          key: string
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          key: string
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          key?: string
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_feature_flags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_feature_flags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_feature_flags_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           description: string | null
@@ -1197,6 +1362,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_events: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          path: string | null
+          props: Json
+          session_hash: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          name: string
+          path?: string | null
+          props?: Json
+          session_hash?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          name?: string
+          path?: string | null
+          props?: Json
+          session_hash?: string | null
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -1286,6 +1478,7 @@ export type Database = {
       profiles: {
         Row: {
           active_shop_id: string | null
+          avatar_url: string | null
           created_at: string
           full_name: string | null
           id: string
@@ -1299,6 +1492,7 @@ export type Database = {
         }
         Insert: {
           active_shop_id?: string | null
+          avatar_url?: string | null
           created_at?: string
           full_name?: string | null
           id: string
@@ -1312,6 +1506,7 @@ export type Database = {
         }
         Update: {
           active_shop_id?: string | null
+          avatar_url?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
@@ -1898,6 +2093,61 @@ export type Database = {
           },
         ]
       }
+      subscription_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          mpesa_receipt_code: string | null
+          payhero_reference: string
+          payment_transaction_id: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          mpesa_receipt_code?: string | null
+          payhero_reference: string
+          payment_transaction_id?: string | null
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          mpesa_receipt_code?: string | null
+          payhero_reference?: string
+          payment_transaction_id?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payments_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           amount_kes: number
@@ -2038,6 +2288,181 @@ export type Database = {
           },
         ]
       }
+      support_ticket_internal_notes: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          id: string
+          note: string
+          ticket_id: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          note: string
+          ticket_id: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_internal_notes_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ticket_internal_notes_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_ticket_messages: {
+        Row: {
+          attachments: Json
+          created_at: string
+          id: string
+          message: string
+          sender_id: string | null
+          sender_type: string
+          tenant_id: string
+          ticket_id: string
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          id?: string
+          message: string
+          sender_id?: string | null
+          sender_type: string
+          tenant_id: string
+          ticket_id: string
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          id?: string
+          message?: string
+          sender_id?: string | null
+          sender_type?: string
+          tenant_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ticket_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ticket_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          ai_summary: string | null
+          assigned_to: string | null
+          category: string
+          context: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          priority: string
+          status: string
+          subject: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          assigned_to?: string | null
+          category?: string
+          context?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          subject: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          assigned_to?: string | null
+          category?: string
+          context?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          subject?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_tenant_map"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_payment_destinations: {
         Row: {
           account_name: string | null
@@ -2090,18 +2515,19 @@ export type Database = {
           category: Database["public"]["Enums"]["business_category"]
           created_at: string
           email: string | null
+          email_receipt_enabled: boolean
           id: string
           kra_pin: string | null
           legal_name: string | null
           location_lat: number | null
           location_lng: number | null
+          logo_url: string | null
           name: string
           phone: string
           status: Database["public"]["Enums"]["tenant_status"]
           trial_ends_at: string
           updated_at: string
           vat_registered: boolean
-          email_receipt_enabled: boolean
         }
         Insert: {
           access_until?: string
@@ -2109,18 +2535,19 @@ export type Database = {
           category?: Database["public"]["Enums"]["business_category"]
           created_at?: string
           email?: string | null
+          email_receipt_enabled?: boolean
           id?: string
           kra_pin?: string | null
           legal_name?: string | null
           location_lat?: number | null
           location_lng?: number | null
+          logo_url?: string | null
           name: string
           phone: string
           status?: Database["public"]["Enums"]["tenant_status"]
           trial_ends_at?: string
           updated_at?: string
           vat_registered?: boolean
-          email_receipt_enabled?: boolean
         }
         Update: {
           access_until?: string
@@ -2128,18 +2555,19 @@ export type Database = {
           category?: Database["public"]["Enums"]["business_category"]
           created_at?: string
           email?: string | null
+          email_receipt_enabled?: boolean
           id?: string
           kra_pin?: string | null
           legal_name?: string | null
           location_lat?: number | null
           location_lng?: number | null
+          logo_url?: string | null
           name?: string
           phone?: string
           status?: Database["public"]["Enums"]["tenant_status"]
           trial_ends_at?: string
           updated_at?: string
           vat_registered?: boolean
-          email_receipt_enabled?: boolean
         }
         Relationships: []
       }
@@ -2271,6 +2699,41 @@ export type Database = {
       }
     }
     Functions: {
+      admin_extend_trial: {
+        Args: { p_days: number; p_reason: string; p_tenant_id: string }
+        Returns: Json
+      }
+      admin_ops_digest_snapshot: { Args: never; Returns: Json }
+      admin_ops_pulse: { Args: never; Returns: Json }
+      admin_override_subscription: {
+        Args: {
+          p_amount: number
+          p_custom_unit_amount_kes?: number
+          p_period_days: number
+          p_plan_code: string
+          p_reason: string
+          p_set_custom_unit?: boolean
+          p_status: Database["public"]["Enums"]["tenant_status"]
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      admin_product_intelligence: { Args: { p_days?: number }; Returns: Json }
+      admin_purge_tenant: {
+        Args: { p_confirm_name: string; p_reason: string; p_tenant_id: string }
+        Returns: Json
+      }
+      admin_retry_cron: { Args: { p_jobname: string }; Returns: Json }
+      admin_retry_email: { Args: { p_log_id: number }; Returns: Json }
+      admin_set_feature_flag: {
+        Args: {
+          p_description?: string
+          p_enabled: boolean
+          p_key: string
+          p_tenant_id?: string
+        }
+        Returns: Json
+      }
       complete_vendor_onboarding: {
         Args: {
           p_account_name?: string
@@ -2292,12 +2755,18 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: number
       }
+      feature_enabled: {
+        Args: { p_key: string; p_tenant_id?: string }
+        Returns: boolean
+      }
       get_app_secret: { Args: { p_name: string }; Returns: string }
       invite_shop_staff: {
         Args: { p_full_name?: string; p_phone: string; p_shop_id: string }
         Returns: string
       }
       issue_sale_invoice: { Args: { p_sale_id: string }; Returns: string }
+      plan_amount_kes: { Args: { p_code: string }; Returns: number }
+      push_vapid_public: { Args: never; Returns: string }
       set_active_shop: { Args: { p_shop_id: string }; Returns: undefined }
       subscription_amount_for_tenant: {
         Args: { p_tenant_id: string }
@@ -2307,15 +2776,7 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
-      plan_amount_kes: {
-        Args: { p_code: string }
-        Returns: number
-      }
-      push_vapid_public: { Args: Record<PropertyKey, never>; Returns: string }
-      sync_billing_settings_from_plans: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      sync_billing_settings_from_plans: { Args: never; Returns: undefined }
       sync_tenant_subscription_amount: {
         Args: { p_tenant_id: string }
         Returns: number
@@ -2360,6 +2821,8 @@ export type Database = {
         | "CREDIT"
         | "RATIBA"
         | "BILL_MANAGER"
+        | "MPESA"
+        | "PAYHERO"
       payment_destination_type: "PERSONAL_MPESA" | "TILL" | "PAYBILL" | "POCHI"
       payment_purpose:
         | "SAAS_SUBSCRIPTION"
@@ -2536,6 +2999,8 @@ export const Constants = {
         "CREDIT",
         "RATIBA",
         "BILL_MANAGER",
+        "MPESA",
+        "PAYHERO",
       ],
       payment_destination_type: ["PERSONAL_MPESA", "TILL", "PAYBILL", "POCHI"],
       payment_purpose: [

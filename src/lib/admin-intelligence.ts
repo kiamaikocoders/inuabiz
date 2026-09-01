@@ -184,3 +184,30 @@ export function simulateFunnel(
     lostToIssues,
   };
 }
+
+/** Week-over-week % change from the last two cohort rows, or null if unavailable. */
+export function cohortWowDelta(
+  cohorts: ProductIntelligence["cohorts"],
+  key: "signed_up" | "completed" | "activated" | "retained",
+): number | null {
+  if (cohorts.length < 2) return null;
+  const last = cohorts[cohorts.length - 1]![key];
+  const prev = cohorts[cohorts.length - 2]![key];
+  if (prev <= 0) return last > 0 ? 100 : null;
+  return Math.round(((last - prev) / prev) * 1000) / 10;
+}
+
+/** Last N cohort weeks as sparkline points (oldest → newest). */
+export function cohortSparkline(
+  cohorts: ProductIntelligence["cohorts"],
+  key: "signed_up" | "completed" | "activated" | "retained",
+  limit = 8,
+): Array<{ i: number; v: number }> {
+  return cohorts.slice(-limit).map((c, i) => ({ i, v: c[key] }));
+}
+
+export function shortWeekLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(5, 10);
+  return d.toLocaleDateString("en-KE", { month: "short", day: "numeric" });
+}

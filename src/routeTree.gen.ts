@@ -44,6 +44,7 @@ import { Route as AdminPlansRouteImport } from './routes/admin.plans'
 import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
+import { Route as AdminTicketsRouteImport } from './routes/admin.tickets'
 import { Route as AdminUnclaimedRouteImport } from './routes/admin.unclaimed'
 import { Route as AdminVendorsRouteImport } from './routes/admin.vendors'
 import { Route as ApiSentryExampleRouteImport } from './routes/api.sentry-example'
@@ -63,6 +64,7 @@ import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppSalesRouteImport } from './routes/app.sales'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppShopsRouteImport } from './routes/app.shops'
+import { Route as AppSupportRouteImport } from './routes/app.support'
 import { Route as AppTicketsRouteImport } from './routes/app.tickets'
 import { Route as AdminTenantsTenantIdRouteImport } from './routes/admin.tenants_.$tenantId'
 import { Route as AppCustomersCustomerIdRouteImport } from './routes/app.customers_.$customerId'
@@ -246,6 +248,11 @@ const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
   path: '/subscriptions',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTicketsRoute = AdminTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminUnclaimedRoute = AdminUnclaimedRouteImport.update({
   id: '/unclaimed',
   path: '/unclaimed',
@@ -341,6 +348,11 @@ const AppShopsRoute = AppShopsRouteImport.update({
   path: '/shops',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSupportRoute = AppSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTicketsRoute = AppTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
@@ -412,6 +424,7 @@ export interface FileRoutesByFullPath {
   '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/tickets': typeof AdminTicketsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/api/sentry-example': typeof ApiSentryExampleRoute
@@ -430,6 +443,7 @@ export interface FileRoutesByFullPath {
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/shops': typeof AppShopsRoute
+  '/app/support': typeof AppSupportRoute
   '/app/tickets': typeof AppTicketsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
@@ -473,6 +487,7 @@ export interface FileRoutesByTo {
   '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/tickets': typeof AdminTicketsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/api/sentry-example': typeof ApiSentryExampleRoute
@@ -491,6 +506,7 @@ export interface FileRoutesByTo {
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/shops': typeof AppShopsRoute
+  '/app/support': typeof AppSupportRoute
   '/app/tickets': typeof AppTicketsRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
@@ -537,6 +553,7 @@ export interface FileRoutesById {
   '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/tickets': typeof AdminTicketsRoute
   '/admin/unclaimed': typeof AdminUnclaimedRoute
   '/admin/vendors': typeof AdminVendorsRoute
   '/api/sentry-example': typeof ApiSentryExampleRoute
@@ -555,6 +572,7 @@ export interface FileRoutesById {
   '/app/sales': typeof AppSalesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/shops': typeof AppShopsRoute
+  '/app/support': typeof AppSupportRoute
   '/app/tickets': typeof AppTicketsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
@@ -602,6 +620,7 @@ export interface FileRouteTypes {
     | '/admin/profile'
     | '/admin/settings'
     | '/admin/subscriptions'
+    | '/admin/tickets'
     | '/admin/unclaimed'
     | '/admin/vendors'
     | '/api/sentry-example'
@@ -620,6 +639,7 @@ export interface FileRouteTypes {
     | '/app/sales'
     | '/app/settings'
     | '/app/shops'
+    | '/app/support'
     | '/app/tickets'
     | '/admin/'
     | '/app/'
@@ -663,6 +683,7 @@ export interface FileRouteTypes {
     | '/admin/profile'
     | '/admin/settings'
     | '/admin/subscriptions'
+    | '/admin/tickets'
     | '/admin/unclaimed'
     | '/admin/vendors'
     | '/api/sentry-example'
@@ -681,6 +702,7 @@ export interface FileRouteTypes {
     | '/app/sales'
     | '/app/settings'
     | '/app/shops'
+    | '/app/support'
     | '/app/tickets'
     | '/admin'
     | '/app'
@@ -726,6 +748,7 @@ export interface FileRouteTypes {
     | '/admin/profile'
     | '/admin/settings'
     | '/admin/subscriptions'
+    | '/admin/tickets'
     | '/admin/unclaimed'
     | '/admin/vendors'
     | '/api/sentry-example'
@@ -744,6 +767,7 @@ export interface FileRouteTypes {
     | '/app/sales'
     | '/app/settings'
     | '/app/shops'
+    | '/app/support'
     | '/app/tickets'
     | '/admin/'
     | '/app/'
@@ -1027,6 +1051,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/tickets': {
+      id: '/admin/tickets'
+      path: '/tickets'
+      fullPath: '/admin/tickets'
+      preLoaderRoute: typeof AdminTicketsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/unclaimed': {
       id: '/admin/unclaimed'
       path: '/unclaimed'
@@ -1160,6 +1191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppShopsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/support': {
+      id: '/app/support'
+      path: '/support'
+      fullPath: '/app/support'
+      preLoaderRoute: typeof AppSupportRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/tickets': {
       id: '/app/tickets'
       path: '/tickets'
@@ -1226,6 +1264,7 @@ interface AdminRouteChildren {
   AdminProfileRoute: typeof AdminProfileRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+  AdminTicketsRoute: typeof AdminTicketsRoute
   AdminUnclaimedRoute: typeof AdminUnclaimedRoute
   AdminVendorsRoute: typeof AdminVendorsRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -1246,6 +1285,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminProfileRoute: AdminProfileRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+  AdminTicketsRoute: AdminTicketsRoute,
   AdminUnclaimedRoute: AdminUnclaimedRoute,
   AdminVendorsRoute: AdminVendorsRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -1270,6 +1310,7 @@ interface AppRouteChildren {
   AppSalesRoute: typeof AppSalesRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppShopsRoute: typeof AppShopsRoute
+  AppSupportRoute: typeof AppSupportRoute
   AppTicketsRoute: typeof AppTicketsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCustomersCustomerIdRoute: typeof AppCustomersCustomerIdRoute
@@ -1295,6 +1336,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSalesRoute: AppSalesRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppShopsRoute: AppShopsRoute,
+  AppSupportRoute: AppSupportRoute,
   AppTicketsRoute: AppTicketsRoute,
   AppIndexRoute: AppIndexRoute,
   AppCustomersCustomerIdRoute: AppCustomersCustomerIdRoute,

@@ -1,5 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
@@ -13,6 +13,7 @@ import {
   Package,
   Receipt,
   Settings,
+  LifeBuoy,
   Sparkles,
   Store,
   Ticket,
@@ -41,6 +42,8 @@ import { fetchProfile } from "@/lib/auth";
 import { useShopCategory } from "@/hooks/use-shop-category";
 import type { FeatureModule } from "@/lib/category";
 import { NotificationLive } from "@/components/app/NotificationLive";
+import { SupportFloatingButton } from "@/components/app/SupportFloatingButton";
+import { SupportTicketDialog } from "@/components/app/SupportTicketDialog";
 import { BroadcastBanner } from "@/components/app/BroadcastBanner";
 import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { fetchBillingSnapshot, vendorPlanBadge } from "@/lib/payments";
@@ -48,21 +51,7 @@ import { KES } from "@/lib/mock-data";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; exact?: boolean };
 
-const nav: NavItem[] = [
-  { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/app/pos", label: "Point of sale", icon: Store },
-  { to: "/app/sales", label: "Sales", icon: Receipt },
-  { to: "/app/inventory", label: "Inventory", icon: Package },
-  { to: "/app/credit", label: "Duka debt", icon: CreditCard },
-  { to: "/app/customers", label: "Customers", icon: Users },
-  { to: "/app/insights", label: "AI insights", icon: Sparkles },
-  { to: "/app/invoices", label: "Invoices", icon: FileText },
-  { to: "/app/shops", label: "Shops", icon: Store },
-  { to: "/app/billing", label: "Subscription", icon: ChartLine },
-  { to: "/app/notifications", label: "Notifications", icon: Bell },
-  { to: "/app/settings", label: "Settings", icon: Settings },
-  { to: "/app/profile", label: "Profile", icon: UserRound },
-];
+type NavGroup = { label: string; items: NavItem[] };
 
 const MODULE_ICON: Partial<Record<FeatureModule, LucideIcon>> = {
   table_management: LayoutGrid,
@@ -71,47 +60,95 @@ const MODULE_ICON: Partial<Record<FeatureModule, LucideIcon>> = {
   expiry_alerts: CalendarClock,
 };
 
+function buildVendorNavGroups(category: string, categoryNav: Array<{ to: string; label: string; module: FeatureModule }>): NavGroup[] {
+  const creditLabel = category === "DUKA" ? "Duka debt" : "Credit book";
+  return [
+    {
+      label: "TILL",
+      items: [
+        { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
+        { to: "/app/pos", label: "Point of sale", icon: Store },
+        ...categoryNav.map((item) => ({
+          to: item.to,
+          label: item.label,
+          icon: MODULE_ICON[item.module] ?? Store,
+        })),
+        { to: "/app/sales", label: "Sales", icon: Receipt },
+      ],
+    },
+    {
+      label: "SHOP",
+      items: [
+        { to: "/app/inventory", label: "Inventory", icon: Package },
+        { to: "/app/credit", label: creditLabel, icon: CreditCard },
+        { to: "/app/customers", label: "Customers", icon: Users },
+        { to: "/app/invoices", label: "Invoices", icon: FileText },
+      ],
+    },
+    {
+      label: "INSIGHTS",
+      items: [{ to: "/app/insights", label: "AI insights", icon: Sparkles }],
+    },
+    {
+      label: "BUSINESS",
+      items: [
+        { to: "/app/shops", label: "Shops", icon: Store },
+        { to: "/app/billing", label: "Subscription", icon: ChartLine },
+      ],
+    },
+    {
+      label: "ALERTS & SUPPORT",
+      items: [
+        { to: "/app/notifications", label: "Notifications", icon: Bell },
+        { to: "/app/support", label: "Support", icon: LifeBuoy },
+      ],
+    },
+    {
+      label: "ACCOUNT",
+      items: [
+        { to: "/app/settings", label: "Settings", icon: Settings },
+        { to: "/app/profile", label: "Profile", icon: UserRound },
+      ],
+    },
+  ];
+}
+
 function NavList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { def, category } = useShopCategory();
-  const items: NavItem[] = [
-    ...nav.slice(0, 2),
-    ...def.nav.map((item) => ({
-      to: item.to,
-      label: item.label,
-      icon: MODULE_ICON[item.module] ?? Store,
-    })),
-    ...nav
-      .slice(2)
-      .map((item) =>
-        item.to === "/app/credit"
-          ? { ...item, label: category === "DUKA" ? "Duka debt" : "Credit book" }
-          : item,
-      ),
-  ];
+  const groups = buildVendorNavGroups(category, def.nav);
 
   return (
-    <nav className="flex flex-col gap-0.5 px-3">
-      {items.map((item) => {
-        const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.to}
-            to={item.to as never}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-            )}
-          >
-            <Icon className={cn("size-4", active && "text-sidebar-primary")} />
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3">
+      {groups.map((group) => (
+        <div key={group.label} className="mt-3 first:mt-0">
+          <p className="text-sidebar-foreground/45 px-3 pt-2 pb-1 text-[10px] font-semibold tracking-[0.08em]">
+            {group.label}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {group.items.map((item) => {
+              const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to as never}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <Icon className={cn("size-4", active && "text-sidebar-primary")} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 }
@@ -171,8 +208,10 @@ function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined })
           </select>
         </div>
       )}
-      <NavList onNavigate={onNavigate} />
-      <div className="mt-auto px-4 pt-6">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <NavList onNavigate={onNavigate} />
+      </div>
+      <div className="mt-auto px-4 pt-4">
         <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-4">
           <p className="text-xs font-semibold text-sidebar-primary">
             {access ? "Subscription" : "Access locked"}
@@ -219,6 +258,10 @@ export function AppShell({
     queryFn: fetchTenantAccess,
     enabled: isSupabaseConfigured(),
   });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const [supportOpen, setSupportOpen] = useState(false);
+  const showSupportFab = isSupabaseConfigured() && !ghost && !pathname.startsWith("/app/support");
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -299,6 +342,18 @@ export function AppShell({
           )}
           {children}
         </main>
+        {showSupportFab && (
+          <>
+            <SupportFloatingButton onClick={() => setSupportOpen(true)} />
+            <SupportTicketDialog
+              open={supportOpen}
+              onOpenChange={setSupportOpen}
+              onCreated={(ticketId) => {
+                void navigate({ to: "/app/support", search: { ticket: ticketId } });
+              }}
+            />
+          </>
+        )}
       </div>
     </div>
   );
