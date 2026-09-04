@@ -52,6 +52,8 @@ export type Sale = {
   status: "Complete" | "Pending" | "Failed";
   createdAt?: string;
   mpesaReceipt?: string | null;
+  /** Queued locally; not yet on the server. Never treat as another tenant's sale. */
+  offlinePending?: boolean;
 };
 
 export type Customer = {

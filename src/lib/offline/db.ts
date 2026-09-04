@@ -178,3 +178,30 @@ export async function cacheTenantAccess(access: boolean): Promise<void> {
 export async function readCachedTenantAccess(): Promise<boolean | null> {
   return getMeta<boolean>("tenantAccess");
 }
+
+type ReplicaOwner = { userId: string; tenantId: string | null };
+
+/** Wipe IndexedDB shop data so a second login on this browser cannot see the previous tenant. */
+export async function clearVendorReplica(): Promise<void> {
+  if (!offlineDb) return;
+  await Promise.all([
+    offlineDb.products.clear(),
+    offlineDb.customers.clear(),
+    offlineDb.shopCustomers.clear(),
+    offlineDb.sales.clear(),
+    offlineDb.openSales.clear(),
+    offlineDb.creditBook.clear(),
+    offlineDb.shops.clear(),
+    offlineDb.notifications.clear(),
+    offlineDb.outbox.clear(),
+    offlineDb.conflicts.clear(),
+    offlineDb.meta.clear(),
+  ]);
+}
+
+export async function ensureReplicaOwner(owner: ReplicaOwner): Promise<void> {
+  const current = await getMeta<ReplicaOwner>("replicaOwner");
+  if (current?.userId === owner.userId && current.tenantId === owner.tenantId) return;
+  await clearVendorReplica();
+  await setMeta("replicaOwner", owner);
+}

@@ -78,11 +78,8 @@ export async function fetchProducts(): Promise<Product[]> {
       )
       .eq("is_active", true)
       .order("name");
-    if (error || !data?.length) {
-      const cached = await readProducts();
-      return cached.length ? cached : [];
-    }
-    const mapped = data.map((row) => mapProductRow(row as Record<string, unknown>));
+    if (error) return readProducts();
+    const mapped = (data ?? []).map((row) => mapProductRow(row as Record<string, unknown>));
     await replaceProducts(mapped);
     return mapped;
   } catch {
@@ -286,11 +283,8 @@ export async function fetchOpenSales(): Promise<OpenSale[]> {
       .in("status", ["DRAFT", "PENDING_PAYMENT"])
       .order("created_at", { ascending: false })
       .limit(40);
-    if (error || !data?.length) {
-      const cached = await readOpenSales();
-      return cached.length ? (cached as OpenSale[]) : [];
-    }
-    const mapped = data.map((row) => {
+    if (error) return (await readOpenSales()) as OpenSale[];
+    const mapped = (data ?? []).map((row) => {
       const items = Array.isArray(row.sale_items) ? row.sale_items : [];
       const lines = items.map((item) => {
         const line = item as {
@@ -358,11 +352,9 @@ export async function fetchSales(): Promise<Sale[]> {
       )
       .order("created_at", { ascending: false })
       .limit(50);
-    if (error || !data?.length) {
-      const cached = await readSales();
-      return cached.length ? cached : [];
-    }
-    const mapped = data.map((row) => {
+    // Empty is a valid tenant with no sales — never fall back to another shop's IndexedDB.
+    if (error) return readSales();
+    const mapped = (data ?? []).map((row) => {
       const created = new Date(row.created_at as string);
       const items = Array.isArray(row.sale_items) ? row.sale_items.length : 1;
       const mpesa = (row.mpesa_receipt_code as string | null) ?? null;
@@ -385,7 +377,7 @@ export async function fetchSales(): Promise<Sale[]> {
       return sale;
     });
     const localOnly = (await readSales()).filter(
-      (s) => !mapped.some((m) => m.id === s.id) && String(s.id).includes("-"),
+      (s) => s.offlinePending && !mapped.some((m) => m.id === s.id),
     );
     const merged = [...localOnly, ...mapped];
     await replaceSales(merged);
@@ -419,8 +411,8 @@ export async function fetchShopCustomers(): Promise<{ id: string; name: string; 
   if (!sb || (await shouldUseCache())) return readShopCustomers();
   try {
     const { data, error } = await sb.from("customers").select("id, name, phone").order("name");
-    if (error || !data) return readShopCustomers();
-    const mapped = data.map((row) => ({
+    if (error) return readShopCustomers();
+    const mapped = (data ?? []).map((row) => ({
       id: row.id as string,
       name: (row.name as string | null) ?? "Customer",
       phone: prettyKePhone((row.phone as string | null) ?? ""),
@@ -440,12 +432,12 @@ export async function fetchCustomers(): Promise<Customer[]> {
       .from("customers")
       .select("id, name, phone, email, notes")
       .order("name");
-    if (error || !data) return readCustomers();
+    if (error) return readCustomers();
     const { data: stats } = await sb
       .from("customer_loyalty_stats")
       .select("customer_id, paid_sale_count, lifetime_spend, last_paid_at, credit_balance");
     const byId = new Map((stats ?? []).map((row) => [row.customer_id as string, row]));
-    const mapped = data.map((row) => {
+    const mapped = (data ?? []).map((row) => {
       const id = row.id as string;
       const stat = byId.get(id);
       const visits = Number(stat?.paid_sale_count ?? 0);
@@ -935,13 +927,20 @@ export async function fetchCreditBook(): Promise<DebtEntry[]> {
 
   try {
     const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
-    if (!profile?.tenant_id) return readCreditBook();
+    if (!profile?.tenant_id) {
+      await replaceCreditBook([]);
+      return [];
+    }
 
     const { data: customers, error } = await sb
       .from("customers")
       .select("id, name, phone, email")
       .eq("tenant_id", profile.tenant_id);
-    if (error || !customers?.length) return readCreditBook();
+    if (error) return readCreditBook();
+    if (!customers?.length) {
+      await replaceCreditBook([]);
+      return [];
+    }
 
     const rows: DebtEntry[] = [];
     for (const customer of customers) {

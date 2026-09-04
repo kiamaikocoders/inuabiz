@@ -18,6 +18,7 @@ import { initPwaServiceWorker } from "@/lib/pwa-register";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { trackPageView } from "@/lib/analytics";
 import { initClarity } from "@/lib/monitoring";
+import { getSupabase } from "@/lib/supabase";
 import * as Sentry from "@sentry/tanstackstart-react";
 
 const InstallPrompt = lazy(() =>
@@ -131,6 +132,27 @@ function RootComponent() {
   useEffect(() => {
     trackPageView(pathname);
   }, [pathname]);
+
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return;
+    let lastUserId: string | null = null;
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, session) => {
+      const nextId = session?.user?.id ?? null;
+      if (event === "INITIAL_SESSION") {
+        lastUserId = nextId;
+        return;
+      }
+      const switched = Boolean(lastUserId && nextId && lastUserId !== nextId);
+      if (event === "SIGNED_OUT" || event === "SIGNED_IN" || switched) {
+        queryClient.clear();
+      }
+      lastUserId = nextId;
+    });
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
 
   useEffect(() => {
     if (!pathname.startsWith("/app")) return;

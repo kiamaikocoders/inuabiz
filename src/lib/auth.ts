@@ -1,7 +1,7 @@
 import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { toE164Ke, to254 } from "@/lib/phone";
 import { redirect } from "@tanstack/react-router";
-import { cacheProfile, readCachedProfile } from "@/lib/offline/db";
+import { cacheProfile, clearVendorReplica, ensureReplicaOwner, readCachedProfile } from "@/lib/offline/db";
 import { isBrowserOffline, probeOnline } from "@/lib/offline/connectivity";
 
 export type VendorProfile = {
@@ -131,7 +131,7 @@ export async function fetchProfile(): Promise<VendorProfile | null> {
       const {
         data: { user },
       } = await sb.auth.getUser();
-      if (!user) return readCachedProfile();
+      if (!user) return null;
       const { data } = await sb
         .from("profiles")
         .select(
@@ -139,8 +139,13 @@ export async function fetchProfile(): Promise<VendorProfile | null> {
         )
         .eq("id", user.id)
         .maybeSingle();
-      if (data) await cacheProfile(data as VendorProfile);
-      return (data as VendorProfile | null) ?? (await readCachedProfile());
+      if (data) {
+        const profile = data as VendorProfile;
+        await ensureReplicaOwner({ userId: profile.id, tenantId: profile.tenant_id });
+        await cacheProfile(profile);
+        return profile;
+      }
+      return null;
     }
 
     const { data, error } = await sb
@@ -150,11 +155,24 @@ export async function fetchProfile(): Promise<VendorProfile | null> {
       )
       .eq("id", userId)
       .maybeSingle();
-    if (error || !data) return readCachedProfile();
-    await cacheProfile(data as VendorProfile);
-    return data as VendorProfile;
+    if (error || !data) {
+      const cached = await readCachedProfile();
+      if (cached?.id === userId) return cached;
+      return null;
+    }
+    const profile = data as VendorProfile;
+    await ensureReplicaOwner({ userId: profile.id, tenantId: profile.tenant_id });
+    await cacheProfile(profile);
+    return profile;
   } catch {
-    return readCachedProfile();
+    try {
+      const cached = await readCachedProfile();
+      const { data: sessionData } = await sb.auth.getSession();
+      if (cached && sessionData.session?.user?.id === cached.id) return cached;
+    } catch {
+      // Prefer empty over another account's profile.
+    }
+    return null;
   }
 }
 
@@ -250,6 +268,14 @@ export async function updateProfile(patch: {
 
 export async function signOut(): Promise<void> {
   const sb = getSupabase();
+  try {
+    await clearVendorReplica();
+  } catch {
+    // IndexedDB may be unavailable; still sign out of Auth.
+  }
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem("inuabiz:lastSale");
+  }
   if (!sb) return;
   await sb.auth.signOut();
 }

@@ -95,6 +95,7 @@ export async function recordOfflineCheckout(input: {
       customer: input.customer_name ?? (input.channel === "CREDIT" ? "Customer" : "Walk-in"),
       status: input.channel === "CASH" ? "Complete" : "Pending",
       createdAt: now.toISOString(),
+      offlinePending: true,
     };
     await putSale(sale);
   } else {
@@ -124,6 +125,7 @@ export async function recordOfflineCheckout(input: {
         customer: "Walk-in",
         status: "Pending",
         createdAt: new Date().toISOString(),
+        offlinePending: true,
       };
       await putSale(sale);
     }

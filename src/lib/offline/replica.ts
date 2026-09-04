@@ -11,10 +11,10 @@ import {
 } from "@/lib/offline/db";
 
 export async function replaceProducts(rows: Product[]): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.products, async () => {
     await offlineDb!.products.clear();
-    await offlineDb!.products.bulkPut(rows);
+    if (rows.length) await offlineDb!.products.bulkPut(rows);
   });
 }
 
@@ -42,10 +42,10 @@ export async function readProduct(id: string): Promise<Product | undefined> {
 }
 
 export async function replaceCustomers(rows: Customer[]): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.customers, async () => {
     await offlineDb!.customers.clear();
-    await offlineDb!.customers.bulkPut(rows);
+    if (rows.length) await offlineDb!.customers.bulkPut(rows);
   });
 }
 
@@ -70,10 +70,10 @@ export async function readCustomers(): Promise<Customer[]> {
 export async function replaceShopCustomers(
   rows: { id: string; name: string; phone: string }[],
 ): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.shopCustomers, async () => {
     await offlineDb!.shopCustomers.clear();
-    await offlineDb!.shopCustomers.bulkPut(rows);
+    if (rows.length) await offlineDb!.shopCustomers.bulkPut(rows);
   });
 }
 
@@ -86,10 +86,10 @@ export async function readShopCustomers(): Promise<{ id: string; name: string; p
 }
 
 export async function replaceSales(rows: Sale[]): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.sales, async () => {
     await offlineDb!.sales.clear();
-    await offlineDb!.sales.bulkPut(rows);
+    if (rows.length) await offlineDb!.sales.bulkPut(rows);
   });
 }
 
@@ -129,10 +129,10 @@ export async function readOpenSales(): Promise<CachedOpenSale[]> {
 }
 
 export async function replaceCreditBook(rows: DebtEntry[]): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.creditBook, async () => {
     await offlineDb!.creditBook.clear();
-    await offlineDb!.creditBook.bulkPut(rows);
+    if (rows.length) await offlineDb!.creditBook.bulkPut(rows);
   });
 }
 
@@ -142,10 +142,10 @@ export async function readCreditBook(): Promise<DebtEntry[]> {
 }
 
 export async function replaceShops(rows: CachedShop[]): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.shops, async () => {
     await offlineDb!.shops.clear();
-    await offlineDb!.shops.bulkPut(rows);
+    if (rows.length) await offlineDb!.shops.bulkPut(rows);
   });
 }
 
@@ -155,10 +155,10 @@ export async function readShops(): Promise<CachedShop[]> {
 }
 
 export async function replaceNotifications(rows: NotificationItem[]): Promise<void> {
-  if (!offlineDb || !rows.length) return;
+  if (!offlineDb) return;
   await offlineDb.transaction("rw", offlineDb.notifications, async () => {
     await offlineDb!.notifications.clear();
-    await offlineDb!.notifications.bulkPut(rows);
+    if (rows.length) await offlineDb!.notifications.bulkPut(rows);
   });
 }
 
