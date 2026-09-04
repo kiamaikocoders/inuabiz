@@ -402,6 +402,13 @@ async function applyCheckout(
     });
   }
 
+  if (channel === "CASH" || channel === "CREDIT") {
+    const { error: invErr } = await service.rpc("issue_sale_invoice", {
+      p_sale_id: saleId,
+    });
+    if (invErr) console.error("issue_sale_invoice", invErr);
+  }
+
   return {
     client_op_id: clientOpId,
     status: "applied",

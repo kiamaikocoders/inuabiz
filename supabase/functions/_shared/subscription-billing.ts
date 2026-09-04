@@ -47,14 +47,19 @@ export async function applyCompleteSubscription(
     metadata?: Record<string, unknown> | null;
   } | null,
 ) {
-  const periodEnd = new Date();
-  periodEnd.setDate(periodEnd.getDate() + 30);
-
   const { data: tenant } = await service
     .from("tenants")
-    .select("name, email")
+    .select("name, email, access_until")
     .eq("id", tenantId)
     .maybeSingle();
+
+  // Extend from remaining paid days — never wipe prepaid time on early renew.
+  const nowMs = Date.now();
+  const existingUntil = tenant?.access_until ? new Date(tenant.access_until as string).getTime() : 0;
+  const baselineMs = Number.isFinite(existingUntil) && existingUntil > nowMs ? existingUntil : nowMs;
+  const periodStart = new Date(nowMs);
+  const periodEnd = new Date(baselineMs);
+  periodEnd.setUTCDate(periodEnd.getUTCDate() + 30);
 
   await service
     .from("tenants")
@@ -68,7 +73,7 @@ export async function applyCompleteSubscription(
     .from("subscriptions")
     .update({
       status: "ACTIVE",
-      current_period_start: new Date().toISOString(),
+      current_period_start: periodStart.toISOString(),
       current_period_end: periodEnd.toISOString(),
       last_invoice_id: mpesaReceipt ?? invoiceId,
     })
@@ -97,7 +102,7 @@ export async function applyCompleteSubscription(
         recipient_id: v.id,
         recipient_role: "VENDOR_ADMIN",
         title: "Subscription active",
-        message: "Your InuaBiz plan is active for 30 more days. Asante!",
+        message: "Your InuaBiz plan is active. We added 30 days on top of any time you still had left. Asante!",
         type: "SUBSCRIPTION",
         priority: "HIGH",
         metadata: { invoice_id: invoiceId },

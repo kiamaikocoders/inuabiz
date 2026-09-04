@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, ScanBarcode } from "lucide-react";
 import { toast } from "sonner";
+import { BarcodeScannerDialog } from "@/components/app/BarcodeScannerDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +41,7 @@ export function productToDraft(
 ): ProductDraft {
   return {
     name: p?.name ?? "",
-    sku: p?.sku && p.sku !== "—" ? p.sku : "",
+    sku: (p?.barcode && p.barcode.trim()) || (p?.sku && p.sku !== "—" ? p.sku : "") || "",
     category: p?.category ?? "Staples",
     description: "",
     cost: p ? String(p.cost) : "",
@@ -80,6 +81,7 @@ export function ProductForm({
   );
   const { def } = useShopCategory();
   const [busy, setBusy] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(initial?.imageUrl ?? null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -138,14 +140,19 @@ export function ProductForm({
             type="button"
             variant="outline"
             className="justify-start"
-            onClick={() =>
-              toast.info("Camera scanner", {
-                description: "Barcode scanning will use the device camera once wired.",
-              })
-            }
+            onClick={() => setScannerOpen(true)}
           >
             <ScanBarcode className="mr-2 size-4" /> Scan barcode with camera
           </Button>
+          <BarcodeScannerDialog
+            open={scannerOpen}
+            onOpenChange={setScannerOpen}
+            title="Scan product barcode"
+            onDetected={(code) => {
+              set("sku", code);
+              toast.success("Barcode captured", { description: code });
+            }}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="pn" className="text-muted-foreground text-xs">
               Product Name

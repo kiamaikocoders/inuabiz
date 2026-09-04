@@ -1,3 +1,6 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { dispatchOutbound } from "./outbound.ts";
+
 export type SupportCategory =
   | "payment"
   | "pos_hardware"
@@ -23,6 +26,24 @@ export type TriageResult = {
   internal_note: string;
   escalated: boolean;
 };
+
+type Service = SupabaseClient;
+
+function stripJson(value: unknown): string {
+  if (typeof value === "string") return value.replace(/^"|"$/g, "");
+  if (value == null) return "";
+  return String(value).replace(/^"|"$/g, "");
+}
+
+async function opsInbox(service: Service): Promise<string> {
+  const { data } = await service
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "email.ops_inbox")
+    .maybeSingle();
+  const inbox = stripJson(data?.value).trim();
+  return inbox.includes("@") ? inbox : "hello@inuabiz.co.ke";
+}
 
 const KB: Array<{
   match: RegExp;
@@ -151,11 +172,12 @@ export async function triageSupportTicket(input: {
 }
 
 async function notifySuperAdmins(
-  service: ReturnType<typeof import("./cors.ts").getServiceClient>,
+  service: Service,
   title: string,
   message: string,
   ticketId: string,
   priority: string,
+  extras?: { subject?: string; shop?: string },
 ): Promise<void> {
   const { data: admins } = await service
     .from("profiles")
@@ -163,6 +185,7 @@ async function notifySuperAdmins(
     .eq("role", "SUPER_ADMIN")
     .limit(20);
   const notePriority = priority === "urgent" || priority === "high" ? "HIGH" : "NORMAL";
+  const url = `/admin/tickets?ticket=${ticketId}`;
   for (const admin of admins ?? []) {
     await service.from("notifications").insert({
       recipient_id: admin.id,
@@ -171,13 +194,28 @@ async function notifySuperAdmins(
       message: message.slice(0, 240),
       type: "SYSTEM",
       priority: notePriority,
-      metadata: { ticket_id: ticketId, href: `/admin/tickets?id=${ticketId}` },
+      metadata: { ticket_id: ticketId, href: url, url },
     });
   }
+
+  const to = await opsInbox(service);
+  await dispatchOutbound({
+    template_id: "support-ticket-opened",
+    to,
+    idempotency_key: `support-opened/${ticketId}/${Date.now()}`,
+    vars: {
+      ticket_id: ticketId,
+      subject: extras?.subject ?? title,
+      shop: extras?.shop ?? "Vendor",
+      priority,
+      message: message.slice(0, 800),
+      cta_url: `https://inuabiz.co.ke${url}`,
+    },
+  });
 }
 
 async function notifyTenantProfiles(
-  service: ReturnType<typeof import("./cors.ts").getServiceClient>,
+  service: Service,
   tenantId: string,
   title: string,
   message: string,
@@ -189,6 +227,7 @@ async function notifyTenantProfiles(
     .eq("tenant_id", tenantId)
     .neq("role", "SUPER_ADMIN")
     .limit(10);
+  const url = `/app/support?ticket=${ticketId}`;
   for (const p of profiles ?? []) {
     await service.from("notifications").insert({
       tenant_id: tenantId,
@@ -198,7 +237,28 @@ async function notifyTenantProfiles(
       message: message.slice(0, 240),
       type: "SYSTEM",
       priority: "NORMAL",
-      metadata: { ticket_id: ticketId, href: `/app/support?id=${ticketId}` },
+      metadata: { ticket_id: ticketId, href: url, url },
+    });
+  }
+
+  const { data: tenant } = await service
+    .from("tenants")
+    .select("email, name")
+    .eq("id", tenantId)
+    .maybeSingle();
+  const to = (tenant?.email as string | null) ?? undefined;
+  if (to?.includes("@")) {
+    await dispatchOutbound({
+      tenant_id: tenantId,
+      template_id: "support-ticket-reply",
+      to,
+      idempotency_key: `support-reply/${ticketId}/${Date.now()}`,
+      vars: {
+        ticket_id: ticketId,
+        message: message.slice(0, 800),
+        shop: String(tenant?.name ?? ""),
+        cta_url: `https://inuabiz.co.ke${url}`,
+      },
     });
   }
 }

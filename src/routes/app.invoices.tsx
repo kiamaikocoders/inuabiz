@@ -91,7 +91,7 @@ function Invoices() {
       toast.error("Invoice not sent", {
         description:
           error ??
-          "Bill Manager opt-in may still be pending on Safaricom. STK checkout still works.",
+          "Bill Manager opt-in may still be pending on Safaricom. You can still take M-Pesa on the till.",
       });
       return;
     }

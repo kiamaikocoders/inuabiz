@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { BarcodeScannerDialog } from "@/components/app/BarcodeScannerDialog";
 import { ProductThumb } from "@/components/app/ProductThumb";
 import { OpenSalesButton, OpenSalesSheet } from "@/components/app/OpenSalesSheet";
 import {
@@ -47,7 +48,13 @@ import {
 import { CustomerFormDialog } from "@/components/app/CustomerFormDialog";
 import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { saveLastSale, readLastSale, type LastSale } from "@/lib/last-sale";
-import { fetchSaleMpesaMeta, waitForSalePaid } from "@/lib/payments";
+import {
+  fetchBillingSnapshot,
+  fetchSaleMpesaMeta,
+  waitForSalePaid,
+} from "@/lib/payments";
+import { fetchSaleReceipt, fetchTenantHeader } from "@/lib/ops";
+import { calculateTax } from "@/lib/tax";
 import { useIdentity } from "@/lib/identity";
 import { shareReceiptText } from "@/components/app/ReceiptCard";
 import {
@@ -59,7 +66,8 @@ import {
 } from "@/components/ui/select";
 import { isBrowserOffline, probeOnline } from "@/lib/offline/connectivity";
 import { queueConfirmMpesa, recordOfflineCheckout } from "@/lib/offline/checkout";
-import { readCachedPaymentDestination } from "@/lib/offline/db";
+import { ForeignCashDialog } from "@/components/app/UsdCashDialog";
+import { fetchEnabledCurrencies } from "@/lib/fx";
 
 export const Route = createFileRoute("/app/pos")({
   head: () => ({
@@ -100,6 +108,17 @@ function POS() {
     queryFn: fetchPrimaryPaymentDestination,
     enabled: isSupabaseConfigured(),
   });
+  const { data: billing } = useQuery({
+    queryKey: ["billing"],
+    queryFn: fetchBillingSnapshot,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: tenantHeader } = useQuery({
+    queryKey: ["tenant-header"],
+    queryFn: fetchTenantHeader,
+    enabled: isSupabaseConfigured(),
+  });
+  const etrFormat = billing?.planCode === "COMPLIANCE";
   const { data: openSales = [] } = useQuery({
     queryKey: ["open-sales"],
     queryFn: fetchOpenSales,
@@ -109,6 +128,7 @@ function POS() {
   const products = liveProducts ?? [];
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
   const [query, setQuery] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [cat, setCat] = useState("All");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -131,6 +151,13 @@ function POS() {
   const [openSalesOpen, setOpenSalesOpen] = useState(false);
   const [parkOpen, setParkOpen] = useState(false);
   const [parkLabel, setParkLabel] = useState("");
+  const [usdOpen, setUsdOpen] = useState(false);
+  const [fxCurrency, setFxCurrency] = useState("USD");
+  const { data: enabledCurrencies = ["USD"] } = useQuery({
+    queryKey: ["enabled-currencies"],
+    queryFn: fetchEnabledCurrencies,
+    enabled: isSupabaseConfigured(),
+  });
   const mockTimer = useRef<number | null>(null);
   const payWait = useRef<AbortController | null>(null);
   const activeSaleIdRef = useRef<string | null>(null);
@@ -166,7 +193,8 @@ function POS() {
         (p) =>
           (cat === "All" || p.category === cat) &&
           (p.name.toLowerCase().includes(query.toLowerCase()) ||
-            p.sku.toLowerCase().includes(query.toLowerCase())),
+            p.sku.toLowerCase().includes(query.toLowerCase()) ||
+            (p.barcode ?? "").toLowerCase().includes(query.toLowerCase())),
       ),
     [query, cat, products],
   );
@@ -261,9 +289,33 @@ function POS() {
     mpesaPayerName?: string | null,
   ): LastSale => {
     const now = new Date();
-    const when = `Today · ${now.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })} EAT`;
+    const when = now.toLocaleString("en-KE", { timeZone: "Africa/Nairobi" });
     const destLike = /^(PERSONAL_MPESA|TILL|PAYBILL|POCHI)$/i.test(customer);
     const payer = mpesaPayerName?.trim() || "";
+    const receiptLines = lines.map((l) => {
+      const line: NonNullable<LastSale["lines"]>[number] = {
+        name: l.product.name,
+        qty: l.qty,
+        price: l.product.price,
+        taxClass: l.product.taxClass ?? "STANDARD_16",
+        imageUrl: l.product.imageUrl ?? null,
+      };
+      if (l.product.classificationCode) {
+        line.classificationCode = l.product.classificationCode;
+      }
+      return line;
+    });
+    const tax = etrFormat
+      ? calculateTax(
+          receiptLines.map((l) => ({
+            name: l.name,
+            qty: l.qty,
+            unitPrice: l.price,
+            lineTotal: l.price * l.qty,
+            taxClass: l.taxClass ?? "STANDARD_16",
+          })),
+        )
+      : null;
     const sale: LastSale = {
       id: saleId ?? `s-${Date.now()}`,
       ref: saleId ? `SL-${saleId.slice(0, 8)}` : `SL-${String(Date.now()).slice(-5)}`,
@@ -271,17 +323,27 @@ function POS() {
       items: lines.length,
       channel,
       customer: payer || (destLike ? "Walk-in" : customer),
-      shop: identity.shop,
-      location: "Kasarani, Nairobi",
+      shop: tenantHeader?.legal_name || tenantHeader?.name || identity.shop,
+      location: tenantHeader?.address_text || "",
       when,
-      footer: "Asante sana! Karibu tena.",
-      lines: lines.map((l) => ({
-        name: l.product.name,
-        qty: l.qty,
-        price: l.product.price,
-        imageUrl: l.product.imageUrl ?? null,
-      })),
+      isoWhen: now.toISOString(),
+      footer: etrFormat
+        ? "ETR tax invoice — prepared for eTIMS export. Not yet transmitted to KRA."
+        : "Asante sana! Karibu tena.",
+      lines: receiptLines,
+      etrFormat,
+      branchId: "00",
     };
+    if (tenantHeader?.kra_pin && etrFormat) sale.kraPin = tenantHeader.kra_pin;
+    if (tenantHeader?.phone) sale.merchantPhone = tenantHeader.phone;
+    if (tenantHeader?.email) sale.email = tenantHeader.email;
+    if (tenantHeader?.logo_url) sale.logoUrl = tenantHeader.logo_url;
+    if (tax) {
+      sale.vat16 = tax.vat16Amount;
+      sale.vat0 = tax.vat0Amount;
+      sale.exempt = tax.exemptAmount;
+      sale.subtotalExVat = tax.subtotalExVat;
+    }
     if (!destLike && customer) sale.phone = customer;
     if (mpesaReceipt) sale.mpesaReceipt = mpesaReceipt;
     if (payer) sale.mpesaPayerName = payer;
@@ -289,8 +351,27 @@ function POS() {
     return sale;
   };
 
-  const finishSale = (channel: string, customer: string, saleId?: string) => {
-    saveLastSale(buildSale(channel, customer, saleId));
+  const finishSale = async (
+    channel: string,
+    customer: string,
+    saleId?: string,
+    fx?: { currency?: string; fxRate: number; foreignAmount: number },
+  ) => {
+    let sale = buildSale(channel, customer, saleId);
+    if (fx) {
+      sale.tenderCurrency = fx.currency?.toUpperCase() || "USD";
+      sale.fxRate = fx.fxRate;
+      sale.foreignAmount = fx.foreignAmount;
+    }
+    if (saleId && isSupabaseConfigured()) {
+      try {
+        const live = await fetchSaleReceipt(saleId);
+        if (live) sale = live;
+      } catch {
+        // keep local receipt
+      }
+    }
+    saveLastSale(sale);
     void navigate({ to: "/app/pos/success" });
   };
 
@@ -407,7 +488,11 @@ function POS() {
     }
   };
 
-  const checkout = async (channel: "CASH" | "CREDIT", customerId?: string) => {
+  const checkout = async (
+    channel: "CASH" | "CREDIT" | "FOREIGN_CASH",
+    customerId?: string,
+    fx?: { currency: string; fxRate: number; foreignAmount: number },
+  ) => {
     if (!lines.length) return;
     setBusy(true);
 
@@ -420,6 +505,13 @@ function POS() {
     }
 
     if (isBrowserOffline() && !(await probeOnline())) {
+      if (channel === "FOREIGN_CASH") {
+        setBusy(false);
+        toast.error("Foreign cash needs a connection", {
+          description: "Go online to record a foreign-currency sale.",
+        });
+        return;
+      }
       const customer = shopCustomers.find((c) => c.id === customerId);
       const offline = await recordOfflineCheckout({
         channel,
@@ -441,14 +533,14 @@ function POS() {
         toast.success("Cash sale saved offline", {
           description: "Will sync when you're back online.",
         });
-        finishSale("Cash", "Walk-in", offline.sale.id);
+        await finishSale("Cash", "Walk-in", offline.sale.id);
         return;
       }
       setCreditOpen(false);
       toast.success("Credit saved offline", {
         description: customer ? `Attached to ${customer.name}.` : "Credit sale queued.",
       });
-      finishSale("Credit", customer?.name ?? "Customer", offline.sale.id);
+      await finishSale("Credit", customer?.name ?? "Customer", offline.sale.id);
       return;
     }
 
@@ -461,6 +553,13 @@ function POS() {
       channel,
       customer_id: customerId,
       sale_id: parkedSaleId,
+      ...(channel === "FOREIGN_CASH" && fx
+        ? {
+            tender_currency: fx.currency,
+            fx_rate: fx.fxRate,
+            foreign_amount: fx.foreignAmount,
+          }
+        : {}),
     });
     setBusy(false);
     if (error || !data?.ok || !data.sale) {
@@ -470,7 +569,19 @@ function POS() {
 
     if (channel === "CASH") {
       toast.success("Cash sale recorded");
-      finishSale("Cash", "Walk-in", data.sale.id);
+      await finishSale("Cash", "Walk-in", data.sale.id);
+      return;
+    }
+
+    if (channel === "FOREIGN_CASH") {
+      setUsdOpen(false);
+      const code = fx?.currency ?? "USD";
+      toast.success(`${code} cash recorded`, {
+        description: fx
+          ? `${fx.foreignAmount.toFixed(2)} ${code} @ ${fx.fxRate.toFixed(2)} KES`
+          : undefined,
+      });
+      await finishSale(`${code} cash`, "Walk-in", data.sale.id, fx);
       return;
     }
 
@@ -479,7 +590,7 @@ function POS() {
     toast.success("Added to credit ledger", {
       description: customer ? `Attached to ${customer.name}.` : "Credit sale recorded.",
     });
-    finishSale("Credit", customer?.name ?? "Customer", data.sale.id);
+    await finishSale("Credit", customer?.name ?? "Customer", data.sale.id);
   };
 
   const confirmManualMpesa = async () => {
@@ -692,14 +803,7 @@ function POS() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            <Button
-              variant="outline"
-              onClick={() =>
-                toast.info("Camera scanner", {
-                  description: "Barcode scanning will use the device camera once wired.",
-                })
-              }
-            >
+            <Button variant="outline" onClick={() => setScannerOpen(true)}>
               <ScanBarcode className="mr-2 size-4" /> Scan
             </Button>
             <OpenSalesButton count={openSales.length} onClick={() => setOpenSalesOpen(true)} />
@@ -883,13 +987,42 @@ function POS() {
                 variant="outline"
                 disabled={lines.length === 0 || busy}
                 onClick={() => {
-                  setCreditCustomerId(shopCustomers[0]?.id ?? "");
-                  setCreditOpen(true);
+                  setFxCurrency("USD");
+                  setUsdOpen(true);
                 }}
               >
-                On credit
+                USD cash
               </Button>
             </div>
+            {enabledCurrencies.filter((c) => c !== "USD").length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {enabledCurrencies
+                  .filter((c) => c !== "USD")
+                  .map((code) => (
+                    <Button
+                      key={code}
+                      variant="outline"
+                      disabled={lines.length === 0 || busy}
+                      onClick={() => {
+                        setFxCurrency(code);
+                        setUsdOpen(true);
+                      }}
+                    >
+                      {code} cash
+                    </Button>
+                  ))}
+              </div>
+            )}
+            <Button
+              variant="outline"
+              disabled={lines.length === 0 || busy}
+              onClick={() => {
+                setCreditCustomerId(shopCustomers[0]?.id ?? "");
+                setCreditOpen(true);
+              }}
+            >
+              On credit
+            </Button>
           </div>
         </div>
       </div>
@@ -1024,6 +1157,37 @@ function POS() {
           void queryClient.invalidateQueries({ queryKey: ["shop-customers"] });
           void queryClient.invalidateQueries({ queryKey: ["customers"] });
           setCreditCustomerId(id);
+        }}
+      />
+
+      <ForeignCashDialog
+        open={usdOpen}
+        onOpenChange={setUsdOpen}
+        currency={fxCurrency}
+        kesTotal={payTotal}
+        busy={busy}
+        onConfirm={(fx) => void checkout("FOREIGN_CASH", undefined, fx)}
+      />
+
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        title="Scan product barcode"
+        onDetected={(code) => {
+          const match = products.find(
+            (p) =>
+              p.sku.toLowerCase() === code.toLowerCase() ||
+              (p.barcode ?? "").toLowerCase() === code.toLowerCase(),
+          );
+          if (match) {
+            add(match.id);
+            toast.success(match.name, { description: "Added to cart" });
+            return;
+          }
+          setQuery(code);
+          toast.info("No product match", {
+            description: `Searched for ${code}. Add it in Inventory if it is new.`,
+          });
         }}
       />
     </AppShell>

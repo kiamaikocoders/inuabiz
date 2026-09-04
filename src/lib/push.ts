@@ -27,8 +27,8 @@ export function pushSupported(): boolean {
 }
 
 function siteOriginHint(): string {
-  if (typeof window === "undefined") return "www.inuabiz.co.ke";
-  return window.location.host || "www.inuabiz.co.ke";
+  if (typeof window === "undefined") return "inuabiz.co.ke";
+  return window.location.host || "inuabiz.co.ke";
 }
 
 function isPwaServiceWorker(scriptUrl: string | undefined): boolean {
@@ -58,7 +58,7 @@ function isValidVapidPublicKey(key: string): boolean {
 function pushErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/push service error|token-subscribe-failed|registration-failed/i.test(msg)) {
-    return `Could not register this device for push on ${siteOriginHint()}. Hard-refresh the page (Ctrl+Shift+R), then toggle This device again. If you use both inuabiz.co.ke and www.inuabiz.co.ke, allow notifications on the exact URL you use.`;
+    return `Could not register this device for push on ${siteOriginHint()}. Hard-refresh the page (Ctrl+Shift+R), then toggle This device again. Allow notifications on inuabiz.co.ke (the official site URL).`;
   }
   if (/vapid|not configured/i.test(msg)) {
     return "Push is misconfigured on this build. Contact support if this continues.";
@@ -85,7 +85,7 @@ async function waitForActivePwaWorker(): Promise<ServiceWorkerRegistration> {
   }
   if (import.meta.env.DEV) {
     throw new Error(
-      "Device notifications only work on the live app or a production build. Test on www.inuabiz.co.ke or run npm run build && npm run preview.",
+      "Device notifications only work on the live app or a production build. Test on inuabiz.co.ke or run npm run build && npm run preview.",
     );
   }
 

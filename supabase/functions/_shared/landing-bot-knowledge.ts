@@ -8,7 +8,7 @@ export const PAYMENT_EXPLAINERS: Record<string, string> = {
   pochi:
     "Pochi la Biashara: our Android Companion listens for Safaricom payment SMS on the shop phone and posts the receipt to the open sale automatically.",
   personal_mpesa:
-    "Personal M-Pesa: you can still sell on InuaBiz with cash or manual M-Pesa confirmation codes; STK push can also charge the customer phone when you use PayHero on subscription billing.",
+    "Personal M-Pesa: customers pay your phone; companion SMS or a manual confirmation code closes the sale. Subscription STK via PayHero is separate — that charges the vendor for InuaBiz billing, not the customer.",
   paybill:
     "Paybill: customer pays your paybill + account. C2B callbacks can land in InuaBiz when your paybill is registered — unmatched payments show in admin until mapped to your shop.",
 };

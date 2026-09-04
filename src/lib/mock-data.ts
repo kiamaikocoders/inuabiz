@@ -28,6 +28,7 @@ export type Product = {
   id: string;
   name: string;
   sku: string;
+  barcode?: string | null;
   category: string;
   cost: number;
   price: number;

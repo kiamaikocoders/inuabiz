@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { OnboardingHelpDialog } from "@/components/app/OnboardingHelpDialog";
+import { SoftPermissionPrompt } from "@/components/app/SoftPermissionPrompt";
 import { ShopLogoPicker } from "@/components/app/ShopLogoPicker";
 import { OnboardingSplit } from "@/components/auth/OnboardingSplit";
 import { CategoryPicker } from "@/components/category/CategoryPicker";
@@ -27,9 +28,14 @@ import { TRIAL_DAYS, KES, SUBSCRIPTION_PRICE, COMPLIANCE_PRICE } from "@/lib/moc
 import { completeOnboarding, fetchProfile, sendPhoneOtp, verifyPhoneOtp } from "@/lib/auth";
 import { uploadBusinessLogo } from "@/lib/business-logo";
 import { reverseGeocode } from "@/lib/geo";
+import {
+  geolocationPermissionState,
+  requestCurrentPosition,
+} from "@/lib/permission-prompts";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { fetchPublicPricing } from "@/lib/plans";
 import { to254 } from "@/lib/phone";
+import { kraPinError, normalizeKraPin } from "@/lib/kra-pin";
 import { useNetworkOnline } from "@/lib/network";
 import { trackExposure } from "@/lib/experiments";
 import { useQuery } from "@tanstack/react-query";
@@ -70,7 +76,7 @@ const stepTips = [
   "Name your shop exactly as customers know it; it prints on every receipt.",
   "A shopfront or till photo helps staff recognise the shop. Skip it if you are in a hurry.",
   "Tick every channel you already use — Till, Paybill and personal can all be on.",
-  "Most shops stay on Standard. Pick Compliance only if you need ETR / KRA records.",
+  "Most shops stay on Standard. Pick Compliance only if you need ETR-format receipts for your KRA filing pack.",
 ];
 
 const LAST_STEP = 4;
@@ -125,9 +131,12 @@ function Onboarding() {
   const [business, setBusiness] = useState("");
   const [category, setCategory] = useState("DUKA");
   const [located, setLocated] = useState(false);
+  const [locationPromptOpen, setLocationPromptOpen] = useState(false);
+  const [locationBusy, setLocationBusy] = useState(false);
   const [payChannels, setPayChannels] = useState<OnboardingPayChannels>(() => defaultPayChannels());
   const [primaryPayChannel, setPrimaryPayChannel] = useState<OnboardingPayChannelId>("personal");
   const [planCode, setPlanCode] = useState<"SHOP_MONTHLY" | "COMPLIANCE">("SHOP_MONTHLY");
+  const [kraPin, setKraPin] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -494,6 +503,14 @@ function Onboarding() {
       window.setTimeout(() => errorSummaryRef.current?.focus(), 40);
       return;
     }
+    if (planCode === "COMPLIANCE") {
+      const pinErr = kraPinError(kraPin);
+      if (pinErr) {
+        setErrors({ kraPin: pinErr });
+        window.setTimeout(() => errorSummaryRef.current?.focus(), 40);
+        return;
+      }
+    }
     setErrors({});
     setBusy(true);
     trackStepCompleted(LAST_STEP, Date.now() - stepEnteredAtRef.current);
@@ -530,6 +547,7 @@ function Onboarding() {
         accountNumber: primaryAccount,
         destinations: enabledDestinations,
         planCode,
+        ...(planCode === "COMPLIANCE" ? { kraPin: normalizeKraPin(kraPin) } : {}),
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
         ...(addressText ? { addressText } : {}),
         ...(ownerName ? { fullName: ownerName } : {}),
@@ -567,13 +585,44 @@ function Onboarding() {
     ownerName,
     phone,
     planCode,
+    kraPin,
     primaryAccount,
     summaryEmail,
   ]);
 
+  const applyFallbackPin = useCallback((description: string) => {
+    setCoords({ lat: -1.2864, lng: 36.8172 });
+    setLocated(true);
+    setError("location");
+    toast.success("Location pinned", { description });
+  }, []);
+
+  const pinShopLocation = useCallback(async () => {
+    setLocationBusy(true);
+    try {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        applyFallbackPin("Demo pin set near Nairobi CBD.");
+        return;
+      }
+      const pos = await requestCurrentPosition();
+      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      setLocated(true);
+      setError("location");
+      toast.success("Location pinned", {
+        description: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
+      });
+    } catch {
+      applyFallbackPin("Fallback pin near Nairobi CBD.");
+    } finally {
+      setLocationBusy(false);
+      setLocationPromptOpen(false);
+    }
+  }, [applyFallbackPin]);
+
   const errorList = Object.entries(errors);
 
   return (
+    <>
     <OnboardingSplit step={step}>
       <p aria-live="polite" className="sr-only">
         {announcement}
@@ -659,7 +708,7 @@ function Onboarding() {
 
               <p className="text-muted-foreground mt-2 text-sm">
                 {accountReady
-                  ? "Subscription and customer STK prompts go to this Kenyan mobile number."
+                  ? "Subscription STK prompts go to this Kenyan mobile number."
                   : "This is how you'll sign in and where subscription prompts will arrive."}
               </p>
               <div className="mt-7 space-y-5">
@@ -757,32 +806,18 @@ function Onboarding() {
                     className="w-full justify-start"
                     aria-describedby={errors["location"] ? "loc-error" : undefined}
                     onClick={() => {
-                      if (typeof navigator !== "undefined" && navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                          (pos) => {
-                            setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                            setLocated(true);
-                            setError("location");
-                            toast.success("Location pinned", {
-                              description: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
-                            });
-                          },
-                          () => {
-                            setCoords({ lat: -1.2864, lng: 36.8172 });
-                            setLocated(true);
-                            setError("location");
-                            toast.success("Location pinned", {
-                              description: "Fallback pin near Nairobi CBD.",
-                            });
-                          },
-                        );
-                      } else {
-                        setCoords({ lat: -1.2864, lng: 36.8172 });
-                        setLocated(true);
-                        toast.success("Location pinned", {
-                          description: "Demo pin set near Nairobi CBD.",
-                        });
-                      }
+                      void (async () => {
+                        const state = await geolocationPermissionState();
+                        if (state === "granted") {
+                          await pinShopLocation();
+                          return;
+                        }
+                        if (state === "denied") {
+                          applyFallbackPin("Location blocked — using a Nairobi CBD pin you can fine-tune later.");
+                          return;
+                        }
+                        setLocationPromptOpen(true);
+                      })();
                     }}
                   >
                     <MapPin className="mr-2 size-4" />
@@ -976,7 +1011,8 @@ function Onboarding() {
                     Choose your plan
                   </h1>
                   <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-                    Default is Standard. Pick Compliance if you need ETR / KRA-ready records. Your{" "}
+                    Default is Standard. Pick Compliance if you need ETR-format receipts (control
+                    number, VAT split, QR) for your KRA filing pack — not live eTIMS. Your{" "}
                     {trialDays}-day trial uses this plan from day one.
                   </p>
 
@@ -1039,12 +1075,46 @@ function Onboarding() {
                           </p>
                         </div>
                         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                          Everything in Standard plus ETR on paid and credit sales for shops with a
-                          KRA PIN.
+                          Everything in Standard plus ETR-format receipts on paid and credit sales
+                          for shops with a KRA PIN — for your filing pack, not live eTIMS.
                         </p>
                       </div>
                     </label>
                   </RadioGroup>
+
+                  {planCode === "COMPLIANCE" && (
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="onboarding-kra-pin" className="text-sm font-semibold">
+                        Shop KRA PIN
+                      </Label>
+                      <Input
+                        id="onboarding-kra-pin"
+                        value={kraPin}
+                        onChange={(e) => {
+                          setKraPin(normalizeKraPin(e.target.value));
+                          if (errors.kraPin) {
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.kraPin;
+                              return next;
+                            });
+                          }
+                        }}
+                        placeholder="A123456789Z"
+                        maxLength={11}
+                        autoCapitalize="characters"
+                        className="font-mono uppercase tracking-wide"
+                        aria-invalid={Boolean(errors.kraPin)}
+                      />
+                      <p className="text-muted-foreground text-xs leading-relaxed">
+                        Printed on every ETR receipt and included in eTIMS export. Format
+                        A123456789Z.
+                      </p>
+                      {errors.kraPin ? (
+                        <p className="text-destructive text-xs">{errors.kraPin}</p>
+                      ) : null}
+                    </div>
+                  )}
 
                   <div className="bg-muted mt-5 grid gap-2 rounded-xl p-4 text-sm">
                     {[
@@ -1072,6 +1142,9 @@ function Onboarding() {
                           ? `Compliance · ${KES(compliancePrice)}`
                           : `Standard · ${KES(standardPrice)}`,
                       ],
+                      ...(planCode === "COMPLIANCE"
+                        ? [["KRA PIN", kraPin.trim() || "Required"] as [string, string]]
+                        : []),
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between gap-4">
                         <span className="text-muted-foreground">{k}</span>
@@ -1187,6 +1260,21 @@ function Onboarding() {
           </div>
         </div>
     </OnboardingSplit>
+      <SoftPermissionPrompt
+        open={locationPromptOpen}
+        onOpenChange={setLocationPromptOpen}
+        icon={MapPin}
+        title="Enable Location"
+        description="Pin your shop for the store map and regional insights. We only use it for your business — nothing is shown publicly."
+        allowLabel="Allow Location"
+        busy={locationBusy}
+        onAllow={() => void pinShopLocation()}
+        onLater={() => {
+          setLocationPromptOpen(false);
+          applyFallbackPin("Skipped for now — Nairobi CBD pin. Fine-tune later in Settings.");
+        }}
+      />
+    </>
   );
 }
 

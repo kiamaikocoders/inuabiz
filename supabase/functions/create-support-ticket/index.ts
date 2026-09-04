@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
         `${tenant?.name ?? "Vendor"} — ${message.slice(0, 120)}`,
         ticket.id,
         triage.priority,
+        { subject, shop: String(tenant?.name ?? "Vendor") },
       );
     }
 

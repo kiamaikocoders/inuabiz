@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { KES } from "@/lib/mock-data";
+import { inviteVendorEmail } from "@/lib/platform-settings";
 import { fetchTenants, startImpersonation } from "@/lib/data";
 import { fetchAdminShops, shopCategoriesLabel } from "@/lib/admin-category";
 import { CATEGORY_LIST, parseCategory, type BusinessCategory } from "@/lib/category";
@@ -95,11 +96,15 @@ function Vendors() {
           size="sm"
           variant="ink"
           className="rounded-[10px]"
-          onClick={() =>
-            toast.message("Invite vendor", {
-              description: "Self-serve onboarding is already live. Share the signup link.",
-            })
-          }
+          onClick={() => {
+            const email = window.prompt("Vendor email to invite");
+            if (!email) return;
+            void inviteVendorEmail(email.trim())
+              .then(() => toast.success("Invite sent", { description: email.trim() }))
+              .catch((err: unknown) =>
+                toast.error(err instanceof Error ? err.message : "Could not send invite"),
+              );
+          }}
         >
           <Plus className="size-3.5" /> Invite vendor
         </Button>

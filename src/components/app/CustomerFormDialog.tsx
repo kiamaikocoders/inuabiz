@@ -80,7 +80,7 @@ export function CustomerFormDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Edit customer" : "Add customer"}</DialogTitle>
           <DialogDescription>
-            Name and phone are enough. Email is used for duka-debt reminders.
+            Name and phone are enough. Email is optional for your records.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">

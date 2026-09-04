@@ -30,11 +30,13 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as VerifyReceiptRouteImport } from './routes/verify-receipt'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as AdminBroadcastsRouteImport } from './routes/admin.broadcasts'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
+import { Route as AdminFxRouteImport } from './routes/admin.fx'
 import { Route as AdminHealthRouteImport } from './routes/admin.health'
 import { Route as AdminInboxRouteImport } from './routes/admin.inbox'
 import { Route as AdminIntelligenceRouteImport } from './routes/admin.intelligence'
@@ -54,6 +56,7 @@ import { Route as AppCreditRouteImport } from './routes/app.credit'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
 import { Route as AppExpiryRouteImport } from './routes/app.expiry'
 import { Route as AppFloorRouteImport } from './routes/app.floor'
+import { Route as AppImportRouteImport } from './routes/app.import'
 import { Route as AppInsightsRouteImport } from './routes/app.insights'
 import { Route as AppInventoryRouteImport } from './routes/app.inventory'
 import { Route as AppInvoicesRouteImport } from './routes/app.invoices'
@@ -178,6 +181,11 @@ const VerifyRoute = VerifyRouteImport.update({
   path: '/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerifyReceiptRoute = VerifyReceiptRouteImport.update({
+  id: '/verify-receipt',
+  path: '/verify-receipt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -201,6 +209,11 @@ const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
 const AdminCommunicationsRoute = AdminCommunicationsRouteImport.update({
   id: '/communications',
   path: '/communications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFxRoute = AdminFxRouteImport.update({
+  id: '/fx',
+  path: '/fx',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminHealthRoute = AdminHealthRouteImport.update({
@@ -296,6 +309,11 @@ const AppExpiryRoute = AppExpiryRouteImport.update({
 const AppFloorRoute = AppFloorRouteImport.update({
   id: '/floor',
   path: '/floor',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppImportRoute = AppImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInsightsRoute = AppInsightsRouteImport.update({
@@ -411,10 +429,12 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verify': typeof VerifyRoute
+  '/verify-receipt': typeof VerifyReceiptRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/communications': typeof AdminCommunicationsRoute
+  '/admin/fx': typeof AdminFxRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/inbox': typeof AdminInboxRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
@@ -433,6 +453,7 @@ export interface FileRoutesByFullPath {
   '/app/customers': typeof AppCustomersRoute
   '/app/expiry': typeof AppExpiryRoute
   '/app/floor': typeof AppFloorRoute
+  '/app/import': typeof AppImportRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
@@ -474,10 +495,12 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verify': typeof VerifyRoute
+  '/verify-receipt': typeof VerifyReceiptRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/communications': typeof AdminCommunicationsRoute
+  '/admin/fx': typeof AdminFxRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/inbox': typeof AdminInboxRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
@@ -496,6 +519,7 @@ export interface FileRoutesByTo {
   '/app/customers': typeof AppCustomersRoute
   '/app/expiry': typeof AppExpiryRoute
   '/app/floor': typeof AppFloorRoute
+  '/app/import': typeof AppImportRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
@@ -540,10 +564,12 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verify': typeof VerifyRoute
+  '/verify-receipt': typeof VerifyReceiptRoute
   '/admin/ai': typeof AdminAiRoute
   '/admin/broadcasts': typeof AdminBroadcastsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/communications': typeof AdminCommunicationsRoute
+  '/admin/fx': typeof AdminFxRoute
   '/admin/health': typeof AdminHealthRoute
   '/admin/inbox': typeof AdminInboxRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
@@ -562,6 +588,7 @@ export interface FileRoutesById {
   '/app/customers': typeof AppCustomersRoute
   '/app/expiry': typeof AppExpiryRoute
   '/app/floor': typeof AppFloorRoute
+  '/app/import': typeof AppImportRoute
   '/app/insights': typeof AppInsightsRoute
   '/app/inventory': typeof AppInventoryRoute
   '/app/invoices': typeof AppInvoicesRoute
@@ -607,10 +634,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/verify'
+    | '/verify-receipt'
     | '/admin/ai'
     | '/admin/broadcasts'
     | '/admin/categories'
     | '/admin/communications'
+    | '/admin/fx'
     | '/admin/health'
     | '/admin/inbox'
     | '/admin/intelligence'
@@ -629,6 +658,7 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/expiry'
     | '/app/floor'
+    | '/app/import'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
@@ -670,10 +700,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/verify'
+    | '/verify-receipt'
     | '/admin/ai'
     | '/admin/broadcasts'
     | '/admin/categories'
     | '/admin/communications'
+    | '/admin/fx'
     | '/admin/health'
     | '/admin/inbox'
     | '/admin/intelligence'
@@ -692,6 +724,7 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/expiry'
     | '/app/floor'
+    | '/app/import'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
@@ -735,10 +768,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/verify'
+    | '/verify-receipt'
     | '/admin/ai'
     | '/admin/broadcasts'
     | '/admin/categories'
     | '/admin/communications'
+    | '/admin/fx'
     | '/admin/health'
     | '/admin/inbox'
     | '/admin/intelligence'
@@ -757,6 +792,7 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/expiry'
     | '/app/floor'
+    | '/app/import'
     | '/app/insights'
     | '/app/inventory'
     | '/app/invoices'
@@ -801,6 +837,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   VerifyRoute: typeof VerifyRoute
+  VerifyReceiptRoute: typeof VerifyReceiptRoute
   ApiSentryExampleRoute: typeof ApiSentryExampleRoute
 }
 
@@ -953,6 +990,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/verify-receipt': {
+      id: '/verify-receipt'
+      path: '/verify-receipt'
+      fullPath: '/verify-receipt'
+      preLoaderRoute: typeof VerifyReceiptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
@@ -986,6 +1030,13 @@ declare module '@tanstack/react-router' {
       path: '/communications'
       fullPath: '/admin/communications'
       preLoaderRoute: typeof AdminCommunicationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/fx': {
+      id: '/admin/fx'
+      path: '/fx'
+      fullPath: '/admin/fx'
+      preLoaderRoute: typeof AdminFxRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/health': {
@@ -1119,6 +1170,13 @@ declare module '@tanstack/react-router' {
       path: '/floor'
       fullPath: '/app/floor'
       preLoaderRoute: typeof AppFloorRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/import': {
+      id: '/app/import'
+      path: '/import'
+      fullPath: '/app/import'
+      preLoaderRoute: typeof AppImportRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/insights': {
@@ -1255,6 +1313,7 @@ interface AdminRouteChildren {
   AdminBroadcastsRoute: typeof AdminBroadcastsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminCommunicationsRoute: typeof AdminCommunicationsRoute
+  AdminFxRoute: typeof AdminFxRoute
   AdminHealthRoute: typeof AdminHealthRoute
   AdminInboxRoute: typeof AdminInboxRoute
   AdminIntelligenceRoute: typeof AdminIntelligenceRoute
@@ -1276,6 +1335,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBroadcastsRoute: AdminBroadcastsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminCommunicationsRoute: AdminCommunicationsRoute,
+  AdminFxRoute: AdminFxRoute,
   AdminHealthRoute: AdminHealthRoute,
   AdminInboxRoute: AdminInboxRoute,
   AdminIntelligenceRoute: AdminIntelligenceRoute,
@@ -1300,6 +1360,7 @@ interface AppRouteChildren {
   AppCustomersRoute: typeof AppCustomersRoute
   AppExpiryRoute: typeof AppExpiryRoute
   AppFloorRoute: typeof AppFloorRoute
+  AppImportRoute: typeof AppImportRoute
   AppInsightsRoute: typeof AppInsightsRoute
   AppInventoryRoute: typeof AppInventoryRoute
   AppInvoicesRoute: typeof AppInvoicesRoute
@@ -1326,6 +1387,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCustomersRoute: AppCustomersRoute,
   AppExpiryRoute: AppExpiryRoute,
   AppFloorRoute: AppFloorRoute,
+  AppImportRoute: AppImportRoute,
   AppInsightsRoute: AppInsightsRoute,
   AppInventoryRoute: AppInventoryRoute,
   AppInvoicesRoute: AppInvoicesRoute,
@@ -1370,6 +1432,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   VerifyRoute: VerifyRoute,
+  VerifyReceiptRoute: VerifyReceiptRoute,
   ApiSentryExampleRoute: ApiSentryExampleRoute,
 }
 export const routeTree = rootRouteImport

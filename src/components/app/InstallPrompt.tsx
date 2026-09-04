@@ -243,7 +243,7 @@ export function InstallPrompt() {
       ? "Pin InuaBiz to your taskbar for faster checkout and one-click till access."
       : ios
         ? "Safari installs InuaBiz from the Share menu — full screen, no App Store."
-        : "Install once — sell, take M-Pesa STK and print receipts from your home screen.";
+        : "Install once — sell, take M-Pesa and print receipts from your home screen.";
 
   return (
     <Dialog

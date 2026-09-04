@@ -7,9 +7,9 @@ import {
   ChartLine,
   CreditCard,
   FileText,
+  FileUp,
   LayoutDashboard,
   LayoutGrid,
-  Menu,
   Package,
   Receipt,
   Settings,
@@ -22,8 +22,9 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { stopGhost, useGhost } from "@/lib/ghost";
@@ -40,12 +41,15 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { fetchProfile } from "@/lib/auth";
 import { useShopCategory } from "@/hooks/use-shop-category";
+import { useAppTheme } from "@/hooks/use-app-theme";
 import type { FeatureModule } from "@/lib/category";
 import { NotificationLive } from "@/components/app/NotificationLive";
+import { AppPermissionPrompts } from "@/components/app/AppPermissionPrompts";
 import { SupportFloatingButton } from "@/components/app/SupportFloatingButton";
 import { SupportTicketDialog } from "@/components/app/SupportTicketDialog";
 import { BroadcastBanner } from "@/components/app/BroadcastBanner";
 import { OfflineBanner } from "@/components/app/OfflineBanner";
+import { MobileBottomNav } from "@/components/app/MobileBottomNav";
 import { fetchBillingSnapshot, vendorPlanBadge } from "@/lib/payments";
 import { KES } from "@/lib/mock-data";
 
@@ -60,7 +64,10 @@ const MODULE_ICON: Partial<Record<FeatureModule, LucideIcon>> = {
   expiry_alerts: CalendarClock,
 };
 
-function buildVendorNavGroups(category: string, categoryNav: Array<{ to: string; label: string; module: FeatureModule }>): NavGroup[] {
+function buildVendorNavGroups(
+  category: string,
+  categoryNav: Array<{ to: string; label: string; module: FeatureModule }>,
+): NavGroup[] {
   const creditLabel = category === "DUKA" ? "Duka debt" : "Credit book";
   return [
     {
@@ -94,6 +101,7 @@ function buildVendorNavGroups(category: string, categoryNav: Array<{ to: string;
       items: [
         { to: "/app/shops", label: "Shops", icon: Store },
         { to: "/app/billing", label: "Subscription", icon: ChartLine },
+        { to: "/app/import", label: "Import books", icon: FileUp },
       ],
     },
     {
@@ -153,7 +161,15 @@ function NavList({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   );
 }
 
-function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
+function SidebarInner({
+  onNavigate,
+  dark,
+  onDarkChange,
+}: {
+  onNavigate?: (() => void) | undefined;
+  dark: boolean;
+  onDarkChange: (value: boolean) => void;
+}) {
   const { data: access = true } = useQuery({
     queryKey: ["tenant-access"],
     queryFn: fetchTenantAccess,
@@ -211,7 +227,11 @@ function SidebarInner({ onNavigate }: { onNavigate?: (() => void) | undefined })
       <div className="flex min-h-0 flex-1 flex-col">
         <NavList onNavigate={onNavigate} />
       </div>
-      <div className="mt-auto px-4 pt-4">
+      <div className="mt-auto space-y-3 px-4 pt-4">
+        <label className="text-sidebar-foreground/80 flex items-center justify-between px-1 text-[13px] font-medium">
+          Dark Mode
+          <Switch checked={dark} onCheckedChange={onDarkChange} aria-label="Toggle dark mode" />
+        </label>
         <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-4">
           <p className="text-xs font-semibold text-sidebar-primary">
             {access ? "Subscription" : "Access locked"}
@@ -261,12 +281,14 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const { dark, onDarkChange } = useAppTheme();
   const showSupportFab = isSupabaseConfigured() && !ghost && !pathname.startsWith("/app/support");
 
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-sidebar-border lg:block">
-        <SidebarInner />
+        <SidebarInner dark={dark} onDarkChange={onDarkChange} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -289,30 +311,23 @@ export function AppShell({
           </div>
         )}
         <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-          <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
-                  <Menu className="size-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 border-sidebar-border p-0">
-                <SidebarInner />
-              </SheetContent>
-            </Sheet>
+          <div className="flex h-14 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
+            <Link to="/app" className="shrink-0 lg:hidden" aria-label="InuaBiz home">
+              <Logo showWord={false} />
+            </Link>
 
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
+              <h1 className="truncate text-[15px] font-semibold sm:text-lg">{title}</h1>
               {description && (
-                <p className="hidden truncate text-xs text-muted-foreground sm:block">
+                <p className="text-muted-foreground hidden truncate text-xs sm:block">
                   {description}
                 </p>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {actions}
-              <Button variant="ghost" size="icon" className="relative" asChild>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="hidden sm:block">{actions}</div>
+              <Button variant="ghost" size="icon" className="relative size-9" asChild>
                 <Link to="/app/notifications" aria-label="Notifications">
                   <Bell className="size-5" />
                   {unread > 0 && (
@@ -327,24 +342,58 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6">
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetContent side="left" className="w-72 border-sidebar-border p-0 lg:hidden">
+            <SidebarInner
+              dark={dark}
+              onDarkChange={onDarkChange}
+              onNavigate={() => setMoreOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+
+        <main
+          className={cn(
+            "flex-1 p-3 sm:p-6",
+            "pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] lg:pb-6",
+          )}
+        >
           <NotificationLive kind="vendor" />
+          <AppPermissionPrompts />
           <OfflineBanner />
           <BroadcastBanner />
           {!access && (
             <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
-              Subscription expired.{" "}
-              <Link to="/app/billing" className="text-primary font-medium underline">
+              <p className="font-medium">Subscription expired — till writes are locked.</p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                You can still view history. Renew to sell, edit inventory, or update customers.
+              </p>
+              <Link to="/app/billing" className="text-primary mt-2 inline-block font-medium underline">
                 Renew to continue selling
               </Link>
-              .
             </div>
           )}
-          {children}
+          <div
+            className={cn(
+              !access &&
+                !pathname.startsWith("/app/billing") &&
+                !pathname.startsWith("/app/support") &&
+                !pathname.startsWith("/app/profile") &&
+                "pointer-events-none select-none opacity-60",
+            )}
+          >
+            {children}
+          </div>
         </main>
+
+        <MobileBottomNav onMore={() => setMoreOpen(true)} />
+
         {showSupportFab && (
           <>
-            <SupportFloatingButton onClick={() => setSupportOpen(true)} />
+            <SupportFloatingButton
+              onClick={() => setSupportOpen(true)}
+              className="bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-6"
+            />
             <SupportTicketDialog
               open={supportOpen}
               onOpenChange={setSupportOpen}

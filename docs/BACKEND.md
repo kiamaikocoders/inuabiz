@@ -107,6 +107,7 @@ https://hnzzkmifgufurkqvnchp.supabase.co/functions/v1/payhero-webhook
 # PayHero — InuaBiz subscription collection (vendor → platform)
 PAYHERO_AUTH_TOKEN=               # Basic auth token from app.payhero.co.ke → API Keys
 PAYHERO_CHANNEL_ID=               # Phase 1: service wallet channel; Phase 2: Buy Goods till channel
+PAYHERO_WEBHOOK_SECRET=           # Required. Same value on callback URL as ?secret= or x-payhero-secret header
 
 SUBSCRIPTION_AMOUNT_KES=3000      # also in private.app_secrets
 CRON_SECRET=                      # poll-pending-payments + process-ratiba-retries

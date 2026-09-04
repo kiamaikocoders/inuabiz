@@ -175,6 +175,7 @@ export async function completeOnboarding(input: {
   addressText?: string;
   fullName?: string;
   planCode?: "SHOP_MONTHLY" | "COMPLIANCE";
+  kraPin?: string | null;
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
@@ -206,6 +207,7 @@ export async function completeOnboarding(input: {
     p_address_text: input.addressText ?? null,
     p_full_name: input.fullName ?? null,
     p_plan_code: input.planCode ?? "SHOP_MONTHLY",
+    p_kra_pin: input.kraPin ?? null,
     p_destinations: destinations.length
       ? destinations
       : [

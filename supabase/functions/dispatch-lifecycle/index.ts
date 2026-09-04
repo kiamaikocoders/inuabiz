@@ -61,6 +61,8 @@ Deno.serve(async (req) => {
     }
 
     sent.push(...await sendTrialEnding(service, today));
+    sent.push(...await sendSubscriptionEnding(service, today));
+    sent.push(...await markExpiredPastDue(service));
     sent.push(...await sendOnboardingIncomplete(service, today));
     sent.push(...await sendLowStockFollowup(service, today));
     sent.push(...await sendCreditReminders(service, today));
@@ -116,6 +118,56 @@ async function sendTrialEnding(service: Service, today: string): Promise<string[
       idempotency_key: key,
     });
     sent.push(`trial-ending:${tenant.id}`);
+  }
+  return sent;
+}
+
+async function markExpiredPastDue(service: Service): Promise<string[]> {
+  const { data, error } = await service.rpc("mark_expired_tenants_past_due");
+  if (error) {
+    console.error("mark_expired_tenants_past_due", error);
+    return [];
+  }
+  const n = Number(data ?? 0);
+  return n > 0 ? [`past-due:${n}`] : [];
+}
+
+async function sendSubscriptionEnding(service: Service, today: string): Promise<string[]> {
+  const sent: string[] = [];
+  const now = new Date();
+  const in36h = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
+  const { data: tenants } = await service
+    .from("tenants")
+    .select("id, email, access_until, status, name")
+    .eq("status", "ACTIVE")
+    .lte("access_until", in36h)
+    .gte("access_until", now.toISOString())
+    .limit(80);
+  for (const tenant of tenants ?? []) {
+    const endDay = tenant.access_until
+      ? new Date(tenant.access_until as string).toISOString().slice(0, 10)
+      : today;
+    const key = `subscription-ending/${tenant.id}/${endDay}`;
+    if (await wasSent(service, "subscription-ending", key)) continue;
+    const ends = tenant.access_until
+      ? new Date(tenant.access_until as string).toLocaleDateString("en-KE", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "Africa/Nairobi",
+        })
+      : "";
+    await dispatchOutbound({
+      tenant_id: tenant.id,
+      template_id: "subscription-ending",
+      to: tenant.email ?? undefined,
+      idempotency_key: key,
+      vars: {
+        shop: String(tenant.name ?? ""),
+        ends,
+      },
+    });
+    sent.push(`subscription-ending:${tenant.id}`);
   }
   return sent;
 }

@@ -47,7 +47,7 @@ const DEFAULT_PLANS: SubscriptionPlan[] = [
     id: "local-compliance",
     code: "COMPLIANCE",
     name: "Compliance (ETR)",
-    description: "Standard plus ETR / KRA-ready invoicing. Quoted — not self-serve PIN.",
+    description: "Standard plus ETR-format receipts for your KRA filing pack. Quoted — not self-serve PIN.",
     amountKes: COMPLIANCE_PRICE,
     currency: "KES",
     billingInterval: "month",

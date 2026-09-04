@@ -27,7 +27,7 @@ export const Route = createFileRoute("/features")({
     pageHead({
       title: "InuaBiz features — POS, M-Pesa, credit & stock for Kenya dukas",
       description:
-        "See what InuaBiz includes: mobile POS, M-Pesa STK/Till/Paybill reconciliation, kukopesha credit, inventory alerts, extra shops, staff roles, wholesale invoices and AI restock.",
+        "See what InuaBiz includes: mobile POS, M-Pesa Till/Paybill reconciliation, kukopesha credit, inventory alerts, extra shops, staff roles, wholesale invoices and AI restock.",
       path: "/features",
       ogTitle: "InuaBiz features — Kenya POS & M-Pesa till",
       ogDescription:
@@ -56,8 +56,8 @@ function Features() {
     {
       icon: Store,
       title: "Mobile POS & checkout",
-      body: "A fast product grid with search, instant cart totals and discounts — built for a counter, not a desktop. Cash, credit or M-Pesa STK from the same cart.",
-      points: ["Grid + search checkout", "Cash, credit or STK", "Install on the home screen"],
+      body: "A fast product grid with search, instant cart totals and discounts — built for a counter, not a desktop. Cash, credit or M-Pesa to your shop channels from the same cart.",
+      points: ["Grid + search checkout", "Cash, credit or M-Pesa", "Install on the home screen"],
     },
     {
       icon: ScanBarcode,
@@ -68,8 +68,8 @@ function Features() {
     {
       icon: Smartphone,
       title: "M-Pesa that matches the sale",
-      body: "STK push at checkout. Till and Paybill land on the same sale. If a PIN times out, we re-check automatically after a few minutes.",
-      points: ["STK from the cart", "Till & Paybill", "Auto retry on stuck PIN"],
+      body: "Customers pay your till, paybill or phone. Companion SMS, a manual receipt code or C2B match lands on the same sale.",
+      points: ["Companion SMS match", "Till & Paybill / C2B", "Manual receipt code"],
     },
     {
       icon: BookOpen,

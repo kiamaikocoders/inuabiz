@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/app/AdminShell";
@@ -16,6 +17,12 @@ import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/moc
 import { fetchPublicPricing } from "@/lib/plans";
 import { initials, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
+import {
+  fetchOperators,
+  fetchPlatformSettings,
+  inviteVendorEmail,
+  savePlatformSettings,
+} from "@/lib/platform-settings";
 
 export const Route = createFileRoute("/admin/settings")({
   head: () => ({
@@ -24,27 +31,107 @@ export const Route = createFileRoute("/admin/settings")({
   component: AdminSettings,
 });
 
-const OPERATORS = [
-  { name: "Zachariah Komu", role: "Super admin", phone: "0700 000 001", email: "zack@inuabiz.co.ke" },
-  { name: "Mercy K.", role: "Operator", phone: "0712 000 010", email: "mercy@inuabiz.co.ke" },
-  { name: "James O.", role: "Support", phone: "0708 441 220", email: "james@inuabiz.co.ke" },
+const SETTING_KEYS = [
+  "platform.command_centre_name",
+  "platform.location",
+  "platform.support_phone",
+  "platform.allow_self_serve",
+  "platform.idle_lock_minutes",
+  "platform.impersonation_reason_required",
+  "email.ops_inbox",
 ];
 
 function AdminSettings() {
   const identity = useIdentity("admin");
+  const queryClient = useQueryClient();
   const { data: pricing } = useQuery({
     queryKey: ["public-pricing"],
     queryFn: fetchPublicPricing,
   });
+  const { data: settings } = useQuery({
+    queryKey: ["platform-settings", SETTING_KEYS],
+    queryFn: () => fetchPlatformSettings(SETTING_KEYS),
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: operators = [] } = useQuery({
+    queryKey: ["platform-operators"],
+    queryFn: fetchOperators,
+    enabled: isSupabaseConfigured(),
+  });
+
   const shop = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
   const compliance = pricing?.compliance ?? COMPLIANCE_PRICE;
   const setup = pricing?.setup ?? 1000;
   const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
 
-  const save = (label: string) =>
-    toast.info(`${label} not persisted here`, {
-      description: "Edit plan amounts on Plans & pricing. Rails and operators are not saved from this form yet.",
-    });
+  const [ccName, setCcName] = useState("InuaBiz Command Center");
+  const [location, setLocation] = useState("Nairobi, Kenya");
+  const [supportPhone, setSupportPhone] = useState("");
+  const [opsInbox, setOpsInbox] = useState("hello@inuabiz.co.ke");
+  const [allowSelfServe, setAllowSelfServe] = useState(true);
+  const [requireImpersonationReason, setRequireImpersonationReason] = useState(true);
+  const [idleLock, setIdleLock] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!settings) return;
+    if (settings["platform.command_centre_name"]) {
+      setCcName(settings["platform.command_centre_name"]!);
+    }
+    if (settings["platform.location"]) setLocation(settings["platform.location"]!);
+    if (settings["platform.support_phone"]) {
+      setSupportPhone(settings["platform.support_phone"]!);
+    }
+    if (settings["email.ops_inbox"]) setOpsInbox(settings["email.ops_inbox"]!);
+    if (settings["platform.allow_self_serve"] != null) {
+      setAllowSelfServe(settings["platform.allow_self_serve"] !== "false");
+    }
+    if (settings["platform.impersonation_reason_required"] != null) {
+      setRequireImpersonationReason(
+        settings["platform.impersonation_reason_required"] !== "false",
+      );
+    }
+    if (settings["platform.idle_lock_minutes"] != null) {
+      setIdleLock(Number(settings["platform.idle_lock_minutes"]) > 0);
+    }
+  }, [settings]);
+
+  const persist = async () => {
+    setSaving(true);
+    try {
+      await savePlatformSettings({
+        "platform.command_centre_name": ccName.trim() || "InuaBiz Command Center",
+        "platform.location": location.trim() || "Nairobi, Kenya",
+        "platform.support_phone": supportPhone.trim(),
+        "email.ops_inbox": opsInbox.trim() || "hello@inuabiz.co.ke",
+        "platform.allow_self_serve": allowSelfServe,
+        "platform.impersonation_reason_required": requireImpersonationReason,
+        "platform.idle_lock_minutes": idleLock ? 30 : 0,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["platform-settings"] });
+      toast.success("Platform settings saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendInvite = async () => {
+    const to = inviteEmail.trim().toLowerCase();
+    if (!to.includes("@")) {
+      toast.error("Enter a valid email");
+      return;
+    }
+    try {
+      await inviteVendorEmail(to);
+      toast.success("Invite sent", { description: to });
+      setInviteEmail("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send invite");
+    }
+  };
 
   return (
     <AdminShell
@@ -53,8 +140,14 @@ function AdminSettings() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <RoleBadge>{roleLabel(identity.role)}</RoleBadge>
-          <Button size="sm" variant="ink" className="rounded-[10px]" onClick={() => save("Settings")}>
-            Save changes
+          <Button
+            size="sm"
+            variant="ink"
+            className="rounded-[10px]"
+            disabled={saving || !isSupabaseConfigured()}
+            onClick={() => void persist()}
+          >
+            {saving ? "Saving…" : "Save changes"}
           </Button>
         </div>
       }
@@ -80,60 +173,70 @@ function AdminSettings() {
               <Label htmlFor="cc" className="text-muted-foreground text-xs">
                 Command centre name
               </Label>
-              <Input id="cc" defaultValue="InuaBiz Command Center" />
+              <Input id="cc" value={ccName} onChange={(e) => setCcName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="op" className="text-muted-foreground text-xs">
                 Lead operator
               </Label>
-              <Input id="op" defaultValue={identity.fullName} />
+              <Input id="op" value={identity.fullName} readOnly />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="loc" className="text-muted-foreground text-xs">
                 Location
               </Label>
-              <Input id="loc" defaultValue="Nairobi, Kenya" />
+              <Input id="loc" value={location} onChange={(e) => setLocation(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="sph" className="text-muted-foreground text-xs">
                 Support phone
               </Label>
-              <Input id="sph" defaultValue={identity.phone} />
+              <Input
+                id="sph"
+                value={supportPhone}
+                onChange={(e) => setSupportPhone(e.target.value)}
+                placeholder="07xx xxx xxx"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="ops" className="text-muted-foreground text-xs">
+                Ops inbox (support + contact)
+              </Label>
+              <Input
+                id="ops"
+                type="email"
+                value={opsInbox}
+                onChange={(e) => setOpsInbox(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex justify-end">
-            <Button onClick={() => save("Profile")}>Save changes</Button>
+            <Button disabled={saving} onClick={() => void persist()}>
+              Save changes
+            </Button>
           </div>
         </SettingsCard>
 
         <SettingsCard
           title="Plan"
-          description="Live amounts come from Plans & pricing. SHOP_MONTHLY drives STK and extra shops."
+          description="Live amounts come from Plans & pricing. SHOP_MONTHLY drives PayHero subscription STK and extra shops."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="price" className="text-muted-foreground text-xs">
-                Standard / shop (KES)
-              </Label>
-              <Input id="price" type="number" value={shop} readOnly />
+              <Label className="text-muted-foreground text-xs">Standard / shop (KES)</Label>
+              <Input type="number" value={shop} readOnly />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="trial" className="text-muted-foreground text-xs">
-                Trial length (days)
-              </Label>
-              <Input id="trial" type="number" value={trialDays} readOnly />
+              <Label className="text-muted-foreground text-xs">Trial length (days)</Label>
+              <Input type="number" value={trialDays} readOnly />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="comp" className="text-muted-foreground text-xs">
-                Compliance ETR / shop (KES)
-              </Label>
-              <Input id="comp" type="number" value={compliance} readOnly />
+              <Label className="text-muted-foreground text-xs">Compliance ETR / shop (KES)</Label>
+              <Input type="number" value={compliance} readOnly />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="setup" className="text-muted-foreground text-xs">
-                Assisted setup (KES)
-              </Label>
-              <Input id="setup" type="number" value={setup} readOnly />
+              <Label className="text-muted-foreground text-xs">Assisted setup (KES)</Label>
+              <Input type="number" value={setup} readOnly />
             </div>
           </div>
           <p className="text-muted-foreground text-xs">
@@ -146,19 +249,21 @@ function AdminSettings() {
                 Email + password + OTP, then shop setup. First shop is the {trialDays}-day trial.
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch checked={allowSelfServe} onCheckedChange={setAllowSelfServe} />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" asChild>
               <Link to="/admin/plans">Edit plans</Link>
             </Button>
-            <Button onClick={() => save("Plan")}>Save plan</Button>
+            <Button disabled={saving} onClick={() => void persist()}>
+              Save plan flags
+            </Button>
           </div>
         </SettingsCard>
 
         <SettingsCard
           title="Billing rails"
-          description="Self-serve shop billing is Daraja STK. Paybill and shortcode live in edge-function secrets — this form does not write them."
+          description="Self-serve shop billing is PayHero STK. Channel secrets live in Supabase Edge — not on this form."
         >
           <div className="bg-muted/60 space-y-4 rounded-xl px-4 py-3.5">
             <div className="flex items-center justify-between gap-3">
@@ -167,125 +272,101 @@ function AdminSettings() {
                   <Smartphone className="text-primary-foreground size-3.5" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">Daraja · M-Pesa STK</p>
+                  <p className="text-sm font-semibold">PayHero · M-Pesa STK</p>
                   <p className="text-primary text-xs">Live rail for subscriptions and extra shops</p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toast.info("Disconnect is owner-gated in production.")}
-              >
-                Disconnect
-              </Button>
+              <StatusPill status="Configured in secrets" />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="paybill" className="text-muted-foreground text-xs">
-                  Subscription Paybill
-                </Label>
-                <Input id="paybill" defaultValue="(edge secret)" readOnly />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="bill-phone" className="text-muted-foreground text-xs">
-                  STK billing phone
-                </Label>
-                <Input id="bill-phone" defaultValue={identity.phone} readOnly />
-              </div>
-            </div>
+            <p className="text-muted-foreground text-xs">
+              Set <code className="text-foreground">PAYHERO_AUTH_TOKEN</code>,{" "}
+              <code className="text-foreground">PAYHERO_CHANNEL_ID</code>, and{" "}
+              <code className="text-foreground">PAYHERO_WEBHOOK_SECRET</code> in Edge secrets. Append{" "}
+              <code className="text-foreground">?secret=…</code> to the PayHero callback URL.
+            </p>
           </div>
         </SettingsCard>
 
         <SettingsCard
           title="Operators"
-          description="Sample roster for this screen. Invites and edits are not written to the database yet."
-          action={
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary text-primary"
-              onClick={() => toast.info("Invite an operator by email")}
-            >
-              + Invite operator
-            </Button>
-          }
+          description="Live SUPER_ADMIN profiles. Invite a vendor by email to the public signup link."
         >
           <ul className="divide-y divide-border">
-            {OPERATORS.map((s) => (
-              <li key={s.email} className="flex items-center justify-between gap-4 py-2.5">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "grid size-8 place-items-center rounded-full text-[11px] font-bold",
-                      s.role === "Super admin"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {initials(s.name)}
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold">{s.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {s.phone} · {s.email}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {s.role === "Super admin" ? (
-                    <Badge>{s.role}</Badge>
-                  ) : (
-                    <Badge variant="outline">{s.role}</Badge>
-                  )}
-                  <button
-                    type="button"
-                    className="text-primary text-xs font-medium"
-                    onClick={() => toast.info(`Edit ${s.name}`)}
-                  >
-                    Edit
-                  </button>
-                </div>
+            {operators.length === 0 ? (
+              <li className="text-muted-foreground py-3 text-sm">
+                {isSupabaseConfigured()
+                  ? "No super-admin profiles found."
+                  : "Connect Supabase to load operators."}
               </li>
-            ))}
+            ) : (
+              operators.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={cn(
+                        "bg-primary text-primary-foreground grid size-8 place-items-center rounded-full text-[11px] font-bold",
+                      )}
+                    >
+                      {initials(s.full_name || "Admin")}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold">{s.full_name || "Operator"}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {[s.phone, s.id.slice(0, 8)].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge>Super admin</Badge>
+                </li>
+              ))
+            )}
           </ul>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Input
+              type="email"
+              placeholder="vendor@shop.co.ke"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+            />
+            <Button type="button" onClick={() => void sendInvite()}>
+              Invite vendor
+            </Button>
+          </div>
         </SettingsCard>
 
         <SettingsCard
           title="Security"
-          description="Session lock, impersonation and PIN for this command centre."
+          description="Session lock and impersonation policy for this command centre."
         >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold">Change operator PIN</p>
-              <p className="text-muted-foreground text-xs">4-digit PIN before ghosting a vendor till</p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toast.info("PIN update", { description: "Demo only — PIN is not stored." })}
-            >
-              Update
-            </Button>
-          </div>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold">Require reason on impersonation</p>
               <p className="text-muted-foreground text-xs">Logged to the support ledger every time</p>
             </div>
-            <Switch defaultChecked />
+            <Switch
+              checked={requireImpersonationReason}
+              onCheckedChange={setRequireImpersonationReason}
+            />
           </div>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold">Idle lock</p>
-              <p className="text-muted-foreground text-xs">Lock this session after 15 minutes idle</p>
+              <p className="text-muted-foreground text-xs">
+                Prefer locking this session after 30 minutes idle
+              </p>
             </div>
-            <Switch defaultChecked />
+            <Switch checked={idleLock} onCheckedChange={setIdleLock} />
+          </div>
+          <div className="flex justify-end">
+            <Button disabled={saving} onClick={() => void persist()}>
+              Save security
+            </Button>
           </div>
         </SettingsCard>
 
         <SettingsCard
           title="Integrations"
-          description="Keys live in .env. Mapbox is the GIS token. Vendor insights use generate-ai-insights."
+          description="Keys live in .env / Edge secrets. Mapbox is the GIS token."
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
@@ -295,10 +376,6 @@ function AdminSettings() {
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">Mapbox GIS</span>
               <StatusPill status={MAPBOX_TOKEN ? "Token present" : "Missing token"} />
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Admin AI</span>
-              <StatusPill status="Copilot + ledger" />
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">Email / communications</span>

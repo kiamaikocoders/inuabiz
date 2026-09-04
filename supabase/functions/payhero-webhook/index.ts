@@ -67,10 +67,34 @@ function payheroRefFrom(payload: PayHeroCallback): string | null {
   return null;
 }
 
+function assertPayHeroWebhookAuth(req: Request): Response | null {
+  const secret = (Deno.env.get("PAYHERO_WEBHOOK_SECRET") ?? "").trim();
+  if (!secret) {
+    console.error("PAYHERO_WEBHOOK_SECRET is not set — rejecting webhook");
+    return jsonResponse({ error: "Webhook secret not configured" }, 503);
+  }
+  const url = new URL(req.url);
+  const fromQuery = url.searchParams.get("secret") ?? url.searchParams.get("token") ?? "";
+  const fromHeader =
+    req.headers.get("x-payhero-secret") ??
+    req.headers.get("x-webhook-secret") ??
+    "";
+  const auth = req.headers.get("Authorization") ?? "";
+  const fromBearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const presented = fromHeader || fromQuery || fromBearer;
+  if (!presented || presented !== secret) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
   if (opt) return opt;
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+
+  const denied = assertPayHeroWebhookAuth(req);
+  if (denied) return denied;
 
   try {
     const payload = (await req.json()) as PayHeroCallback;

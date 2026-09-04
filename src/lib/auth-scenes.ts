@@ -40,7 +40,7 @@ export const ONBOARDING_STEPS = [
     label: "Phone",
     image: "/images/onboarding/phone-kiosk.jpg",
     imageAlt: "Phone kiosk at dusk, SIM cards and handsets under a shop awning",
-    caption: "This number is where STK prompts and trial alerts land.",
+    caption: "This number is where subscription STK prompts and trial alerts land.",
   },
   {
     id: "shop",
@@ -68,6 +68,6 @@ export const ONBOARDING_STEPS = [
     label: "Plan",
     image: "/images/features-options/feat-photo-subscription-night.png",
     imageAlt: "Shop counter at night with a phone showing a subscription payment prompt",
-    caption: "Standard is the default. Pick Compliance if you need ETR / KRA-ready records.",
+    caption: "Standard is the default. Pick Compliance for ETR-format receipts for your KRA filing pack.",
   },
 ] as const;

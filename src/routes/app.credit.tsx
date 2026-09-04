@@ -95,7 +95,9 @@ function Credit() {
   const remind = async (row: (typeof rows)[0]) => {
     try {
       await remindCredit(row);
-      toast.success("Reminder sent", { description: `Email queued for ${row.customer}.` });
+      toast.success("Reminder sent", {
+        description: `Email nudge queued for your inbox about ${row.customer}.`,
+      });
     } catch (err) {
       toast.error("Could not send reminder", {
         description: err instanceof Error ? err.message : "Check email settings",
@@ -193,7 +195,7 @@ function Credit() {
               void Promise.all(overdue.map((d) => remindCredit(d)))
                 .then(() =>
                   toast.success("Reminders queued", {
-                    description: `Email reminders for ${overdue.length} overdue customers.`,
+                    description: `Email nudges for ${overdue.length} overdue balances (to your inbox).`,
                   }),
                 )
                 .catch((err: unknown) =>

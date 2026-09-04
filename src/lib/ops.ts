@@ -1,6 +1,6 @@
 import { getSupabase, invokeFunction, isSupabaseConfigured } from "@/lib/supabase";
 import { prettyKePhone } from "@/lib/phone";
-import type { TaxClass } from "@/lib/tax";
+import { calculateTax, type TaxClass } from "@/lib/tax";
 import type { LastSale, ReceiptLine } from "@/lib/last-sale";
 import type { NotificationItem } from "@/lib/mock-data";
 import { parseCategory } from "@/lib/category";
@@ -119,14 +119,42 @@ export async function createShop(input: {
   if (error) throw new Error(error.message);
 }
 
+async function resolveVendorTenantId(): Promise<string | null> {
+  const ghostId = getGhost()?.tenantId ?? null;
+  if (ghostId) return ghostId;
+
+  const sb = getSupabase();
+  if (!sb) return null;
+
+  const { data: sessionData } = await sb.auth.getSession();
+  let userId = sessionData.session?.user?.id ?? null;
+  if (!userId) {
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    userId = user?.id ?? null;
+  }
+  if (!userId) return null;
+
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile?.tenant_id) return profile.tenant_id as string;
+
+  const cached = await readCachedTenantHeader();
+  return (cached as TenantHeader | null)?.id ?? null;
+}
+
 export async function fetchTenantHeader(): Promise<TenantHeader | null> {
   const sb = getSupabase();
   if (!sb || (await shouldUseCache())) {
     return (await readCachedTenantHeader()) as TenantHeader | null;
   }
   try {
-    const { data: profile } = await sb.from("profiles").select("tenant_id").maybeSingle();
-    if (!profile?.tenant_id) {
+    const tenantId = await resolveVendorTenantId();
+    if (!tenantId) {
       return (await readCachedTenantHeader()) as TenantHeader | null;
     }
     const { data } = await sb
@@ -134,7 +162,7 @@ export async function fetchTenantHeader(): Promise<TenantHeader | null> {
       .select(
         "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng, email_receipt_enabled",
       )
-      .eq("id", profile.tenant_id)
+      .eq("id", tenantId)
       .maybeSingle();
     if (data) await cacheTenantHeader(data as TenantHeader);
     return ((data as TenantHeader | null) ??
@@ -157,17 +185,24 @@ export async function saveTenantHeader(patch: {
   location_lat?: number | null;
   location_lng?: number | null;
   email_receipt_enabled?: boolean;
+  /** Prefer when UI already loaded the tenant row (avoids profile lookup races). */
+  tenant_id?: string;
 }): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  const { data: profile } = await sb
-    .from("profiles")
-    .select("tenant_id, active_shop_id")
-    .maybeSingle();
-  if (!profile?.tenant_id) throw new Error("No tenant");
-  const payload = { ...patch };
+  const tenantId = patch.tenant_id || (await resolveVendorTenantId());
+  if (!tenantId) throw new Error("No tenant — sign out and sign in again, then retry.");
+  const { tenant_id: _omit, ...fields } = patch;
+  const payload = { ...fields };
   if (payload.category) payload.category = parseCategory(payload.category);
-  const { error } = await sb.from("tenants").update(payload).eq("id", profile.tenant_id);
+  if (payload.kra_pin !== undefined) {
+    const pin = payload.kra_pin ? String(payload.kra_pin).trim().toUpperCase() : null;
+    if (pin && !/^[A-Z][0-9]{9}[A-Z]$/.test(pin)) {
+      throw new Error("KRA PIN must look like A123456789Z");
+    }
+    payload.kra_pin = pin;
+  }
+  const { error } = await sb.from("tenants").update(payload).eq("id", tenantId);
   if (error) throw new Error(error.message);
 
   // Keep shop locations/address in sync with the business profile.
@@ -176,13 +211,26 @@ export async function saveTenantHeader(patch: {
   if (payload.category) shopPatch["category"] = payload.category;
   if (payload.location_lat !== undefined) shopPatch["location_lat"] = payload.location_lat;
   if (payload.location_lng !== undefined) shopPatch["location_lng"] = payload.location_lng;
+  if (payload.kra_pin !== undefined) shopPatch["kra_pin"] = payload.kra_pin;
   if (Object.keys(shopPatch).length) {
     const { error: shopErr } = await sb
       .from("shops")
       .update(shopPatch)
-      .eq("tenant_id", profile.tenant_id);
-    if (shopErr) throw new Error(shopErr.message);
+      .eq("tenant_id", tenantId);
+    // Shops.kra_pin may be absent on older DBs — tenant row is the source of truth for ETR.
+    if (shopErr && !String(shopErr.message).toLowerCase().includes("kra_pin")) {
+      throw new Error(shopErr.message);
+    }
   }
+
+  const { data: refreshed } = await sb
+    .from("tenants")
+    .select(
+      "id, name, legal_name, kra_pin, email, phone, address_text, category, vat_registered, logo_url, location_lat, location_lng, email_receipt_enabled",
+    )
+    .eq("id", tenantId)
+    .maybeSingle();
+  if (refreshed) await cacheTenantHeader(refreshed as TenantHeader);
 }
 
 export async function fetchStaff(): Promise<StaffRow[]> {
@@ -519,7 +567,7 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
   const { data: sale, error } = await sb
     .from("sales")
     .select(
-      "id, total, status, payment_channel, customer_phone, created_at, shop_id, discount_amount, mpesa_receipt_code, mpesa_payer_name",
+      "id, total, status, payment_channel, customer_phone, created_at, shop_id, discount_amount, mpesa_receipt_code, mpesa_payer_name, tender_currency, fx_rate, foreign_amount",
     )
     .eq("id", saleId)
     .maybeSingle();
@@ -527,32 +575,55 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
 
   const { data: items } = await sb
     .from("sale_items")
-    .select("product_name, qty, unit_price, tax_class, product_id")
+    .select("product_name, qty, unit_price, tax_class, product_id, classification_code")
     .eq("sale_id", saleId);
 
   const productIds = [
     ...new Set((items ?? []).map((i) => i.product_id as string | null).filter(Boolean)),
   ] as string[];
   const imageByProduct = new Map<string, string>();
+  const codeByProduct = new Map<string, string>();
   if (productIds.length) {
     const { data: productRows } = await sb
       .from("products")
-      .select("id, image_url")
+      .select("id, image_url, classification_code")
       .in("id", productIds);
     for (const row of productRows ?? []) {
       if (row.image_url) imageByProduct.set(row.id as string, row.image_url as string);
+      if (row.classification_code) {
+        codeByProduct.set(row.id as string, row.classification_code as string);
+      }
     }
+  }
+
+  const header = await fetchTenantHeader();
+  let planCode = "SHOP_MONTHLY";
+  if (header?.id) {
+    const { data: sub } = await sb
+      .from("subscriptions")
+      .select("plan_code")
+      .eq("tenant_id", header.id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    planCode = String(sub?.plan_code ?? "SHOP_MONTHLY");
+  }
+  const etrFormat = planCode === "COMPLIANCE";
+
+  // Ensure fiscal invoice exists (cash/credit historically skipped issuance).
+  const saleStatus = String(sale.status);
+  if (saleStatus === "PAID" || saleStatus === "CREDIT") {
+    await sb.rpc("issue_sale_invoice", { p_sale_id: saleId });
   }
 
   const { data: invoice } = await sb
     .from("invoices")
     .select(
-      "invoice_number, vat_16_amount, vat_0_amount, exempt_amount, subtotal, total_amount, mpesa_receipt_code, customer_name",
+      "invoice_number, vat_16_amount, vat_0_amount, exempt_amount, subtotal, total_amount, mpesa_receipt_code, customer_name, customer_kra_pin, kra_control_number, kra_qr_code_url",
     )
     .eq("sale_id", saleId)
     .maybeSingle();
 
-  const header = await fetchTenantHeader();
   let shopName = header?.legal_name || header?.name || "Shop";
   let location = header?.address_text || "";
   if (sale.shop_id) {
@@ -565,13 +636,22 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
     if (shop?.address_text) location = shop.address_text as string;
   }
 
-  const lines: ReceiptLine[] = (items ?? []).map((i) => ({
-    name: i.product_name as string,
-    qty: Number(i.qty),
-    price: Number(i.unit_price),
-    taxClass: (i.tax_class as TaxClass) ?? "STANDARD_16",
-    imageUrl: imageByProduct.get(i.product_id as string) ?? null,
-  }));
+  const lines: ReceiptLine[] = (items ?? []).map((i) => {
+    const pid = i.product_id as string | null;
+    const code =
+      (i.classification_code as string | null) ||
+      (pid ? codeByProduct.get(pid) : null) ||
+      null;
+    const line: ReceiptLine = {
+      name: i.product_name as string,
+      qty: Number(i.qty),
+      price: Number(i.unit_price),
+      taxClass: (i.tax_class as TaxClass) ?? "STANDARD_16",
+      imageUrl: pid ? imageByProduct.get(pid) ?? null : null,
+    };
+    if (code) line.classificationCode = code;
+    return line;
+  });
 
   const created = new Date(sale.created_at as string);
   const phone = (sale.customer_phone as string | null) ?? null;
@@ -589,34 +669,70 @@ export async function fetchSaleReceipt(saleId: string): Promise<LastSale | null>
       "Walk-in",
     shop: shopName,
     location,
-    when: created.toLocaleString("en-KE"),
-    footer: "Provisional Tax Document — Audit-Ready Record Generated via InuaBiz System.",
+    when: created.toLocaleString("en-KE", { timeZone: "Africa/Nairobi" }),
+    isoWhen: created.toISOString(),
+    footer: etrFormat
+      ? "ETR tax invoice — prepared for eTIMS export. Not yet transmitted to KRA."
+      : "Shop receipt — InuaBiz till",
     lines,
+    etrFormat,
+    controlNumber: (invoice?.kra_control_number as string | null) ?? null,
+    qrUrl: (invoice?.kra_qr_code_url as string | null) ?? null,
+    branchId: "00",
   };
   if (phone) receipt.phone = phone;
   if (payerName) receipt.mpesaPayerName = payerName;
   const legal = header?.legal_name ?? header?.name;
   if (legal) receipt.legalName = legal;
-  if (header?.kra_pin) receipt.kraPin = header.kra_pin;
+  if (etrFormat && header?.kra_pin) receipt.kraPin = header.kra_pin;
+  if (etrFormat && invoice?.customer_kra_pin) {
+    receipt.customerKraPin = invoice.customer_kra_pin as string;
+  }
   if (header?.email) receipt.email = header.email;
   if (header?.phone) receipt.merchantPhone = header.phone;
   if (header?.logo_url) receipt.logoUrl = header.logo_url;
   const saleCode = (sale.mpesa_receipt_code as string | null) ?? null;
   if (saleCode) receipt.mpesaReceipt = saleCode;
   else if (invoice?.mpesa_receipt_code) receipt.mpesaReceipt = invoice.mpesa_receipt_code as string;
-  const saleStatus = String(sale.status);
+  const tender = String(sale.tender_currency ?? "KES").toUpperCase();
+  if (tender && tender !== "KES") {
+    receipt.tenderCurrency = tender;
+    receipt.channel = `${tender} cash`;
+    const rate = Number(sale.fx_rate ?? 0);
+    const foreign = Number(sale.foreign_amount ?? 0);
+    if (rate > 0) receipt.fxRate = rate;
+    if (foreign > 0) receipt.foreignAmount = foreign;
+  }
+  if (etrFormat && invoice) {
+    receipt.vat16 = Number(invoice.vat_16_amount ?? 0);
+    receipt.vat0 = Number(invoice.vat_0_amount ?? 0);
+    receipt.exempt = Number(invoice.exempt_amount ?? 0);
+    receipt.subtotalExVat = Number(invoice.subtotal ?? 0);
+  } else if (invoice) {
+    receipt.subtotalExVat = Number(invoice.subtotal ?? sale.total);
+  } else if (etrFormat && lines.length) {
+    const tax = calculateTax(
+      lines.map((l) => ({
+        name: l.name,
+        qty: l.qty,
+        unitPrice: l.price,
+        lineTotal: l.price * l.qty,
+        taxClass: l.taxClass ?? "STANDARD_16",
+      })),
+    );
+    receipt.vat16 = tax.vat16Amount;
+    receipt.vat0 = tax.vat0Amount;
+    receipt.exempt = tax.exemptAmount;
+    receipt.subtotalExVat = tax.subtotalExVat;
+  }
   receipt.status =
     saleStatus === "PAID"
       ? "Complete"
       : saleStatus === "FAILED" || saleStatus === "VOID" || saleStatus === "CANCELLED"
         ? "Failed"
-        : "Pending";
-  if (invoice) {
-    receipt.vat16 = Number(invoice.vat_16_amount);
-    receipt.vat0 = Number(invoice.vat_0_amount);
-    receipt.exempt = Number(invoice.exempt_amount);
-    receipt.subtotalExVat = Number(invoice.subtotal);
-  }
+        : saleStatus === "CREDIT"
+          ? "Complete"
+          : "Pending";
   return receipt;
 }
 

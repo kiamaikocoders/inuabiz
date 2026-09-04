@@ -1,6 +1,6 @@
-/** Canonical origin — Vercel redirects apex → www; use www in canonicals/sitemap. */
-export const SITE_URL = "https://www.inuabiz.co.ke";
-/** Public marketing apex (redirects to SITE_URL). */
+/** Canonical origin — official site is apex (inuabiz.co.ke). */
+export const SITE_URL = "https://inuabiz.co.ke";
+/** Same as SITE_URL; kept for callers that prefer the apex name. */
 export const SITE_APEX = "https://inuabiz.co.ke";
 export const SITE_NAME = "InuaBiz";
 export const SITE_EMAIL = "hello@inuabiz.co.ke";
@@ -137,7 +137,7 @@ export function softwareApplicationJsonLd() {
     url: SITE_URL,
     image: DEFAULT_OG_IMAGE,
     description:
-      "Kenya micro-POS with M-Pesa STK, Till and Paybill reconciliation, digital credit (kukopesha), inventory alerts and AI restock notes for MSMEs.",
+      "Kenya micro-POS with M-Pesa Till and Paybill reconciliation, digital credit (kukopesha), inventory alerts and AI restock notes for MSMEs.",
     offers: {
       "@type": "Offer",
       priceCurrency: "KES",
@@ -154,7 +154,7 @@ export function softwareApplicationJsonLd() {
     },
     featureList: [
       "Mobile POS for Kenyan dukas",
-      "M-Pesa STK, Till and Paybill reconciliation",
+      "M-Pesa Till, Paybill and SMS reconciliation",
       "Customer credit ledger (kukopesha)",
       "Inventory and low-stock alerts",
       "AI restock advice",

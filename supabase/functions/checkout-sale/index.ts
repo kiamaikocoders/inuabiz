@@ -27,13 +27,13 @@ function checkoutMpesaMessage(destinationType: string | undefined): string {
 
 function paymentChannelFor(channel: string): "MPESA" | "CASH" | "CREDIT" | null {
   if (channel === "MPESA") return "MPESA";
-  if (channel === "CASH") return "CASH";
+  if (channel === "CASH" || channel === "USD_CASH" || channel === "FOREIGN_CASH") return "CASH";
   if (channel === "CREDIT") return "CREDIT";
   return null;
 }
 
 function statusFor(channel: string): "PAID" | "CREDIT" | "PENDING_PAYMENT" | "DRAFT" {
-  if (channel === "CASH") return "PAID";
+  if (channel === "CASH" || channel === "USD_CASH" || channel === "FOREIGN_CASH") return "PAID";
   if (channel === "CREDIT") return "CREDIT";
   if (channel === "MPESA") return "PENDING_PAYMENT";
   return "DRAFT";
@@ -60,6 +60,30 @@ Deno.serve(async (req) => {
     let channel = String(body.channel ?? "CASH").toUpperCase();
     if (channel === "MPESA_STK") channel = "MPESA";
     if (channel === "PARK") channel = "HOLD";
+    if (channel === "USD" || channel === "USD_CASH" || channel === "FOREIGN_CASH") {
+      channel = "FOREIGN_CASH";
+    }
+
+    const tenderCurrencyRaw = String(body.tender_currency ?? (channel === "FOREIGN_CASH" ? "USD" : "KES"))
+      .toUpperCase()
+      .trim();
+    const tenderCurrency =
+      channel === "FOREIGN_CASH"
+        ? /^[A-Z]{3}$/.test(tenderCurrencyRaw) && tenderCurrencyRaw !== "KES"
+          ? tenderCurrencyRaw
+          : "USD"
+        : "KES";
+    const fxRate = Number(body.fx_rate ?? 0);
+    const foreignAmount = Number(body.foreign_amount ?? 0);
+    if (channel === "FOREIGN_CASH") {
+      if (!(fxRate > 0) || !(foreignAmount > 0)) {
+        return jsonResponse(
+          { error: "Foreign cash needs fx_rate (KES per unit) and foreign_amount received" },
+          400,
+        );
+      }
+    }
+
     const customerId = (body.customer_id as string | undefined) ?? null;
     const resumeId = String(body.sale_id ?? "").trim() || null;
     const label = String(body.label ?? body.notes ?? "").trim() || null;
@@ -84,6 +108,24 @@ Deno.serve(async (req) => {
     });
     if (!access) {
       return jsonResponse({ error: "Subscription expired. Renew to continue." }, 402);
+    }
+
+    if (channel === "FOREIGN_CASH" && tenderCurrency !== "USD") {
+      const { data: enabled } = await service
+        .from("tenant_currencies")
+        .select("currency")
+        .eq("tenant_id", profile.tenant_id)
+        .eq("currency", tenderCurrency)
+        .eq("enabled", true)
+        .maybeSingle();
+      if (!enabled) {
+        return jsonResponse(
+          {
+            error: `${tenderCurrency} is not enabled for this shop. Request it from Settings → Currencies.`,
+          },
+          403,
+        );
+      }
     }
 
     const loadDestination = async () => {
@@ -209,6 +251,9 @@ Deno.serve(async (req) => {
         total,
         payment_channel: payChannel,
         paid_at: status === "PAID" ? new Date().toISOString() : null,
+        tender_currency: channel === "FOREIGN_CASH" ? tenderCurrency : "KES",
+        fx_rate: channel === "FOREIGN_CASH" ? fxRate : null,
+        foreign_amount: channel === "FOREIGN_CASH" ? foreignAmount : null,
       };
       if (label) patch.notes = label;
       if (channel === "MPESA") patch.payment_bill_ref = saleBillRef(existing.id);
@@ -232,6 +277,9 @@ Deno.serve(async (req) => {
         payment_channel: payChannel,
         created_by: user.id,
         paid_at: status === "PAID" ? new Date().toISOString() : null,
+        tender_currency: channel === "FOREIGN_CASH" ? tenderCurrency : "KES",
+        fx_rate: channel === "FOREIGN_CASH" ? fxRate : null,
+        foreign_amount: channel === "FOREIGN_CASH" ? foreignAmount : null,
       };
       if (label) insert.notes = label;
 
@@ -274,6 +322,14 @@ Deno.serve(async (req) => {
         parked: true,
         message: "Sale parked. Recall it from Open sales.",
       });
+    }
+
+    // Fiscal invoice (VAT + CUIN for Compliance) — items exist only after the insert above.
+    if (channel === "CASH" || channel === "FOREIGN_CASH" || channel === "CREDIT") {
+      const { error: invErr } = await service.rpc("issue_sale_invoice", {
+        p_sale_id: sale.id,
+      });
+      if (invErr) console.error("issue_sale_invoice", invErr);
     }
 
     if (channel !== "MPESA") {

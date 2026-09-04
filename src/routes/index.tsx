@@ -1,17 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  BadgeCheck,
-  CreditCard,
-  Sparkles,
-  Wallet,
-} from "lucide-react";
+import { CreditCard, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { SiteHeader } from "@/components/site/SiteHeader";
+import { LandingHero } from "@/components/site/LandingHero";
+import { LandingSteps } from "@/components/site/LandingSteps";
+import { LandingPersonas } from "@/components/site/LandingPersonas";
+import { LandingStats } from "@/components/site/LandingStats";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE, TRIAL_DAYS } from "@/lib/mock-data";
+import { COMPLIANCE_PRICE, KES, SUBSCRIPTION_PRICE } from "@/lib/mock-data";
 import { fetchPublicPricing } from "@/lib/plans";
 import {
   faqJsonLd,
@@ -26,7 +22,7 @@ export const Route = createFileRoute("/")({
     pageHead({
       title: "InuaBiz (Inua Biz) — Kenya POS & M-Pesa till for dukas",
       description:
-        "InuaBiz is Kenya's micro-POS for dukas, boutiques, chemists and eateries. Ring sales, reconcile M-Pesa STK/Till/Paybill, track kukopesha credit and restock with AI — from your phone.",
+        "InuaBiz is Kenya's micro-POS for dukas, boutiques, chemists and eateries. Ring sales, reconcile M-Pesa Till/Paybill and companion SMS, track kukopesha credit and restock with AI — from your phone.",
       path: "/",
       ogTitle: "InuaBiz — Lift your business from your phone",
       ogDescription:
@@ -44,7 +40,7 @@ export const Route = createFileRoute("/")({
           {
             question: "Does InuaBiz work with M-Pesa?",
             answer:
-              "Yes. InuaBiz supports M-Pesa STK prompts, Buy Goods Till and Paybill, and posts matched payments to the same sale in your till book.",
+              "Yes. Customers pay your Buy Goods Till, Paybill or personal M-Pesa. InuaBiz posts matched payments — via companion SMS, manual receipt code or C2B — to the same sale in your till book.",
           },
           {
             question: "Who is InuaBiz for?",
@@ -57,13 +53,6 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-const steps = [
-  { time: "30s", title: "Create your account", body: "Name, shop name, email and password — then confirm the email OTP." },
-  { time: "45s", title: "Business & GPS pin", body: "Finish shop setup: category and one-tap location detection." },
-  { time: "30s", title: "Payment destination", body: "Add your M-Pesa number, Till or Paybill. Your free trial starts when you finish." },
-  { time: "15s", title: "First sale", body: "Add a product on inventory, then ring it up on the till." },
-];
-
 function Landing() {
   const { data: pricing } = useQuery({
     queryKey: ["public-pricing"],
@@ -71,177 +60,19 @@ function Landing() {
   });
   const shop = pricing?.shopMonthly ?? SUBSCRIPTION_PRICE;
   const compliance = pricing?.compliance ?? COMPLIANCE_PRICE;
-  const trialDays = pricing?.trialDays ?? TRIAL_DAYS;
 
   return (
     <div className="min-h-screen">
-      <SiteHeader />
+      <LandingHero />
 
       <main>
-        {/* Hero */}
-        <section className="bg-hero-gradient relative overflow-hidden">
-          <div className="grid-paper absolute inset-0 opacity-[0.07]" aria-hidden />
-          <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
-            <div>
-              <Badge className="bg-gold text-gold-foreground border-transparent hover:bg-gold">
-                {trialDays}-day free trial · no paperwork
-              </Badge>
-              <h1 className="text-primary-foreground mt-6 text-4xl leading-[1.05] font-bold sm:text-5xl lg:text-6xl">
-                <span className="block">InuaBiz</span>
-                <span className="mt-1 block text-[0.72em] font-semibold tracking-tight sm:text-[0.68em]">
-                  Lift your business
-                  <span className="text-gold"> from your phone.</span>
-                </span>
-              </h1>
-              <p className="text-primary-foreground/80 mt-6 max-w-xl text-base leading-relaxed sm:text-lg">
-                InuaBiz (Inua Biz) is the Kenya POS built for dukas, boutiques, chemists and
-                eateries. Sell fast, reconcile M-Pesa automatically, track customer credit and let
-                AI tell you what to restock next.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button size="lg" variant="secondary" asChild>
-                  <Link to="/signup">
-                    Start free trial <ArrowRight className="ml-1 size-4" />
-                  </Link>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-                  asChild
-                >
-                  <Link to="/how-it-works">How it works</Link>
-                </Button>
-              </div>
-              <div className="text-primary-foreground/70 mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                <span className="inline-flex items-center gap-1.5">
-                  <BadgeCheck className="text-gold size-4" /> No business registration needed
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <BadgeCheck className="text-gold size-4" /> Works on any smartphone
-                </span>
-              </div>
-            </div>
+        <LandingStats shopMonthlyLabel={KES(shop)} />
 
-            <div className="relative">
-              <div className="bg-card mx-auto w-full max-w-sm rounded-3xl border border-border/60 p-5 shadow-lift">
-                <div className="flex items-center justify-between">
-                  <p className="font-display text-sm font-semibold">Today · Your till</p>
-                  <Badge variant="secondary">Preview</Badge>
-                </div>
-                <p className="mt-4 font-display text-3xl font-bold">M-Pesa on the sale</p>
-                <p className="text-muted-foreground text-xs">STK, Till and Paybill land in the same book</p>
-
-                <div className="mt-5 space-y-2.5">
-                  {[
-                    { n: "STK prompt", c: "Customer pays from their phone" },
-                    { n: "Named credit", c: "Due date on the ledger" },
-                    { n: "Cash in the book", c: "Same day's till" },
-                  ].map((r) => (
-                    <div
-                      key={r.n}
-                      className="bg-muted/60 flex items-center justify-between rounded-lg px-3 py-2.5"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{r.n}</p>
-                        <p className="text-muted-foreground text-[11px]">{r.c}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-primary-soft mt-5 rounded-xl p-3.5">
-                  <p className="text-primary inline-flex items-center gap-1.5 text-xs font-semibold">
-                    <Sparkles className="size-3.5" /> AI insight
-                  </p>
-                  <p className="text-primary/90 mt-1 text-xs leading-relaxed">
-                    Restock notes land before you run out — from this shop's real sales and stock.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Stats strip */}
-        <section className="bg-card border-y border-border">
-          <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-4">
-            {[
-              { k: "< 2 min", v: "Sign-up to first sale" },
-              { k: "STK · Till · Paybill", v: "M-Pesa on the till" },
-              { k: KES(shop), v: "Per shop / month" },
-              { k: `${trialDays} days`, v: "Free on the first shop" },
-            ].map((s) => (
-              <div key={s.k}>
-                <p className="font-display text-2xl font-bold">{s.k}</p>
-                <p className="text-muted-foreground mt-1 text-sm">{s.v}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Onboarding */}
-        <section className="bg-card border-y border-border">
-          <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
-            <h2 className="text-3xl font-bold sm:text-4xl">Onboarded in under two minutes</h2>
-            <p className="text-muted-foreground mt-3 max-w-xl">
-              Business registration certificates can wait. Start recording sales today.
-            </p>
-            <div className="mt-12 grid gap-6 md:grid-cols-4">
-              {steps.map((s, i) => (
-                <div key={s.title} className="relative">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-primary text-primary-foreground grid size-8 place-items-center rounded-full font-display text-sm font-bold">
-                      {i + 1}
-                    </span>
-                    <span className="text-gold-foreground bg-gold/25 rounded-full px-2 py-0.5 text-xs font-semibold">
-                      {s.time}
-                    </span>
-                  </div>
-                  <h3 className="mt-4 font-semibold">{s.title}</h3>
-                  <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{s.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Personas */}
-        <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
-          <h2 className="text-3xl font-bold sm:text-4xl">Made for these owners</h2>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {[
-              {
-                who: "Duka owner",
-                what: "Retail duka owner",
-                pain: "Manual ledger books, lost credit records, unmatched M-Pesa texts.",
-                fix: "2-tap credit recording and STK that posts itself to the sale.",
-              },
-              {
-                who: "Boutique & chemist",
-                what: "Specialty retail",
-                pain: "Stock leakage, unknown margins, unpredictable reorder cycles.",
-                fix: "Stock alerts, restock notes and a fiscal invoice on every paid sale.",
-              },
-              {
-                who: "Two counters, one owner",
-                what: "Hardware + duka",
-                pain: "Two tills, two books, one head — and a second shop that should not mix stock.",
-                fix: `Each location is its own shop at ${KES(shop)}. Pay on M-Pesa, then switch counters.`,
-              },
-            ].map((p) => (
-              <div key={p.who} className="surface-card p-6">
-                <p className="font-display text-lg font-semibold">{p.who}</p>
-                <p className="text-muted-foreground text-xs tracking-wide uppercase">{p.what}</p>
-                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{p.pain}</p>
-                <p className="text-primary mt-3 text-sm font-medium leading-relaxed">{p.fix}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <LandingSteps />
+        <LandingPersonas shopMonthlyLabel={KES(shop)} />
 
         {/* Pricing teaser */}
-        <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6">
+        <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
           <div className="bg-hero-gradient relative overflow-hidden rounded-3xl px-6 py-14 text-center shadow-lift sm:px-12">
             <div className="grid-paper absolute inset-0 opacity-[0.07]" aria-hidden />
             <div className="relative">
@@ -250,8 +81,8 @@ function Landing() {
                 From {KES(shop)} per shop. More when you need it.
               </h2>
               <p className="text-primary-foreground/80 mx-auto mt-3 max-w-xl">
-                Standard after a {trialDays}-day trial. Compliance (ETR) at {KES(compliance)}{" "}
-                when you need the tax pack. Custom licenses for dedicated infrastructure.
+                Standard from {KES(shop)} per shop / month. Compliance (ETR) at {KES(compliance)}{" "}
+                when you need ETR-format receipts. Custom licenses for dedicated infrastructure.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <Button size="lg" variant="secondary" asChild>

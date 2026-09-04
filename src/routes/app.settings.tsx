@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Smartphone } from "lucide-react";
+import { Pencil, Smartphone, X } from "lucide-react";
 import { ShopLogoPicker } from "@/components/app/ShopLogoPicker";
 import { CompanionDeviceCard } from "@/components/app/CompanionDeviceCard";
 import { AppShell } from "@/components/app/AppShell";
@@ -29,6 +29,14 @@ import {
 import { initials, isVendorOwner, roleLabel, useIdentity } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import { prettyKePhone } from "@/lib/phone";
+import { kraPinError, normalizeKraPin } from "@/lib/kra-pin";
+import {
+  CBK_CURRENCIES,
+  fetchEnabledCurrencies,
+  fetchFxQuote,
+  fetchMyCurrencyRequests,
+  requestCurrencyAccess,
+} from "@/lib/fx";
 import { useGhost } from "@/lib/ghost";
 import {
   fetchShops,
@@ -85,10 +93,30 @@ function SettingsPage() {
     queryFn: fetchPaymentDestinations,
     enabled: isSupabaseConfigured(),
   });
+  const { data: fxQuote } = useQuery({
+    queryKey: ["fx-quote", ghost?.tenantId ?? "self"],
+    queryFn: () => fetchFxQuote("USD"),
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: enabledCurrencies = ["USD"], refetch: refetchCurrencies } = useQuery({
+    queryKey: ["enabled-currencies", ghost?.tenantId ?? "self"],
+    queryFn: fetchEnabledCurrencies,
+    enabled: isSupabaseConfigured(),
+  });
+  const { data: currencyRequests = [], refetch: refetchCurrencyRequests } = useQuery({
+    queryKey: ["currency-requests", ghost?.tenantId ?? "self"],
+    queryFn: fetchMyCurrencyRequests,
+    enabled: isSupabaseConfigured() && owner,
+  });
 
   const [name, setName] = useState("");
   const [legal, setLegal] = useState("");
   const [phone, setPhone] = useState("");
+  const [kraPin, setKraPin] = useState("");
+  const [kraPinEditing, setKraPinEditing] = useState(false);
+  const [reqCurrency, setReqCurrency] = useState("EUR");
+  const [reqMessage, setReqMessage] = useState("");
+  const [fxBusy, setFxBusy] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
@@ -101,6 +129,8 @@ function SettingsPage() {
     setName(header.name);
     setLegal(header.legal_name ?? header.name);
     setPhone(header.phone);
+    setKraPin(header.kra_pin ?? "");
+    setKraPinEditing(false);
     setEmailReceipt(emailReceiptEnabled(header));
   }, [header]);
 
@@ -110,13 +140,25 @@ function SettingsPage() {
         toast.success("Saved for this demo till");
         return;
       }
+      const pin = normalizeKraPin(kraPin);
+      if (pin) {
+        const err = kraPinError(pin);
+        if (err) {
+          toast.error("Invalid KRA PIN", { description: err });
+          setKraPinEditing(true);
+          return;
+        }
+      }
       await saveTenantHeader({
         name,
         legal_name: legal,
         phone,
+        kra_pin: pin || null,
         email_receipt_enabled: emailReceipt,
+        ...(header?.id ? { tenant_id: header.id } : {}),
       });
       toast.success("Settings saved");
+      setKraPinEditing(false);
       await queryClient.invalidateQueries({ queryKey: ["tenant-header"] });
     } catch (err) {
       toast.error("Could not save", {
@@ -203,7 +245,51 @@ function SettingsPage() {
               </Label>
               <Input id="ph" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!owner} />
             </div>
-            <LockedField label="KRA PIN" value={header?.kra_pin ?? ""} hint="On invoices. Email hello@inuabiz.co.ke if this is wrong." />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="kra-pin" className="text-muted-foreground text-xs">
+                  KRA PIN
+                </Label>
+                {owner && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    aria-label={kraPinEditing ? "Cancel editing KRA PIN" : "Edit KRA PIN"}
+                    onClick={() => {
+                      if (kraPinEditing) {
+                        setKraPin(header?.kra_pin ?? "");
+                        setKraPinEditing(false);
+                      } else {
+                        setKraPinEditing(true);
+                      }
+                    }}
+                  >
+                    {kraPinEditing ? <X className="size-3.5" /> : <Pencil className="size-3.5" />}
+                  </Button>
+                )}
+              </div>
+              {kraPinEditing && owner ? (
+                <Input
+                  id="kra-pin"
+                  value={kraPin}
+                  onChange={(e) => setKraPin(normalizeKraPin(e.target.value))}
+                  placeholder="A123456789Z"
+                  maxLength={11}
+                  autoCapitalize="characters"
+                  className="font-mono uppercase tracking-wide"
+                />
+              ) : (
+                <p className="border-input bg-muted/50 min-h-9 rounded-md border px-3 py-2 font-mono text-sm tracking-wide">
+                  {kraPin.trim() ? kraPin : "—"}
+                </p>
+              )}
+              <p className="text-muted-foreground text-xs">
+                Required for Compliance ETR receipts. Format A123456789Z. Click the pen to edit, then
+                Save changes.
+              </p>
+            </div>
             <LockedField
               label="Email"
               value={header?.email ?? ""}
@@ -335,6 +421,119 @@ function SettingsPage() {
           </div>
         </SettingsCard>
         </div>
+
+        {owner && (
+          <SettingsCard
+            title="Foreign cash currencies"
+            description="Books stay in KES. USD is on by default. Rates come from CBK only — no shop override."
+          >
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Badge variant="secondary">
+                {fxQuote?.rate
+                  ? `USD ${fxQuote.rate.toFixed(2)} KES · CBK`
+                  : "USD rate pending CBK pull"}
+              </Badge>
+              {fxQuote?.date && (
+                <span className="text-muted-foreground text-xs">{fxQuote.date}</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {enabledCurrencies.map((code) => (
+                <Badge key={code} variant={code === "USD" ? "default" : "secondary"}>
+                  {code}
+                  {code === "USD" ? " · primary" : ""}
+                </Badge>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[140px_1fr_auto] sm:items-end">
+              <div className="space-y-1.5">
+                <Label htmlFor="req-currency" className="text-muted-foreground text-xs">
+                  Request currency
+                </Label>
+                <Select value={reqCurrency} onValueChange={setReqCurrency}>
+                  <SelectTrigger id="req-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CBK_CURRENCIES.filter((c) => c.code !== "USD").map((c) => (
+                        <SelectItem
+                          key={c.code}
+                          value={c.code}
+                          disabled={enabledCurrencies.includes(c.code)}
+                        >
+                          {c.code} · {c.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="req-msg" className="text-muted-foreground text-xs">
+                  Message to admin
+                </Label>
+                <Input
+                  id="req-msg"
+                  value={reqMessage}
+                  onChange={(e) => setReqMessage(e.target.value)}
+                  placeholder="We get Euro tourists weekly…"
+                />
+              </div>
+              <Button
+                type="button"
+                disabled={fxBusy || enabledCurrencies.includes(reqCurrency)}
+                onClick={() => {
+                  setFxBusy(true);
+                  void requestCurrencyAccess({ currency: reqCurrency, message: reqMessage })
+                    .then(async () => {
+                      toast.success("Request sent to admin");
+                      setReqMessage("");
+                      await refetchCurrencyRequests();
+                      await refetchCurrencies();
+                    })
+                    .catch((err: unknown) =>
+                      toast.error("Could not send request", {
+                        description: err instanceof Error ? err.message : "Try again.",
+                      }),
+                    )
+                    .finally(() => setFxBusy(false));
+                }}
+              >
+                Send request
+              </Button>
+            </div>
+            {currencyRequests.length > 0 && (
+              <ul className="text-muted-foreground space-y-1 text-xs">
+                {currencyRequests.slice(0, 5).map((r) => (
+                  <li key={r.id}>
+                    {r.currency} · {r.status}
+                    {r.adminNote ? ` — ${r.adminNote}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Platform pulls CBK each morning. Need another currency? Message admin here — they
+              enable it after review. On POS, use the cash buttons for enabled currencies.
+            </p>
+          </SettingsCard>
+        )}
+
+        {owner && (
+          <SettingsCard
+            title="Import books"
+            description="Backfill products, customers and past sales from before InuaBiz."
+            action={
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/app/import">Open import</Link>
+              </Button>
+            }
+          >
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Download a CSV template, fill it from your till book or spreadsheet, then upload.
+              Suggested order: products → customers → past sales.
+            </p>
+          </SettingsCard>
+        )}
 
         {owner && (
           <SettingsCard

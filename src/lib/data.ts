@@ -74,7 +74,7 @@ export async function fetchProducts(): Promise<Product[]> {
     const { data, error } = await sb
       .from("products")
       .select(
-        "id, name, sku, cost_price, selling_price, stock_qty, low_stock_threshold, tax_class, classification_code, attrs, image_url",
+        "id, name, sku, barcode, cost_price, selling_price, stock_qty, low_stock_threshold, tax_class, classification_code, attrs, image_url",
       )
       .eq("is_active", true)
       .order("name");
@@ -97,7 +97,7 @@ export async function fetchProduct(id: string): Promise<Product | undefined> {
     const { data, error } = await sb
       .from("products")
       .select(
-        "id, name, sku, cost_price, selling_price, stock_qty, low_stock_threshold, tax_class, classification_code, attrs, image_url",
+        "id, name, sku, barcode, cost_price, selling_price, stock_qty, low_stock_threshold, tax_class, classification_code, attrs, image_url",
       )
       .eq("id", id)
       .maybeSingle();
@@ -119,6 +119,7 @@ function mapProductRow(row: Record<string, unknown>): Product {
     id: String(row["id"]),
     name: String(row["name"]),
     sku: String(row["sku"] ?? "").trim() || "—",
+    barcode: (row["barcode"] as string | null) ?? null,
     category: department || "General",
     cost: Number(row["cost_price"]),
     price: Number(row["selling_price"]),
@@ -162,6 +163,7 @@ export async function saveProduct(input: {
   id?: string;
   name: string;
   sku: string;
+  barcode?: string | null;
   cost: number;
   price: number;
   stock: number;
@@ -182,6 +184,7 @@ export async function saveProduct(input: {
     id: localId,
     name: input.name,
     sku: input.sku || "—",
+    barcode: input.barcode ?? null,
     category:
       typeof input.attrs?.["department"] === "string"
         ? String(input.attrs["department"])
@@ -219,6 +222,7 @@ export async function saveProduct(input: {
   const payload: Record<string, unknown> = {
     name: input.name,
     sku: input.sku || null,
+    barcode: input.barcode?.trim() || input.sku || null,
     cost_price: input.cost,
     selling_price: input.price,
     stock_qty: input.stock,
@@ -1054,25 +1058,20 @@ export async function remindCredit(row: DebtEntry): Promise<void> {
   const sb = getSupabase();
   if (!sb) throw new Error("Sign in to send reminders");
 
+  // credit-reminder emails the shop owner (vendor), not the customer.
+  // Passing a customer `to` address is blocked as Forbidden by dispatch-outbound.
   const { data: customer } = await sb
     .from("customers")
-    .select("id, name, email, phone")
+    .select("id, name, phone")
     .eq("id", row.id)
     .maybeSingle();
 
-  const email = (customer?.email as string | null)?.trim() ?? "";
-  if (!email.includes("@")) {
-    throw new Error(
-      `${row.customer} has no email on file. Add an email on the Customers page to send reminders.`,
-    );
-  }
-
   const { error } = await invokeFunction("dispatch-outbound", {
     template_id: "credit-reminder",
-    to: email,
     vars: {
-      customer_name: row.customer,
+      customer_name: customer?.name ?? row.customer,
       amount: KES(row.amount),
+      phone: String(customer?.phone ?? row.phone ?? ""),
     },
     idempotency_key: `credit-reminder/${row.id}/${new Date().toISOString().slice(0, 10)}`,
   });

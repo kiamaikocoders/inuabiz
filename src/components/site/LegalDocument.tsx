@@ -1,9 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { cn } from "@/lib/utils";
 
 export type LegalTocItem = { id: string; label: string };
+
+export type LegalSeeAlso = { label: string; to: "/privacy" | "/terms" };
 
 function useActiveSection(ids: string[]) {
   const [active, setActive] = useState(ids[0] ?? "");
@@ -35,6 +38,8 @@ export function LegalDocument({
   image,
   imageAlt,
   toc,
+  description,
+  seeAlso,
   children,
 }: {
   title: string;
@@ -42,6 +47,8 @@ export function LegalDocument({
   image: string;
   imageAlt: string;
   toc: LegalTocItem[];
+  description?: string;
+  seeAlso?: LegalSeeAlso;
   children: ReactNode;
 }) {
   const ids = toc.map((t) => t.id);
@@ -58,7 +65,7 @@ export function LegalDocument({
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">
               {title}
             </h1>
-            <p className="mt-2 text-sm text-white/85">Effective {effective}</p>
+            <p className="mt-2 text-sm text-white/85">Last updated: {effective}</p>
           </div>
           <div
             className="pointer-events-none absolute -bottom-24 left-1/2 h-52 w-[180%] -translate-x-1/2 rounded-[50%] bg-background"
@@ -86,7 +93,25 @@ export function LegalDocument({
               ))}
             </ul>
           </nav>
-          <div className="space-y-10 text-sm leading-relaxed text-muted-foreground">{children}</div>
+          <div className="space-y-10 text-sm leading-relaxed text-muted-foreground">
+            {(description || seeAlso) && (
+              <div className="space-y-3 border-b border-border pb-8">
+                {description ? <p className="text-base text-foreground/80">{description}</p> : null}
+                {seeAlso ? (
+                  <p>
+                    See also:{" "}
+                    <Link
+                      to={seeAlso.to}
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      {seeAlso.label}
+                    </Link>
+                  </p>
+                ) : null}
+              </div>
+            )}
+            {children}
+          </div>
         </div>
       </main>
       <SiteFooter />

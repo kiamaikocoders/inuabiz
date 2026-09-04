@@ -24,11 +24,11 @@ type StepHelp = { title: string; intro: string; faqs: Faq[] };
 const HELP: StepHelp[] = [
   {
     title: "Help with your M-Pesa number",
-    intro: "This Kenyan mobile number receives subscription STK prompts and customer payment alerts for this shop.",
+    intro: "This Kenyan mobile number receives subscription STK prompts and shop alerts for this shop.",
     faqs: [
       {
         q: "Why do you need my number?",
-        a: "It is the M-Pesa handset for this shop — subscription PIN prompts and customer STK land here. You already signed in with email.",
+        a: "It is the M-Pesa handset for this shop — subscription PIN prompts land here. You already signed in with email.",
       },
       {
         q: "My number is rejected as invalid",
@@ -112,11 +112,11 @@ const HELP: StepHelp[] = [
   },
   {
     title: "Help choosing a plan",
-    intro: "Standard is the default till. Compliance adds ETR / KRA-ready records at a higher monthly rate.",
+    intro: "Standard is the default till. Compliance adds ETR-format receipts for your KRA filing pack at a higher monthly rate.",
     faqs: [
       {
         q: "Which plan should I pick?",
-        a: "Most shops start on Standard. Choose Compliance only if you already keep a KRA PIN and need ETR-style records on paid and credit sales.",
+        a: "Most shops start on Standard. Choose Compliance only if you already keep a KRA PIN and need ETR-format receipts (control number, VAT split, QR) for forwarding — not live eTIMS.",
       },
       {
         q: "Can I switch later?",

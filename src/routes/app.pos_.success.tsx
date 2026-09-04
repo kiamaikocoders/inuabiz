@@ -1,10 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Printer, Store } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ReceiptCard, shareReceiptText } from "@/components/app/ReceiptCard";
 import { Button } from "@/components/ui/button";
 import { readLastSale } from "@/lib/last-sale";
+import { fetchSaleReceipt } from "@/lib/ops";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/app/pos_/success")({
   head: () => ({
@@ -15,7 +18,16 @@ export const Route = createFileRoute("/app/pos_/success")({
 
 function SaleSuccess() {
   const navigate = useNavigate();
-  const sale = readLastSale();
+  const cached = readLastSale();
+  const saleId = cached?.id;
+
+  const { data: live } = useQuery({
+    queryKey: ["sale-receipt", saleId],
+    queryFn: () => fetchSaleReceipt(saleId!),
+    enabled: Boolean(saleId) && isSupabaseConfigured() && !saleId?.startsWith("s-"),
+  });
+
+  const sale = live ?? cached;
 
   const onShare = () => {
     void shareReceiptText(sale)

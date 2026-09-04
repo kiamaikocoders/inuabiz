@@ -18,7 +18,7 @@ export const Route = createFileRoute("/how-it-works")({
     pageHead({
       title: "How InuaBiz works — sign up to M-Pesa reconciled sale",
       description:
-        "See how InuaBiz works day to day: email sign-up, shop onboarding, STK at checkout, credit on the ledger, extra shops and a daily till email for Kenyan vendors.",
+        "See how InuaBiz works day to day: email sign-up, shop onboarding, M-Pesa matched at checkout, credit on the ledger, extra shops and a daily till email for Kenyan vendors.",
       path: "/how-it-works",
       ogTitle: "How InuaBiz works",
       ogDescription:
@@ -57,8 +57,8 @@ function buildSteps(trialDays: number) {
       n: "3",
       stage: "Every day",
       title: "Sell at the counter",
-      sub: "Fast checkout, cash or STK",
-      body: "Tap products into the cart, apply a discount if you want, then choose cash, credit or M-Pesa. For M-Pesa, enter the customer number and an STK prompt appears on their handset.",
+      sub: "Fast checkout, cash or M-Pesa",
+      body: "Tap products into the cart, apply a discount if you want, then choose cash, credit or M-Pesa. For M-Pesa, customers pay your shop's own till, paybill or phone — then confirm via companion SMS, a manual receipt code, or C2B match.",
       image: "/images/how-it-works/step-eatery.jpg",
       imageAlt: "Nyama choma attendant taking an order on a phone at lunch rush",
       photoLeft: false,
@@ -68,7 +68,7 @@ function buildSteps(trialDays: number) {
       stage: "Instantly",
       title: "Payment confirms itself",
       sub: "Matched to the sale",
-      body: "When the customer enters their PIN, the confirmation is matched to the sale. Stock decrements and a fiscal invoice number is issued. Turn on Settings → Send email receipt if you want a shop copy.",
+      body: "When payment lands — companion SMS, a typed M-Pesa code, or a C2B callback — it matches to the open sale. Stock decrements and a receipt number is issued. Turn on Settings → Send email receipt if you want a shop copy.",
       image: "/images/how-it-works/step-butcher.jpg",
       imageAlt: "Customer at a butcher counter looking at a phone while waiting for a parcel",
       photoLeft: true,
@@ -82,7 +82,7 @@ function buildLoopSlides(shopPrice: number, trialDays: number): JourneySlide[] {
       n: "05",
       stage: "WHEN IT FAILS",
       title: "Clear fallbacks, never a lost sale",
-      body: "Wrong PIN, timeout or cancellation shows a retry and your Till or Paybill as backup. Stuck payments re-check after three minutes.",
+      body: "If a code is mistyped or SMS is delayed, retry the match or fall back to your Till or Paybill. Unmatched payments stay visible until you map them.",
       image: "/images/how-it-works/card-fallback.jpg",
       imageAlt: "Vendor showing a failed payment on a phone next to a handwritten till number",
       href: "/features",

@@ -1,0 +1,13 @@
+# Keep CLI deploys lean — Vercel git builds already ignore these via .gitignore
+android-companion
+.git
+node_modules
+dist
+.output
+.nitro
+.tanstack
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example

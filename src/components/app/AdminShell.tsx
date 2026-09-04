@@ -1,8 +1,9 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  Banknote,
   Bell,
   CreditCard,
   Gauge,
@@ -36,6 +37,7 @@ import { fetchNotifications, fetchUnclaimedPayments } from "@/lib/ops";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { countNewContactMessages } from "@/lib/inbox";
 import { countOpenSupportTickets } from "@/lib/support-tickets";
+import { useAppTheme } from "@/hooks/use-app-theme";
 
 type NavItem = {
   to: string;
@@ -92,6 +94,12 @@ const navGroups: NavGroup[] = [
         label: "Unclaimed payments",
         icon: ShieldAlert,
         well: "bg-destructive text-white shadow-destructive/40",
+      },
+      {
+        to: "/admin/fx",
+        label: "CBK FX",
+        icon: Banknote,
+        well: "bg-teal-600 text-white shadow-teal-600/40",
       },
     ],
   },
@@ -192,8 +200,6 @@ const navGroups: NavGroup[] = [
     ],
   },
 ];
-
-const THEME_KEY = "inuabiz-admin-theme";
 
 function isNavActive(pathname: string, item: NavItem) {
   if (item.exact) return pathname === item.to;
@@ -394,22 +400,8 @@ export function AdminShell({
   const ticketCount = ticketOpen;
   const unread = notes.filter((n) => !n.read).length;
   const [query, setQuery] = useState("");
-  const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(THEME_KEY);
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = stored ? stored === "dark" : prefersDark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-  }, []);
-
-  const onDarkChange = (value: boolean) => {
-    setDark(value);
-    document.documentElement.classList.toggle("dark", value);
-    window.localStorage.setItem(THEME_KEY, value ? "dark" : "light");
-  };
+  const { dark, onDarkChange } = useAppTheme();
 
   return (
     <div className="admin-app flex min-h-screen bg-admin-canvas">

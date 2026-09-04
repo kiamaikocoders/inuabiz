@@ -63,7 +63,19 @@ export function calculateTax(lines: TaxableLine[], discountAmount = 0): TaxBreak
       exempt += net;
       subtotalExVat += net;
     }
-    return { ...line, net, vatAmount };
+    const mapped: TaxBreakdown["lines"][number] = {
+      name: line.name,
+      qty: line.qty,
+      unitPrice: line.unitPrice,
+      lineTotal: line.lineTotal,
+      taxClass: line.taxClass,
+      net,
+      vatAmount,
+    };
+    if (line.classificationCode != null) {
+      mapped.classificationCode = line.classificationCode;
+    }
+    return mapped;
   });
 
   return {

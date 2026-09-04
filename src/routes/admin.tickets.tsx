@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { LifeBuoy, Loader2, Sparkles, StickyNote, Wrench } from "lucide-react";
@@ -40,6 +40,9 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin/tickets")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    ticket: typeof s.ticket === "string" ? s.ticket : typeof s.id === "string" ? s.id : "",
+  }),
   head: () => ({
     meta: [
       { title: "Support desk — InuaBiz super admin" },
@@ -70,6 +73,7 @@ function priorityTone(p: string) {
 function AdminTickets() {
   const live = isSupabaseConfigured();
   const queryClient = useQueryClient();
+  const { ticket: ticketFromUrl } = Route.useSearch();
   const [filter, setFilter] = useState<SupportStatus | "all">("all");
   const [selected, setSelected] = useState<SupportTicket | null>(null);
   const [reply, setReply] = useState("");
@@ -93,6 +97,12 @@ function AdminTickets() {
     () => (selected ? (tickets.find((t) => t.id === selected.id) ?? selected) : null),
     [tickets, selected],
   );
+
+  useEffect(() => {
+    if (!ticketFromUrl || !tickets.length) return;
+    const found = tickets.find((t) => t.id === ticketFromUrl);
+    if (found) setSelected(found);
+  }, [ticketFromUrl, tickets]);
 
   const messagesQuery = useQuery({
     queryKey: ["support-messages", selectedLive?.id],

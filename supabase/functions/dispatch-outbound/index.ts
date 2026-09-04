@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
       "subscription-paid",
       "payment-stk-failed",
       "trial-ending",
+      "subscription-ending",
       "low-stock",
       "credit-reminder",
       "daily-summary",
@@ -82,6 +83,9 @@ Deno.serve(async (req) => {
       "contact-ack",
       "contact-inbound",
       "newsletter-welcome",
+      "support-ticket-opened",
+      "support-ticket-reply",
+      "invite-vendor",
     ]);
     const buyerTemplates = new Set(["wholesale-invoice", "invoice-overdue", "invite-staff"]);
     if (
